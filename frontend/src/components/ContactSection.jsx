@@ -10,8 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { Send, Phone, Mail, MapPin, MessageCircle } from "lucide-react";
+import { Send, Phone, Mail, MapPin, MessageCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import axios from "axios";
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const CONTACT_IMAGE =
   "https://images.pexels.com/photos/3194521/pexels-photo-3194521.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
@@ -50,21 +54,62 @@ export const ContactSection = () => {
     phone: "",
     service: "",
     message: "",
+    honeypot: "", // Spam trap - hidden field
   });
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: "" });
+    }
   };
 
-  const handleSubmit = (e) => {
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formData.name || formData.name.trim().length < 2) {
+      newErrors.name = "Name must be at least 2 characters";
+    }
+    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+    if (!formData.message || formData.message.trim().length < 10) {
+      newErrors.message = "Message must be at least 10 characters";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
+
     setSubmitting(true);
-    setTimeout(() => {
+    try {
+      await axios.post(`${API}/contact`, {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        service: formData.service,
+        message: formData.message.trim(),
+        honeypot: formData.honeypot,
+      });
       toast.success("Message sent successfully! We'll get back to you soon.");
-      setFormData({ name: "", email: "", phone: "", service: "", message: "" });
+      setFormData({ name: "", email: "", phone: "", service: "", message: "", honeypot: "" });
+      setErrors({});
+    } catch (err) {
+      if (err.response?.status === 429) {
+        toast.error("Too many submissions. Please try again later.");
+      } else if (err.response?.status === 422) {
+        toast.error("Please check your form inputs and try again.");
+      } else {
+        toast.error("Something went wrong. Please try again later.");
+      }
+    } finally {
       setSubmitting(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -84,25 +129,44 @@ export const ContactSection = () => {
               how we can help.
             </p>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+              {/* Honeypot - hidden from users, visible to bots */}
+              <div className="absolute opacity-0 h-0 w-0 overflow-hidden" aria-hidden="true" tabIndex={-1}>
+                <input
+                  name="honeypot"
+                  value={formData.honeypot}
+                  onChange={handleChange}
+                  tabIndex={-1}
+                  autoComplete="off"
+                />
+              </div>
+
               <div className="grid sm:grid-cols-2 gap-5">
-                <Input
-                  name="name"
-                  placeholder="Your Name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  className="h-12 rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white"
-                />
-                <Input
-                  name="email"
-                  type="email"
-                  placeholder="Email Address"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="h-12 rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white"
-                />
+                <div>
+                  <Input
+                    name="name"
+                    placeholder="Your Name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    aria-label="Your name"
+                    className={`h-12 rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white ${errors.name ? "border-red-400" : ""}`}
+                  />
+                  {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                </div>
+                <div>
+                  <Input
+                    name="email"
+                    type="email"
+                    placeholder="Email Address"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    aria-label="Email address"
+                    className={`h-12 rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white ${errors.email ? "border-red-400" : ""}`}
+                  />
+                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                </div>
               </div>
               <div className="grid sm:grid-cols-2 gap-5">
                 <Input
@@ -110,6 +174,7 @@ export const ContactSection = () => {
                   placeholder="Phone Number"
                   value={formData.phone}
                   onChange={handleChange}
+                  aria-label="Phone number"
                   className="h-12 rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white"
                 />
                 <Select
@@ -118,7 +183,7 @@ export const ContactSection = () => {
                     setFormData({ ...formData, service: val })
                   }
                 >
-                  <SelectTrigger className="h-12 rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white">
+                  <SelectTrigger className="h-12 rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white" aria-label="Select service">
                     <SelectValue placeholder="Select Service" />
                   </SelectTrigger>
                   <SelectContent>
@@ -130,22 +195,35 @@ export const ContactSection = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Textarea
-                name="message"
-                placeholder="Your Message"
-                value={formData.message}
-                onChange={handleChange}
-                required
-                rows={5}
-                className="rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white resize-none"
-              />
+              <div>
+                <Textarea
+                  name="message"
+                  placeholder="Your Message"
+                  value={formData.message}
+                  onChange={handleChange}
+                  required
+                  rows={5}
+                  aria-label="Your message"
+                  className={`rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white resize-none ${errors.message ? "border-red-400" : ""}`}
+                />
+                {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
+              </div>
               <Button
                 type="submit"
                 disabled={submitting}
-                className="bg-coral hover:bg-coral-dark text-white font-semibold px-10 py-5 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-coral/20 hover:-translate-y-0.5 disabled:opacity-50"
+                className="bg-coral hover:bg-coral-dark text-white font-semibold px-10 py-5 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-coral/20 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {submitting ? "Sending..." : "Send Message"}
-                <Send className="ml-2 h-4 w-4" />
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    Send Message
+                    <Send className="ml-2 h-4 w-4" />
+                  </>
+                )}
               </Button>
             </form>
           </div>
@@ -155,7 +233,7 @@ export const ContactSection = () => {
             <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-200/50 mb-10">
               <img
                 src={CONTACT_IMAGE}
-                alt="Contact Bhufix"
+                alt="Contact Bhufix team for digital marketing services"
                 className="w-full h-[300px] object-cover"
                 loading="lazy"
               />
