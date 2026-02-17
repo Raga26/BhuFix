@@ -85,7 +85,7 @@ class ContactCreate(BaseModel):
     phone: str = Field(default="", max_length=20)
     service: str = Field(default="", max_length=100)
     message: str = Field(..., min_length=10, max_length=2000)
-    honeypot: str = Field(default="", max_length=0)  # Spam trap: must be empty
+    honeypot: str = Field(default="")  # Spam trap: should be empty; bots fill this
 
     @field_validator("email")
     @classmethod
