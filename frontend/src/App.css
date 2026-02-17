@@ -1,34 +1,24 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* Bhufix Digital Marketing Agency */
+
+/* Selection styling */
+::selection {
+    background-color: rgba(232, 115, 74, 0.15);
+    color: #1B2A4A;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+/* Hide scrollbar for carousels globally */
+[style*="scrollbar-width: none"]::-webkit-scrollbar {
+    display: none;
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+/* Subtle focus visible styles */
+*:focus-visible {
+    outline: 2px solid #E8734A;
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
-.App-link {
-    color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+/* Image loading placeholder */
+img {
+    background-color: #F8FAFC;
 }
