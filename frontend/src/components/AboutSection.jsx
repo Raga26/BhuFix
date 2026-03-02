@@ -2,7 +2,7 @@ import { Button } from "./ui/button";
 import { ArrowRight, Award, Users, Target } from "lucide-react";
 
 const ABOUT_IMAGE =
-  "https://images.unsplash.com/photo-1582005450386-52b25f82d9bb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwzfHxkaWdpdGFsJTIwbWFya2V0aW5nJTIwdGVhbXxlbnwwfHx8fDE3NzEzNDI0MTB8MA&ixlib=rb-4.1.0&q=85&w=600&h=500&fit=crop";
+  "https://images.unsplash.com/photo-1577962917302-cd874c4e31d2?w=600&h=500&fit=crop&q=80";
 
 const features = [
   { icon: Award, label: "Creative Strategy", desc: "Smart marketing" },
