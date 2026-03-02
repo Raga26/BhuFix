@@ -1,4 +1,4 @@
-import { stats, partners } from "../data/mock";
+import { stats } from "../data/mock";
 import { Button } from "./ui/button";
 import { ArrowRight, Play, Sparkles } from "lucide-react";
 
@@ -39,40 +39,40 @@ export const HeroSection = () => {
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-navy leading-[1.08] tracking-tight mb-6 animate-bh-fadeUp anim-delay-1">
-            Elevate Your Brand
+            Grow Your Brand.
             <br />
-            with{" "}
+            Expand Your{" "}
             <span className="relative inline-block">
-              <span className="relative z-10 text-coral">Bhufix</span>
+              <span className="relative z-10 text-coral">Reach.</span>
               <span className="absolute bottom-1 left-0 w-full h-3 bg-coral/15 rounded-sm -z-0" />
             </span>
             <br />
-            Digital Marketing
+            Dominate Your Market.
           </h1>
 
           {/* Description */}
           <p className="text-lg sm:text-xl text-slate-500 max-w-2xl mb-10 leading-relaxed animate-bh-fadeUp anim-delay-2">
-            Empower your business into a brand with Bhufix. From video production
-            and web development to SEO and marketing automation — we deliver
-            integrated strategies that drive real results.
+            At Bhufix, we help businesses grow into strong digital brands. We
+            combine creativity, strategy, and smart marketing to reach the right
+            audience and deliver real results.
           </p>
 
           {/* CTA Buttons */}
           <div className="flex flex-wrap items-center gap-4 mb-16 animate-bh-fadeUp anim-delay-3">
             <Button
-              onClick={() => scrollTo("#contact")}
+              onClick={() => scrollTo("#services")}
               className="bg-coral hover:bg-coral-dark text-white font-semibold px-8 py-6 text-base rounded-full transition-all duration-300 hover:shadow-xl hover:shadow-coral/25 hover:-translate-y-1"
             >
-              Discover More
+              Our Services
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             <Button
               variant="outline"
-              onClick={() => scrollTo("#case-studies")}
+              onClick={() => scrollTo("#contact")}
               className="border-2 border-slate-200 text-navy font-semibold px-8 py-6 text-base rounded-full hover:border-coral hover:text-coral transition-all duration-300 hover:-translate-y-1 bg-transparent"
             >
               <Play className="mr-2 h-4 w-4 fill-current" />
-              View Our Work
+              Contact Us
             </Button>
           </div>
 
@@ -86,26 +86,6 @@ export const HeroSection = () => {
                 <div className="text-sm text-slate-400 font-medium mt-1">
                   {stat.label}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Partners strip */}
-        <div className="mt-20 pt-10 border-t border-slate-200/60 animate-bh-fadeUp anim-delay-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 mb-6">
-            Partnered with
-          </p>
-          <div className="flex items-center gap-10 flex-wrap">
-            {partners.map((partner, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2.5 text-slate-300 hover:text-slate-500 transition-colors duration-300 cursor-pointer"
-              >
-                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-400">
-                  {partner.initials}
-                </div>
-                <span className="text-sm font-semibold">{partner.name}</span>
               </div>
             ))}
           </div>
