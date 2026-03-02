@@ -151,7 +151,7 @@ export const clients = [
 
 export const contactInfo = {
   phone: "+91 98765 43210",
-  email: "hello@bhufix.com",
-  address: "Udumalpet, Tamil Nadu, India",
-  whatsapp: "+919876543210",
+  email: "Bhushanvidhya52@gmail.com",
+  address: "Gn mills,coimbatore, Tamil Nadu, India",
+  whatsapp: "+9193614 05438",
 };
