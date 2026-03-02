@@ -1,4 +1,3 @@
-import { stats } from "../data/mock";
 import { Button } from "./ui/button";
 import { ArrowRight, Play, Sparkles } from "lucide-react";
 
