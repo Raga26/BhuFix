@@ -130,7 +130,7 @@ export const Footer = () => {
             reserved.
           </p>
           <p className="text-white/40 text-sm flex items-center gap-1">
-            Made with{" "}
+            Crafted with{" "}
             <Heart className="h-3 w-3 text-coral fill-coral" /> by Bhufix
           </p>
         </div>
