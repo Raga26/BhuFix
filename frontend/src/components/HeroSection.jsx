@@ -74,20 +74,6 @@ export const HeroSection = () => {
               Contact Us
             </Button>
           </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-10 animate-bh-fadeUp anim-delay-4">
-            {stats.map((stat, i) => (
-              <div key={i} className="group">
-                <div className="text-3xl sm:text-4xl font-extrabold text-navy group-hover:text-coral transition-colors duration-300">
-                  {stat.value}
-                </div>
-                <div className="text-sm text-slate-400 font-medium mt-1">
-                  {stat.label}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </section>
