@@ -206,6 +206,22 @@ app.include_router(api_router)
 if FRONTEND_BUILD_DIR.exists():
     app.mount("/static", StaticFiles(directory=FRONTEND_BUILD_DIR / "static"), name="static")
     
+    @app.get("/sitemap.xml")
+    async def serve_sitemap():
+        """Serve sitemap for SEO"""
+        sitemap_file = FRONTEND_BUILD_DIR / "sitemap.xml"
+        if sitemap_file.exists():
+            return FileResponse(sitemap_file, media_type="application/xml")
+        return JSONResponse({"error": "Sitemap not found"}, status_code=404)
+    
+    @app.get("/robots.txt")
+    async def serve_robots():
+        """Serve robots.txt for search engines"""
+        robots_file = FRONTEND_BUILD_DIR / "robots.txt"
+        if robots_file.exists():
+            return FileResponse(robots_file, media_type="text/plain")
+        return JSONResponse({"error": "Robots not found"}, status_code=404)
+    
     @app.get("/")
     async def serve_root():
         """Serve the main page"""
