@@ -6,8 +6,7 @@ import { Header } from "./components/Header";
 import { HeroSection } from "./components/HeroSection";
 import { AboutSection } from "./components/AboutSection";
 import { ServicesSection } from "./components/ServicesSection";
-import { CaseStudies } from "./components/CaseStudies";
-import { ProjectsSection } from "./components/ProjectsSection";
+import { PricingSection } from "./components/PricingSection";
 import { BrandsSection } from "./components/BrandsSection";
 import { TestimonialsSection } from "./components/TestimonialsSection";
 import { CTASection } from "./components/CTASection";
@@ -24,13 +23,10 @@ const HomePage = () => (
       <AboutSection />
     </ScrollReveal>
     <ScrollReveal>
-      <CaseStudies />
-    </ScrollReveal>
-    <ScrollReveal>
       <ServicesSection />
     </ScrollReveal>
     <ScrollReveal>
-      <ProjectsSection />
+      <PricingSection />
     </ScrollReveal>
     <ScrollReveal>
       <BrandsSection />
