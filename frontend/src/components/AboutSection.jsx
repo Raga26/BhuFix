@@ -5,9 +5,9 @@ const ABOUT_IMAGE =
   "https://images.unsplash.com/photo-1582005450386-52b25f82d9bb?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDJ8MHwxfHNlYXJjaHwzfHxkaWdpdGFsJTIwbWFya2V0aW5nJTIwdGVhbXxlbnwwfHx8fDE3NzEzNDI0MTB8MA&ixlib=rb-4.1.0&q=85&w=600&h=500&fit=crop";
 
 const features = [
-  { icon: Award, label: "Award Winning", desc: "Recognized excellence" },
-  { icon: Users, label: "Expert Team", desc: "50+ professionals" },
-  { icon: Target, label: "Results Driven", desc: "Data-backed strategy" },
+  { icon: Award, label: "Creative Strategy", desc: "Smart marketing" },
+  { icon: Users, label: "Dedicated Team", desc: "Passionate experts" },
+  { icon: Target, label: "Results Driven", desc: "Measurable impact" },
 ];
 
 export const AboutSection = () => {
@@ -25,18 +25,29 @@ export const AboutSection = () => {
           {/* Text Column */}
           <div>
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-coral">
-              About Us
+              Who We Are
             </span>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-navy mt-4 mb-6 leading-tight">
-              Most Trusted Digital Marketing Agency
+              Your Trusted Digital Marketing Partner
             </h2>
+            <p className="text-slate-500 text-lg leading-relaxed mb-4">
+              At Bhufix, we are dedicated to providing top-notch digital marketing
+              solutions that help businesses thrive in the online world. Our team
+              specializes in SEO, social media management, content creation, video
+              production, and more — ensuring that your brand reaches its full
+              potential.
+            </p>
+            <p className="text-slate-500 text-lg leading-relaxed mb-4">
+              Founded in 2023, Bhufix has quickly established itself as a trusted
+              partner for businesses looking to enhance their digital presence. We
+              pride ourselves on our innovative strategies, personalized approach,
+              and commitment to delivering measurable results.
+            </p>
             <p className="text-slate-500 text-lg leading-relaxed mb-8">
-              We are a dynamic Digital Marketing Agency dedicated to partnering
-              with you for digital growth. Our creativity and expertise drive
-              innovative solutions to elevate your online presence and achieve
-              your goals. From video production and web development to SEO,
-              social media, and marketing automation — we maximize your brand's
-              visibility.
+              Our mission is to empower businesses of all sizes to succeed in the
+              digital landscape through effective marketing strategies and
+              cutting-edge technology. We believe in building long-term relationships
+              with our clients based on trust, transparency, and mutual success.
             </p>
 
             <div className="grid sm:grid-cols-3 gap-6 mb-10">
@@ -55,7 +66,7 @@ export const AboutSection = () => {
               onClick={() => scrollTo("#services")}
               className="bg-coral hover:bg-coral-dark text-white font-semibold px-8 py-5 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-coral/20 hover:-translate-y-0.5"
             >
-              Learn More
+              Explore Our Services
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -65,7 +76,7 @@ export const AboutSection = () => {
             <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-200/50">
               <img
                 src={ABOUT_IMAGE}
-                alt="Bhufix team collaboration"
+                alt="Bhufix digital marketing team"
                 className="w-full h-[500px] object-cover"
                 loading="lazy"
               />
@@ -73,7 +84,7 @@ export const AboutSection = () => {
             </div>
             {/* Floating stats card */}
             <div className="absolute -bottom-6 -left-6 bg-white rounded-xl shadow-xl shadow-slate-200/60 p-5 border border-slate-100">
-              <div className="text-3xl font-extrabold text-coral">8+</div>
+              <div className="text-3xl font-extrabold text-coral">2+</div>
               <div className="text-sm font-medium text-slate-500">
                 Years of
                 <br />
