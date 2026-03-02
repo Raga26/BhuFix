@@ -71,11 +71,6 @@
         <script>
             // Only load visual edit scripts when inside an iframe
             if (window.self !== window.top) {
-                // Load visual edit scripts
-                var debugMonitorScript = document.createElement('script');
-                debugMonitorScript.src = 'https://assets.emergent.sh/scripts/debug-monitor.js';
-                document.head.appendChild(debugMonitorScript);
-
                 // Configure Tailwind
                 window.tailwind = window.tailwind || {};
                 tailwind.config = {
