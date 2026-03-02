@@ -148,7 +148,7 @@ export const PricingSection = () => {
 
         {/* Bottom note */}
         <p className="text-center text-slate-400 text-sm mt-10">
-          All prices are in INR (₹) and are billed monthly. Custom packages available on request.
+          Custom packages available on request. Get in touch to discuss pricing tailored to your business needs.
         </p>
       </div>
     </section>
