@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter, Request, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -17,6 +18,7 @@ from datetime import datetime, timezone
 from collections import defaultdict
 
 ROOT_DIR = Path(__file__).parent
+FRONTEND_BUILD_DIR = ROOT_DIR.parent / "frontend" / "build"
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
@@ -199,6 +201,39 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # ── Include Router & Middleware ───────────────────────────────────
 app.include_router(api_router)
+
+# ── Serve Frontend Static Files ──────────────────────────────────
+if FRONTEND_BUILD_DIR.exists():
+    app.mount("/static", StaticFiles(directory=FRONTEND_BUILD_DIR / "static"), name="static")
+    
+    @app.get("/")
+    async def serve_root():
+        """Serve the main page"""
+        index_file = FRONTEND_BUILD_DIR / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+        return JSONResponse({"error": "Frontend not found"}, status_code=404)
+    
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        """Serve SPA - return index.html for all non-API routes"""
+        if full_path.startswith("api/"):
+            return JSONResponse({"error": "Not found"}, status_code=404)
+        
+        index_file = FRONTEND_BUILD_DIR / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+        return JSONResponse({"error": "Frontend not found"}, status_code=404)
+else:
+    logger.warning(f"Frontend build directory not found at {FRONTEND_BUILD_DIR}")
+    
+    @app.get("/")
+    async def serve_root():
+        return JSONResponse({
+            "message": "Bhufix API",
+            "status": "running",
+            "docs": "/api/docs"
+        })
 
 app.add_middleware(SecurityHeadersMiddleware)
 
