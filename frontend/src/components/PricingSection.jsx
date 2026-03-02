@@ -61,37 +61,12 @@ export const PricingSection = () => {
               <div className="p-8 lg:p-10">
                 {/* Package name */}
                 <h3
-                  className={`text-lg font-bold mb-2 ${
+                  className={`text-xl font-bold mb-3 ${
                     pkg.highlighted ? "text-coral" : "text-navy"
                   }`}
                 >
                   {pkg.name}
                 </h3>
-
-                {/* Price */}
-                <div className="flex items-baseline gap-1 mb-4">
-                  <span
-                    className={`text-sm font-medium ${
-                      pkg.highlighted ? "text-white/60" : "text-slate-400"
-                    }`}
-                  >
-                    ₹
-                  </span>
-                  <span
-                    className={`text-4xl lg:text-5xl font-extrabold tracking-tight ${
-                      pkg.highlighted ? "text-white" : "text-navy"
-                    }`}
-                  >
-                    {pkg.price}
-                  </span>
-                  <span
-                    className={`text-sm font-medium ${
-                      pkg.highlighted ? "text-white/60" : "text-slate-400"
-                    }`}
-                  >
-                    {pkg.period}
-                  </span>
-                </div>
 
                 {/* Description */}
                 <p
