@@ -138,7 +138,7 @@ export const PricingSection = () => {
                       : "bg-navy/5 hover:bg-coral text-navy hover:text-white"
                   }`}
                 >
-                  Get Started
+                  Contact for Pricing
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
