@@ -63,16 +63,7 @@ export const pricingPackages = [
     badge: null,
     highlighted: false,
     features: [
-      { text: "12 Reels (Shoot, Script & Edit)", included: true },
-      { text: "1 Designed Post", included: true },
-      { text: "Captions for All Content", included: true },
-      { text: "Monthly Content Calendar", included: true },
-      { text: "Meta Ad Setup & Management", included: false },
-      { text: "Funnel Creation", included: false },
-      { text: "Lead Generation Campaigns", included: false },
-      { text: "Google Business Optimization", included: false },
-      { text: "WhatsApp Catalog Setup", included: false },
-      { text: "Google Ranking & Analytics", included: false },
+      { text: "For detailed features and customization options, contact us for a personalized consultation", included: true },
     ],
   },
   {
@@ -84,16 +75,7 @@ export const pricingPackages = [
     badge: "Most Popular",
     highlighted: true,
     features: [
-      { text: "12 Reels (Shoot, Script & Edit)", included: true },
-      { text: "8 Designed Posts", included: true },
-      { text: "Meta Ad Setup & Management", included: true },
-      { text: "Funnel Creation", included: true },
-      { text: "Monthly Content Calendar", included: true },
-      { text: "SMM (Social Media Management)", included: true },
-      { text: "1 Ad Campaign", included: true },
-      { text: "Google Business Profile Optimization", included: true },
-      { text: "Lead Generation Campaigns", included: false },
-      { text: "WhatsApp Catalog Setup", included: false },
+      { text: "For detailed features and customization options, contact us for a personalized consultation", included: true },
     ],
   },
   {
@@ -105,16 +87,7 @@ export const pricingPackages = [
     badge: "Best Value",
     highlighted: false,
     features: [
-      { text: "12 Reels (Shoot, Script & Edit)", included: true },
-      { text: "Competitor Strategy Analysis", included: true },
-      { text: "2 Lead Generation Ad Campaigns (Meta)", included: true },
-      { text: "Google Business Analytics", included: true },
-      { text: "WhatsApp Catalog Setup", included: true },
-      { text: "SMM (Social Media Management)", included: true },
-      { text: "Monthly Content Calendar", included: true },
-      { text: "Google Ranking Optimization", included: true },
-      { text: "Priority Support", included: true },
-      { text: "Monthly Performance Report", included: true },
+      { text: "For detailed features and customization options, contact us for a personalized consultation", included: true },
     ],
   },
 ];
@@ -122,21 +95,21 @@ export const pricingPackages = [
 export const testimonials = [
   {
     id: 1,
-    name: "Rahul",
+    name: "senthil",
     company: "Business Owner",
     text: "Amazing service! My videos look so professional now. Bhufix really understands how to make content that stands out and attracts the right audience.",
     rating: 5,
   },
   {
     id: 2,
-    name: "Sneha Patel",
+    name: "Renu",
     company: "Entrepreneur",
     text: "Highly recommend! The team is very creative and responsive. They helped us build a strong social media presence that actually drives results.",
     rating: 5,
   },
   {
     id: 3,
-    name: "Arjun Verma",
+    name: "yogesh",
     company: "Business Owner",
     text: "Excellent quality and timely delivery. Loved it! The Bhufix team goes above and beyond to make sure everything is perfect.",
     rating: 5,
@@ -150,7 +123,7 @@ export const clients = [
 ];
 
 export const contactInfo = {
-  phone: "+91 98765 43210",
+  phone: "+91 93614 05438",
   email: "Bhushanvidhya52@gmail.com",
   address: "Gn mills,coimbatore, Tamil Nadu, India",
   whatsapp: "+9193614 05438",

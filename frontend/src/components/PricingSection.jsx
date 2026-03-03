@@ -1,5 +1,5 @@
 import { pricingPackages } from "../data/mock";
-import { Check, X, ArrowRight, Crown, Flame } from "lucide-react";
+import { ArrowRight, Crown, Flame } from "lucide-react";
 import { Button } from "./ui/button";
 
 export const PricingSection = () => {
@@ -77,58 +77,6 @@ export const PricingSection = () => {
                   {pkg.description}
                 </p>
 
-                {/* Features */}
-                <ul className="space-y-3 mb-8">
-                  {pkg.features.map((feature, i) => (
-                    <li key={i} className="flex items-start gap-3">
-                      {feature.included ? (
-                        <div
-                          className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                            pkg.highlighted
-                              ? "bg-coral"
-                              : "bg-coral/10"
-                          }`}
-                        >
-                          <Check
-                            className={`h-3 w-3 ${
-                              pkg.highlighted ? "text-white" : "text-coral"
-                            }`}
-                          />
-                        </div>
-                      ) : (
-                        <div
-                          className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                            pkg.highlighted
-                              ? "bg-white/10"
-                              : "bg-slate-100"
-                          }`}
-                        >
-                          <X
-                            className={`h-3 w-3 ${
-                              pkg.highlighted
-                                ? "text-white/30"
-                                : "text-slate-300"
-                            }`}
-                          />
-                        </div>
-                      )}
-                      <span
-                        className={`text-sm ${
-                          feature.included
-                            ? pkg.highlighted
-                              ? "text-white"
-                              : "text-navy"
-                            : pkg.highlighted
-                            ? "text-white/30"
-                            : "text-slate-400 line-through"
-                        }`}
-                      >
-                        {feature.text}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-
                 {/* CTA */}
                 <Button
                   onClick={() => scrollTo("#contact")}
@@ -138,7 +86,7 @@ export const PricingSection = () => {
                       : "bg-navy/5 hover:bg-coral text-navy hover:text-white"
                   }`}
                 >
-                  Contact for Pricing
+                  Contact for More Details
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
