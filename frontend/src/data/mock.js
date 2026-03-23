@@ -118,7 +118,6 @@ export const testimonials = [
 
 export const clients = [
   "Cloud9 Gym, Udumalpet",
-  "Razzy Events & Studio, Coimbatore",
   "Milleama Organics, Udumalpet",
 ];
 
