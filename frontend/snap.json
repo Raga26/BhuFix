@@ -11,8 +11,10 @@
   "loadableComponents": [],
   "asyncScriptFramework": false,
   "crawl": false,
-  "preloadImages": true,
+  "preloadImages": false,
   "removeBlobs": true,
-  "timeout": 120000,
-  "httpPort": 8080
+  "timeout": 30000,
+  "httpPort": 8080,
+  "skipThirdPartyRequests": true,
+  "publicPath": "/"
 }
