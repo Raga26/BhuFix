@@ -1,7 +1,27 @@
 User-agent: *
 Allow: /
-Sitemap: https://bhufix.com/sitemap.xml
 
-# Block common bot paths
+User-agent: Googlebot
+Allow: /
+Allow: /static/
+
+User-agent: Bingbot
+Allow: /
+Allow: /static/
+
+# Block specific bots that waste resources
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+# Block common system paths
 Disallow: /api/
 Disallow: /admin/
+Disallow: /.git/
+
+# Crawl delay for rate limiting (in seconds)
+Crawl-delay: 1
+
+Sitemap: https://bhufix.com/sitemap.xml

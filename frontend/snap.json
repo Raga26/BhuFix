@@ -1,0 +1,18 @@
+{
+  "source": "build",
+  "destination": "build",
+  "include": ["/"],
+  "minifyHtml": {
+    "collapseBoolean": true,
+    "removeRedundantAttributes": true,
+    "removeRedundantNEWLINE": true
+  },
+  "nodePort": 45678,
+  "loadableComponents": [],
+  "asyncScriptFramework": false,
+  "crawl": false,
+  "preloadImages": true,
+  "removeBlobs": true,
+  "timeout": 120000,
+  "httpPort": 8080
+}
