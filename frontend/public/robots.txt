@@ -24,4 +24,4 @@ Disallow: /.git/
 # Crawl delay for rate limiting (in seconds)
 Crawl-delay: 1
 
-Sitemap: https://bhufix.com/sitemap.xml
+Sitemap: https://www.bhufix.com/sitemap.xml
