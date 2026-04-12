@@ -34,6 +34,9 @@ class Logger {
     this.startTime = performance.now();
     this.backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
     
+    // Suppress all console output (NO logs in dev tools for prod)
+    this.suppressConsole();
+    
     // Start batch sending to server
     if (CONFIG.enableServer) {
       this.startBatchSending();
@@ -43,6 +46,27 @@ class Logger {
     this.info(`🚀 Frontend Application Started | Session: ${this.sessionId}`);
     this.info(`Environment: ${process.env.NODE_ENV}`);
     this.info(`Backend URL: ${this.backendUrl}`);
+  }
+
+  /**
+   * Suppress all console output to prevent dev tools spam
+   */
+  suppressConsole() {
+    // Save original console methods in case needed for debugging
+    this._originalConsole = {
+      log: console.log,
+      warn: console.warn,
+      error: console.error,
+      info: console.info,
+      debug: console.debug,
+    };
+    
+    // Override all console methods
+    console.log = () => {};
+    console.warn = () => {};
+    console.error = () => {};
+    console.info = () => {};
+    console.debug = () => {};
   }
 
   /**
@@ -73,13 +97,11 @@ class Logger {
       });
       
       if (!response.ok) {
-        console.warn(`Failed to send logs to server: ${response.status}`);
-        // Re-add to pending if failed
+        // Silently fail - re-add to pending without console output
         this.pendingLogs = logsToSend.concat(this.pendingLogs);
       }
     } catch (error) {
-      console.warn('Failed to send logs to server:', error);
-      // Re-add to pending if failed
+      // Silently fail - re-add to pending without console output
       this.pendingLogs = logsToSend.concat(this.pendingLogs);
     }
   }

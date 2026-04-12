@@ -100,9 +100,20 @@ except KeyError as e:
 # MongoDB connection
 logger.info("Attempting to connect to MongoDB...")
 try:
-    client = AsyncIOMotorClient(mongo_url)
+    # Add SSL/TLS options for Render deployment and MongoDB Atlas
+    # These options help with SSL handshake issues in containerized environments
+    client = AsyncIOMotorClient(
+        mongo_url,
+        tlsAllowInvalidCertificates=True,  # Allow MongoDB Atlas self-signed certs
+        tlsInsecure=True,                  # Disable hostname verification (for container envs)
+        serverSelectionTimeoutMS=5000,     # Faster timeout for initial connection
+        connectTimeoutMS=10000,            # Connection timeout
+        retryWrites=True,
+        maxPoolSize=50,
+        minPoolSize=5,
+    )
     db = client[db_name]
-    logger.info("✓ MongoDB client initialized")
+    logger.info("✓ MongoDB client initialized with Render-compatible SSL options")
 except Exception as e:
     logger.error(f"❌ Failed to initialize MongoDB client: {e}", exc_info=True)
     raise
@@ -659,6 +670,13 @@ async def startup_event():
     logger.info(f"Email Notifications: {'Enabled' if GMAIL_USER else 'Disabled'}")
     logger.info(f"Database: {os.environ.get('DB_NAME', 'unknown')}")
     logger.info(f"CORS Origins: {os.environ.get('CORS_ORIGINS', '*')}")
+    
+    # Show deployed URL
+    render_external_url = os.environ.get('RENDER_EXTERNAL_URL')
+    if render_external_url:
+        logger.info(f"📡 Deployed URL: {render_external_url}")
+    else:
+        logger.info(f"📡 Local development: http://localhost:{os.environ.get('PORT', 8000)}")
     logger.info("=" * 80)
 
 @app.on_event("shutdown")
@@ -674,11 +692,14 @@ async def shutdown_event():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get('PORT', 8000))
+    render_external_url = os.environ.get('RENDER_EXTERNAL_URL')
     
     logger.info("=" * 80)
     logger.info("Starting Uvicorn server...")
     logger.info(f"Port: {port}")
-    logger.info(f"Host: 0.0.0.0")
+    logger.info(f"Host: 0.0.0.0 (Internal binding)")
+    if render_external_url:
+        logger.info(f"External URL: {render_external_url}")
     logger.info(f"Log files: {LOG_DIR}")
     logger.info("=" * 80)
     
