@@ -1,4 +1,5 @@
 import React from "react";
+import logger from "../utils/logger";
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -7,10 +8,19 @@ export class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
+    logger.error("Error Boundary triggered", {
+      message: error.message,
+      stack: error.stack,
+    });
     return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
+    logger.error("ErrorBoundary caught exception", {
+      error: error.toString(),
+      errorInfo: errorInfo.componentStack,
+      message: error.message,
+    });
     console.error("ErrorBoundary caught:", error, errorInfo);
   }
 
@@ -29,7 +39,10 @@ export class ErrorBoundary extends React.Component {
               We're sorry for the inconvenience. Please refresh the page to try again.
             </p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                logger.info("User refreshing page after error");
+                window.location.reload();
+              }}
               className="bg-coral hover:bg-coral-dark text-white font-semibold px-8 py-3 rounded-full transition-all duration-300"
             >
               Refresh Page
@@ -42,3 +55,4 @@ export class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
+

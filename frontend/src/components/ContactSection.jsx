@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { contactInfo, services } from "../data/mock";
+import logger from "../utils/logger";
+import apiClient from "../utils/axiosConfig";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -12,10 +14,6 @@ import {
 } from "./ui/select";
 import { Send, Phone, Mail, MapPin, MessageCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import axios from "axios";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
 
 const CONTACT_IMAGE =
   "https://images.pexels.com/photos/3194521/pexels-photo-3194521.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
@@ -43,7 +41,7 @@ const contactItems = [
     icon: MessageCircle,
     label: "WhatsApp",
     value: "Chat with us",
-    href: `https://wa.me/${contactInfo.whatsapp}`,
+    href: `https://wa.me/${contactInfo.whatsapp.replace(/\s+/g, '')}`,
   },
 ];
 
@@ -84,22 +82,43 @@ export const ContactSection = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      logger.warn("Form validation failed");
+      return;
+    }
 
+    logger.info("Contact form submitted", { email: formData.email });
     setSubmitting(true);
+    
     try {
-      await axios.post(`${API}/contact`, {
+      const submitData = {
         name: formData.name.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim(),
         service: formData.service,
         message: formData.message.trim(),
         honeypot: formData.honeypot,
+      };
+
+      logger.formSubmit("ContactForm", submitData);
+      
+      const response = await apiClient.post("/contact", submitData);
+      
+      logger.success("Contact form submitted successfully", { 
+        id: response.data.id,
+        email: formData.email 
       });
+      
       toast.success("Message sent successfully! We'll get back to you soon.");
       setFormData({ name: "", email: "", phone: "", service: "", message: "", honeypot: "" });
       setErrors({});
     } catch (err) {
+      logger.error("Contact form submission failed", {
+        status: err.response?.status,
+        message: err.message,
+        email: formData.email,
+      });
+
       if (err.response?.status === 429) {
         toast.error("Too many submissions. Please try again later.");
       } else if (err.response?.status === 422) {

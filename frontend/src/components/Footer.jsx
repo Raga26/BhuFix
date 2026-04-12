@@ -4,7 +4,7 @@ import { ArrowRight, Heart } from "lucide-react";
 const socialLinks = [
   { label: "Fb", href: "#" },
   { label: "Tw", href: "#" },
-  { label: "Ig", href: "#" },
+  { label: "Ig", href: "https://www.instagram.com/bhufix?igsh=YTZmd3lwZm15dHJj" },
   { label: "Li", href: "#" },
   { label: "Yt", href: "#" },
 ];
