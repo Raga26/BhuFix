@@ -100,20 +100,19 @@ except KeyError as e:
 # MongoDB connection
 logger.info("Attempting to connect to MongoDB...")
 try:
-    # Add SSL/TLS options for Render deployment and MongoDB Atlas
-    # These options help with SSL handshake issues in containerized environments
+    # MongoDB connection with retry and timeout options for Render
     client = AsyncIOMotorClient(
         mongo_url,
         tlsAllowInvalidCertificates=True,  # Allow MongoDB Atlas self-signed certs
-        tlsInsecure=True,                  # Disable hostname verification (for container envs)
-        serverSelectionTimeoutMS=5000,     # Faster timeout for initial connection
-        connectTimeoutMS=10000,            # Connection timeout
+        serverSelectionTimeoutMS=10000,    # Timeout for server selection
+        connectTimeoutMS=15000,            # Connection timeout
         retryWrites=True,
+        retryReads=True,
         maxPoolSize=50,
         minPoolSize=5,
     )
     db = client[db_name]
-    logger.info("✓ MongoDB client initialized with Render-compatible SSL options")
+    logger.info("✓ MongoDB client initialized")
 except Exception as e:
     logger.error(f"❌ Failed to initialize MongoDB client: {e}", exc_info=True)
     raise
