@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: bhufix-frontend
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npx serve -s build -l 3000
+    envVars:
+      - key: REACT_APP_BACKEND_URL
+        value: https://bhufix-backend.onrender.com
+    routes:
+      - path: /
+        destination: frontend/build
+
+  - type: web
+    name: bhufix-backend
+    runtime: python
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && python server.py
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: MONGO_URL
+        fromDatabase:
+          name: bhufix
+          property: connectionString
+      - key: DB_NAME
+        value: Bhufix

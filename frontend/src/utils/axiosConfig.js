@@ -6,7 +6,23 @@
 import axios from 'axios';
 import logger from './logger';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+// Determine backend URL with fallbacks
+const getBackendURL = () => {
+  // Priority 1: Use environment variable if set
+  if (process.env.REACT_APP_BACKEND_URL) {
+    return process.env.REACT_APP_BACKEND_URL;
+  }
+  
+  // Priority 2: In production, use current origin (same domain)
+  if (process.env.NODE_ENV === 'production') {
+    return window.location.origin;
+  }
+  
+  // Priority 3: Development fallback
+  return 'http://localhost:8000';
+};
+
+const BACKEND_URL = getBackendURL();
 
 // Create axios instance
 const apiClient = axios.create({
