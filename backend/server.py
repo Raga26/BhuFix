@@ -47,9 +47,9 @@ error_handler = logging.handlers.RotatingFileHandler(
 )
 error_handler.setLevel(logging.ERROR)
 
-# Console handler
+# Console handler - Set to DEBUG for detailed Render logs
 console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
+console_handler.setLevel(logging.DEBUG)
 
 # Formatter
 formatter = logging.Formatter(
@@ -355,6 +355,20 @@ class ContactResponse(BaseModel):
     created_at: str
     ip_address: str = ""
 
+class FrontendLog(BaseModel):
+    """Frontend log entry from browser"""
+    timestamp: str
+    level: str  # DEBUG, INFO, WARN, ERROR, SUCCESS
+    message: str
+    data: Optional[dict] = None
+    sessionId: str
+    url: str
+    elapsed: str
+
+class FrontendLogsRequest(BaseModel):
+    """Request containing multiple frontend logs"""
+    logs: List[FrontendLog]
+
 # ── Routes ───────────────────────────────────────────────────────
 @api_router.get("/")
 async def root():
@@ -491,6 +505,38 @@ async def get_status_checks():
     except Exception as e:
         logger.error(f"❌ Failed to retrieve status checks: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to retrieve status checks")
+
+# ── Frontend Logs ────────────────────────────────────────────────
+@api_router.post("/logs")
+async def receive_frontend_logs(request: FrontendLogsRequest, client_request: Request):
+    """Receive frontend logs from browser - logs go only to Render, not dev tools"""
+    client_ip = client_request.client.host if client_request.client else "unknown"
+    
+    if not request.logs:
+        return {"status": "ok", "received": 0}
+    
+    for log_entry in request.logs:
+        # Format frontend log for backend logging
+        data_str = f" | Data: {json.dumps(log_entry.data)}" if log_entry.data else ""
+        log_message = (
+            f"🌐 [Frontend | {log_entry.level}] {log_entry.message} "
+            f"(Session: {log_entry.sessionId} | URL: {log_entry.url} | +{log_entry.elapsed}s){data_str}"
+        )
+        
+        # Log to backend logger based on level
+        if log_entry.level == "DEBUG":
+            logger.debug(log_message)
+        elif log_entry.level == "INFO" or log_entry.level == "SUCCESS":
+            logger.info(log_message)
+        elif log_entry.level == "WARN":
+            logger.warning(log_message)
+        elif log_entry.level == "ERROR":
+            logger.error(log_message)
+        else:
+            logger.info(log_message)
+    
+    logger.debug(f"✓ Received and logged {len(request.logs)} frontend logs from client {client_ip}")
+    return {"status": "ok", "received": len(request.logs)}
 
 # ── Global Exception Handler ─────────────────────────────────────
 @app.exception_handler(Exception)

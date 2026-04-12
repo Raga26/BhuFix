@@ -18,22 +18,70 @@ const LOG_LEVELS = {
 // Configuration
 const CONFIG = {
   maxLogsInStorage: 500, // Maximum logs to keep in localStorage
-  enableConsole: true, // Log to console
-  enableStorage: true, // Store logs in localStorage
-  enableServer: true, // Send logs to server (can be implemented later)
+  enableConsole: false, // Disabled - logs only go to Render backend
+  enableStorage: false, // Disabled - logs go only to backend
+  enableServer: true, // Send logs to backend for Render logs
   minLogLevel: process.env.NODE_ENV === 'production' ? 1 : 0, // 0=DEBUG in dev, 1=INFO in prod
+  batchSize: 10, // Send logs in batches
+  batchInterval: 5000, // Send every 5 seconds
 };
 
 class Logger {
   constructor() {
-    this.logs = this.loadLogsFromStorage();
+    this.logs = [];
+    this.pendingLogs = []; // Pending logs to send to server
     this.sessionId = this.generateSessionId();
     this.startTime = performance.now();
+    this.backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+    
+    // Start batch sending to server
+    if (CONFIG.enableServer) {
+      this.startBatchSending();
+    }
     
     // Log application initialization
     this.info(`🚀 Frontend Application Started | Session: ${this.sessionId}`);
     this.info(`Environment: ${process.env.NODE_ENV}`);
-    this.info(`Backend URL: ${process.env.REACT_APP_BACKEND_URL || 'Not configured'}`);
+    this.info(`Backend URL: ${this.backendUrl}`);
+  }
+
+  /**
+   * Start periodic batch sending of logs to server
+   */
+  startBatchSending() {
+    setInterval(() => {
+      if (this.pendingLogs.length > 0) {
+        this.flushLogsToServer();
+      }
+    }, CONFIG.batchInterval);
+  }
+
+  /**
+   * Send accumulated logs to backend
+   */
+  async flushLogsToServer() {
+    if (this.pendingLogs.length === 0) return;
+
+    const logsToSend = [...this.pendingLogs];
+    this.pendingLogs = [];
+
+    try {
+      const response = await fetch(`${this.backendUrl}/api/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logs: logsToSend }),
+      });
+      
+      if (!response.ok) {
+        console.warn(`Failed to send logs to server: ${response.status}`);
+        // Re-add to pending if failed
+        this.pendingLogs = logsToSend.concat(this.pendingLogs);
+      }
+    } catch (error) {
+      console.warn('Failed to send logs to server:', error);
+      // Re-add to pending if failed
+      this.pendingLogs = logsToSend.concat(this.pendingLogs);
+    }
   }
 
   /**
@@ -80,20 +128,20 @@ class Logger {
       this.logs.shift();
     }
 
-    // Save to localStorage
-    if (CONFIG.enableStorage) {
-      this.saveLogsToStorage();
-    }
-
     // Log to console
     if (CONFIG.enableConsole) {
       this.logToConsole(logEntry);
     }
 
-    // Send to server (optional - implement as needed)
-    // if (CONFIG.enableServer && level !== 'DEBUG') {
-    //   this.sendToServer(logEntry);
-    // }
+    // Send to server
+    if (CONFIG.enableServer) {
+      this.pendingLogs.push(logEntry);
+      
+      // Send immediately if batch size reached
+      if (this.pendingLogs.length >= CONFIG.batchSize) {
+        this.flushLogsToServer();
+      }
+    }
   }
 
   /**
@@ -116,40 +164,29 @@ class Logger {
   }
 
   /**
-   * Save logs to localStorage
+   * Save logs to localStorage (disabled but kept for reference)
    */
   saveLogsToStorage() {
-    try {
-      localStorage.setItem('bhufix_logs', JSON.stringify(this.logs));
-    } catch (e) {
-      console.warn('Failed to save logs to localStorage:', e);
-    }
+    // Disabled - logs sent to backend only
   }
 
   /**
-   * Load logs from localStorage
+   * Load logs from localStorage (disabled but kept for reference)
    */
   loadLogsFromStorage() {
-    try {
-      const stored = localStorage.getItem('bhufix_logs');
-      return stored ? JSON.parse(stored) : [];
-    } catch (e) {
-      console.warn('Failed to load logs from localStorage:', e);
-      return [];
-    }
+    // Disabled - logs sent to backend only
+    return [];
   }
 
   /**
-   * Clear all stored logs
+   * Clear all stored logs and flush to server
    */
   clearLogs() {
-    this.logs = [];
-    try {
-      localStorage.removeItem('bhufix_logs');
-    } catch (e) {
-      console.warn('Failed to clear logs from localStorage:', e);
+    if (this.pendingLogs.length > 0) {
+      this.flushLogsToServer();
     }
-    this.info('📋 Logs cleared');
+    this.logs = [];
+    this.info('📋 Logs cleared and sent to server');
   }
 
   /**
