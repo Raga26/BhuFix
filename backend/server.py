@@ -100,19 +100,35 @@ except KeyError as e:
 # MongoDB connection
 logger.info("Attempting to connect to MongoDB...")
 try:
-    # MongoDB connection with retry and timeout options for Render
+    # MongoDB connection for Render container environment
+    # Add SSL allowance to connection string for container compatibility
+    connection_string = mongo_url
+    
+    # Add TLS parameters if not already present
+    if "tlsAllowInvalidCertificates" not in connection_string:
+        if "?" in connection_string:
+            connection_string += "&tlsAllowInvalidCertificates=true"
+        else:
+            connection_string += "?tlsAllowInvalidCertificates=true"
+    
+    # Add retryWrites=false to avoid session issues in containers
+    if "retryWrites" not in connection_string:
+        if "?" in connection_string:
+            connection_string += "&retryWrites=false"
+        else:
+            connection_string += "?retryWrites=false"
+    
+    logger.debug(f"MongoDB connection string prepared with TLS settings")
+    
     client = AsyncIOMotorClient(
-        mongo_url,
-        tlsAllowInvalidCertificates=True,  # Allow MongoDB Atlas self-signed certs
-        serverSelectionTimeoutMS=10000,    # Timeout for server selection
-        connectTimeoutMS=15000,            # Connection timeout
-        retryWrites=True,
-        retryReads=True,
-        maxPoolSize=50,
-        minPoolSize=5,
+        connection_string,
+        serverSelectionTimeoutMS=15000,
+        connectTimeoutMS=20000,
+        maxPoolSize=10,
+        minPoolSize=1,
     )
     db = client[db_name]
-    logger.info("✓ MongoDB client initialized")
+    logger.info("✓ MongoDB client initialized for Render")
 except Exception as e:
     logger.error(f"❌ Failed to initialize MongoDB client: {e}", exc_info=True)
     raise

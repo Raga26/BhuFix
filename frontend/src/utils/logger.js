@@ -28,24 +28,26 @@ const CONFIG = {
 
 class Logger {
   constructor() {
+    // Suppress all console output FIRST (before anything else)
+    this.suppressConsole();
+    
     this.logs = [];
     this.pendingLogs = []; // Pending logs to send to server
     this.sessionId = this.generateSessionId();
     this.startTime = performance.now();
-    this.backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+    this.backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+    this.backendReachable = !!this.backendUrl; // Only log if backend URL is configured
     
-    // Suppress all console output (NO logs in dev tools for prod)
-    this.suppressConsole();
-    
-    // Start batch sending to server
-    if (CONFIG.enableServer) {
+    // Start batch sending to server only if backend is configured
+    if (CONFIG.enableServer && this.backendReachable) {
       this.startBatchSending();
     }
     
-    // Log application initialization
-    this.info(`🚀 Frontend Application Started | Session: ${this.sessionId}`);
-    this.info(`Environment: ${process.env.NODE_ENV}`);
-    this.info(`Backend URL: ${this.backendUrl}`);
+    // Log application initialization (discreetly)
+    if (this.backendReachable) {
+      this.info(`🚀 Frontend Application Started | Session: ${this.sessionId}`);
+      this.info(`Environment: ${process.env.NODE_ENV}`);
+    }
   }
 
   /**
@@ -155,8 +157,8 @@ class Logger {
       this.logToConsole(logEntry);
     }
 
-    // Send to server
-    if (CONFIG.enableServer) {
+    // Send to server only if backend is reachable
+    if (CONFIG.enableServer && this.backendReachable) {
       this.pendingLogs.push(logEntry);
       
       // Send immediately if batch size reached
