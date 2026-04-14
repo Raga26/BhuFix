@@ -5,7 +5,7 @@ const iconMap = { Video, Monitor, Share2, PenTool, Search, Zap };
 
 export const ServicesSection = () => {
   return (
-    <section id="services" className="py-24 lg:py-32 bg-slate-50/50 relative overflow-hidden">
+    <section id="services" className="py-24 lg:py-32 bg-slate-50/50 dark:bg-slate-900/80 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-coral/20 to-transparent" />
 
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -14,10 +14,10 @@ export const ServicesSection = () => {
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-coral">
             Services We Offer
           </span>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-navy mt-4 mb-6 leading-tight">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-navy dark:text-white mt-4 mb-6 leading-tight">
             Expert Digital Marketing Services
           </h2>
-          <p className="text-slate-500 text-lg leading-relaxed">
+          <p className="text-slate-500 dark:text-slate-400 text-lg leading-relaxed">
             We connect the dots that create and shape your brand — a roadmap to
             digital success through integrated marketing services.
           </p>
@@ -30,7 +30,7 @@ export const ServicesSection = () => {
             return (
               <div
                 key={service.id}
-                className="group relative bg-white rounded-2xl p-8 border border-slate-100 hover:border-coral/20 transition-all duration-500 hover:shadow-xl hover:shadow-coral/5 hover:-translate-y-2 cursor-pointer"
+                className="group relative bg-white dark:bg-slate-800 rounded-2xl p-8 border border-slate-100 dark:border-slate-700 hover:border-coral/20 dark:hover:border-coral/30 transition-all duration-500 hover:shadow-xl hover:shadow-coral/5 hover:-translate-y-2 cursor-pointer"
               >
                 {/* Icon */}
                 <div className="w-14 h-14 rounded-xl bg-coral/10 flex items-center justify-center mb-6 group-hover:bg-coral transition-all duration-500">
@@ -40,10 +40,10 @@ export const ServicesSection = () => {
                 </div>
 
                 {/* Content */}
-                <h3 className="text-xl font-bold text-navy mb-3 group-hover:text-coral transition-colors duration-300">
+                <h3 className="text-xl font-bold text-navy dark:text-white mb-3 group-hover:text-coral dark:group-hover:text-coral transition-colors duration-300">
                   {service.title}
                 </h3>
-                <p className="text-slate-500 text-sm leading-relaxed mb-6">
+                <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6">
                   {service.shortDesc}
                 </p>
 

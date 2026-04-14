@@ -9,10 +9,10 @@ export const PricingSection = () => {
   };
 
   return (
-    <section id="pricing" className="py-24 lg:py-32 bg-white relative overflow-hidden">
+    <section id="pricing" className="py-24 lg:py-32 bg-white dark:bg-slate-900 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-coral/20 to-transparent" />
       <div className="absolute -top-40 right-0 w-80 h-80 bg-coral/5 rounded-full blur-3xl" />
-      <div className="absolute -bottom-40 left-0 w-80 h-80 bg-sky-50 rounded-full blur-3xl" />
+      <div className="absolute -bottom-40 left-0 w-80 h-80 bg-sky-50 dark:bg-sky-900/10 rounded-full blur-3xl" />
 
       <div className="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
         {/* Header */}
@@ -20,10 +20,10 @@ export const PricingSection = () => {
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-coral">
             Our Packages
           </span>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-navy mt-4 mb-6 leading-tight">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-navy dark:text-white mt-4 mb-6 leading-tight">
             Choose Your Growth Plan
           </h2>
-          <p className="text-slate-500 text-lg leading-relaxed">
+          <p className="text-slate-500 dark:text-slate-400 text-lg leading-relaxed">
             Transparent pricing with no hidden costs. Pick the package that fits
             your business goals and watch your brand grow.
           </p>
@@ -37,7 +37,7 @@ export const PricingSection = () => {
               className={`relative rounded-2xl overflow-hidden transition-all duration-500 hover:-translate-y-2 ${
                 pkg.highlighted
                   ? "bg-navy text-white shadow-2xl shadow-navy/20 scale-[1.02] md:scale-105 z-10"
-                  : "bg-white border border-slate-200 hover:border-coral/30 hover:shadow-xl hover:shadow-coral/5"
+                  : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-coral/30 hover:shadow-xl hover:shadow-coral/5"
               }`}
             >
               {/* Badge */}
@@ -62,7 +62,7 @@ export const PricingSection = () => {
                 {/* Package name */}
                 <h3
                   className={`text-xl font-bold mb-3 ${
-                    pkg.highlighted ? "text-coral" : "text-navy"
+                    pkg.highlighted ? "text-coral" : "text-navy dark:text-white"
                   }`}
                 >
                   {pkg.name}
@@ -71,7 +71,7 @@ export const PricingSection = () => {
                 {/* Description */}
                 <p
                   className={`text-sm leading-relaxed mb-8 ${
-                    pkg.highlighted ? "text-white/70" : "text-slate-500"
+                    pkg.highlighted ? "text-white/70" : "text-slate-500 dark:text-slate-400"
                   }`}
                 >
                   {pkg.description}
@@ -83,7 +83,7 @@ export const PricingSection = () => {
                   className={`w-full py-5 rounded-full font-semibold text-base transition-all duration-300 hover:-translate-y-0.5 ${
                     pkg.highlighted
                       ? "bg-coral hover:bg-coral-dark text-white hover:shadow-lg hover:shadow-coral/30"
-                      : "bg-navy/5 hover:bg-coral text-navy hover:text-white"
+                      : "bg-navy/5 dark:bg-white/5 hover:bg-coral text-navy dark:text-white hover:text-white"
                   }`}
                 >
                   Contact for More Details
@@ -95,7 +95,7 @@ export const PricingSection = () => {
         </div>
 
         {/* Bottom note */}
-        <p className="text-center text-slate-400 text-sm mt-10">
+        <p className="text-center text-slate-400 dark:text-slate-500 text-sm mt-10">
           Custom packages available on request. Get in touch to discuss pricing tailored to your business needs.
         </p>
       </div>

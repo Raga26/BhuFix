@@ -27,7 +27,7 @@ export const Footer = () => {
   };
 
   return (
-    <footer className="bg-navy text-white relative overflow-hidden">
+    <footer className="bg-navy dark:bg-slate-950 text-white relative overflow-hidden">
       <div
         className="absolute inset-0 opacity-5"
         style={{

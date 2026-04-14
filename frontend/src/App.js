@@ -1,6 +1,7 @@
 import "./App.css";
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "./context/ThemeContext";
 import { Toaster } from "./components/ui/sonner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import logger from "./utils/logger";
@@ -92,17 +93,19 @@ function App() {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <div className="App">
-        <BrowserRouter>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <div className="App">
+          <BrowserRouter>
           <Toaster position="top-right" richColors />
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </BrowserRouter>
-      </div>
-    </ErrorBoundary>
+        </div>
+      </ErrorBoundary>
+    </ThemeProvider>
   );
 }
 
