@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+import certifi
 import os
 import re
 import html
@@ -100,32 +101,13 @@ except KeyError as e:
 # MongoDB connection
 logger.info("Attempting to connect to MongoDB...")
 try:
-    # MongoDB connection for Render container environment
-    # Add SSL allowance to connection string for container compatibility
-    connection_string = mongo_url
-    
-    # Add TLS parameters if not already present
-    if "tlsAllowInvalidCertificates" not in connection_string:
-        if "?" in connection_string:
-            connection_string += "&tlsAllowInvalidCertificates=true"
-        else:
-            connection_string += "?tlsAllowInvalidCertificates=true"
-    
-    # Add retryWrites=false to avoid session issues in containers
-    if "retryWrites" not in connection_string:
-        if "?" in connection_string:
-            connection_string += "&retryWrites=false"
-        else:
-            connection_string += "?retryWrites=false"
-    
-    logger.debug(f"MongoDB connection string prepared with TLS settings")
-    
     client = AsyncIOMotorClient(
-        connection_string,
+        mongo_url,
         serverSelectionTimeoutMS=15000,
         connectTimeoutMS=20000,
         maxPoolSize=10,
         minPoolSize=1,
+        tlsCAFile=certifi.where(),
     )
     db = client[db_name]
     logger.info("✓ MongoDB client initialized for Render")
