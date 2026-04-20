@@ -301,10 +301,8 @@ This is an automated email from Bhufix website contact form.
         
         # Send email via Gmail SMTP
         logger.debug(f"Connecting to SMTP server (smtp.gmail.com:587)")
-        async with aiosmtplib.SMTP(hostname='smtp.gmail.com', port=587) as smtp:
-            logger.debug(f"SMTP connection established, initiating TLS")
-            await smtp.starttls()
-            
+        async with aiosmtplib.SMTP(hostname='smtp.gmail.com', port=587, start_tls=True) as smtp:
+            logger.debug(f"SMTP connection established with TLS")
             logger.debug(f"SMTP login with user: {GMAIL_USER}")
             await smtp.login(GMAIL_USER, GMAIL_PASSWORD)
             
