@@ -4,7 +4,7 @@ import { ArrowRight, Heart } from "lucide-react";
 const socialLinks = [
   { label: "Fb", href: "#" },
   { label: "Tw", href: "#" },
-  { label: "Ig", href: "#" },
+  { label: "Ig", href: "https://www.instagram.com/bhufix?igsh=YTZmd3lwZm15dHJj" },
   { label: "Li", href: "#" },
   { label: "Yt", href: "#" },
 ];
@@ -27,7 +27,7 @@ export const Footer = () => {
   };
 
   return (
-    <footer className="bg-navy text-white relative overflow-hidden">
+    <footer className="bg-navy dark:bg-slate-950 text-white relative overflow-hidden">
       <div
         className="absolute inset-0 opacity-5"
         style={{

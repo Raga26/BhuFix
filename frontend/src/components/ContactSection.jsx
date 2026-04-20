@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { contactInfo, services } from "../data/mock";
+import logger from "../utils/logger";
+import apiClient from "../utils/axiosConfig";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -12,10 +14,6 @@ import {
 } from "./ui/select";
 import { Send, Phone, Mail, MapPin, MessageCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import axios from "axios";
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
 
 const CONTACT_IMAGE =
   "https://images.pexels.com/photos/3194521/pexels-photo-3194521.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
@@ -43,7 +41,7 @@ const contactItems = [
     icon: MessageCircle,
     label: "WhatsApp",
     value: "Chat with us",
-    href: `https://wa.me/${contactInfo.whatsapp}`,
+    href: `https://wa.me/${contactInfo.whatsapp.replace(/\s+/g, '')}`,
   },
 ];
 
@@ -84,22 +82,43 @@ export const ContactSection = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      logger.warn("Form validation failed");
+      return;
+    }
 
+    logger.info("Contact form submitted", { email: formData.email });
     setSubmitting(true);
+
     try {
-      await axios.post(`${API}/contact`, {
+      const submitData = {
         name: formData.name.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim(),
         service: formData.service,
         message: formData.message.trim(),
         honeypot: formData.honeypot,
+      };
+
+      logger.formSubmit("ContactForm", submitData);
+
+      const response = await apiClient.post("/contact", submitData);
+
+      logger.success("Contact form submitted successfully", {
+        id: response.data.id,
+        email: formData.email
       });
+
       toast.success("Message sent successfully! We'll get back to you soon.");
       setFormData({ name: "", email: "", phone: "", service: "", message: "", honeypot: "" });
       setErrors({});
     } catch (err) {
+      logger.error("Contact form submission failed", {
+        status: err.response?.status,
+        message: err.message,
+        email: formData.email,
+      });
+
       if (err.response?.status === 429) {
         toast.error("Too many submissions. Please try again later.");
       } else if (err.response?.status === 422) {
@@ -113,7 +132,7 @@ export const ContactSection = () => {
   };
 
   return (
-    <section id="contact" className="py-24 lg:py-32 bg-slate-50/50 relative overflow-hidden">
+    <section id="contact" className="py-24 lg:py-32 bg-slate-50/50 dark:bg-slate-900/80 relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-start">
           {/* Form */}
@@ -121,10 +140,10 @@ export const ContactSection = () => {
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-coral">
               Contact Us
             </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-navy mt-4 mb-6 leading-tight">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-navy dark:text-white mt-4 mb-6 leading-tight">
               Get in Touch with Our Team
             </h2>
-            <p className="text-slate-500 text-lg mb-10">
+            <p className="text-slate-500 dark:text-slate-400 text-lg mb-10">
               Ready to take your digital presence to the next level? Let us know
               how we can help.
             </p>
@@ -150,7 +169,7 @@ export const ContactSection = () => {
                     onChange={handleChange}
                     required
                     aria-label="Your name"
-                    className={`h-12 rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white ${errors.name ? "border-red-400" : ""}`}
+                    className={`h-12 rounded-xl border-slate-200 dark:border-slate-600 focus:border-coral focus:ring-coral/20 bg-white dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 ${errors.name ? "border-red-400" : ""}`}
                   />
                   {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                 </div>
@@ -163,7 +182,7 @@ export const ContactSection = () => {
                     onChange={handleChange}
                     required
                     aria-label="Email address"
-                    className={`h-12 rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white ${errors.email ? "border-red-400" : ""}`}
+                    className={`h-12 rounded-xl border-slate-200 dark:border-slate-600 focus:border-coral focus:ring-coral/20 bg-white dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 ${errors.email ? "border-red-400" : ""}`}
                   />
                   {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                 </div>
@@ -175,7 +194,7 @@ export const ContactSection = () => {
                   value={formData.phone}
                   onChange={handleChange}
                   aria-label="Phone number"
-                  className="h-12 rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white"
+                  className="h-12 rounded-xl border-slate-200 dark:border-slate-600 focus:border-coral focus:ring-coral/20 bg-white dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500"
                 />
                 <Select
                   value={formData.service}
@@ -183,7 +202,7 @@ export const ContactSection = () => {
                     setFormData({ ...formData, service: val })
                   }
                 >
-                  <SelectTrigger className="h-12 rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white" aria-label="Select service">
+                  <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-600 focus:border-coral focus:ring-coral/20 bg-white dark:bg-slate-800 dark:text-white" aria-label="Select service">
                     <SelectValue placeholder="Select Service" />
                   </SelectTrigger>
                   <SelectContent>
@@ -204,7 +223,7 @@ export const ContactSection = () => {
                   required
                   rows={5}
                   aria-label="Your message"
-                  className={`rounded-xl border-slate-200 focus:border-coral focus:ring-coral/20 bg-white resize-none ${errors.message ? "border-red-400" : ""}`}
+                  className={`rounded-xl border-slate-200 dark:border-slate-600 focus:border-coral focus:ring-coral/20 bg-white dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 resize-none ${errors.message ? "border-red-400" : ""}`}
                 />
                 {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
               </div>
@@ -230,7 +249,7 @@ export const ContactSection = () => {
 
           {/* Right side */}
           <div>
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-200/50 mb-10">
+            <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-200/50 dark:shadow-slate-900/50 mb-10">
               <img
                 src={CONTACT_IMAGE}
                 alt="Contact Bhufix team for digital marketing services"
@@ -249,16 +268,16 @@ export const ContactSection = () => {
                     href={item.href || undefined}
                     target={item.href && item.href.startsWith("http") ? "_blank" : undefined}
                     rel={item.href && item.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                    className="flex items-start gap-4 group p-4 rounded-xl hover:bg-coral/5 transition-all duration-300 cursor-pointer"
+                    className="flex items-start gap-4 group p-4 rounded-xl hover:bg-coral/5 dark:hover:bg-coral/10 transition-all duration-300 cursor-pointer"
                   >
                     <div className="w-12 h-12 rounded-xl bg-coral/10 flex items-center justify-center flex-shrink-0 group-hover:bg-coral transition-all duration-300">
                       <item.icon className="h-5 w-5 text-coral group-hover:text-white transition-colors duration-300" />
                     </div>
                     <div>
-                      <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      <div className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                         {item.label}
                       </div>
-                      <div className="text-navy font-semibold mt-1">
+                      <div className="text-navy dark:text-white font-semibold mt-1">
                         {item.value}
                       </div>
                     </div>

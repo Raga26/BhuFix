@@ -123,7 +123,7 @@ export const clients = [
 
 export const contactInfo = {
   phone: "+91 93614 05438",
-  email: "Bhushanvidhya52@gmail.com",
+  email: "bhufix@gmail.com",
   address: "Gn mills,coimbatore, Tamil Nadu, India",
   whatsapp: "+9193614 05438",
 };
