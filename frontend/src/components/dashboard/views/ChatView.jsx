@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import apiClient from '../../../utils/axiosConfig';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -41,7 +41,7 @@ export default function ChatView({ clientThread = false }) {
   const bottomRef = useRef(null);
   const isClient = user?.role === 'client';
 
-  const loadMessages = () => {
+  const loadMessages = useCallback(() => {
     if (isClient) {
       apiClient.get('/chat', { params: { thread: 'client' } }).then((r) => setMessages(r.data || []));
     } else if (clientThread && selectedClient) {
@@ -49,7 +49,7 @@ export default function ChatView({ clientThread = false }) {
     } else if (!clientThread) {
       apiClient.get('/chat', { params: { thread: 'team' } }).then((r) => setMessages(r.data || []));
     }
-  };
+  }, [isClient, clientThread, selectedClient]);
 
   useEffect(() => {
     if (!isClient && clientThread) {
@@ -61,17 +61,17 @@ export default function ChatView({ clientThread = false }) {
     } else {
       loadMessages();
     }
-  }, []);
+  }, [isClient, clientThread, loadMessages]);
 
   useEffect(() => {
     if (!clientThread || selectedClient) loadMessages();
-  }, [selectedClient]);
+  }, [selectedClient, clientThread, loadMessages]);
 
   // Poll for new messages every 5s
   useEffect(() => {
     const id = setInterval(loadMessages, 5000);
     return () => clearInterval(id);
-  }, [selectedClient, clientThread, isClient]);
+  }, [loadMessages]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });

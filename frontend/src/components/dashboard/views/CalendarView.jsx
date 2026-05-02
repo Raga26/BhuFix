@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
@@ -169,7 +169,7 @@ export default function CalendarView() {
   const [viewDate, setViewDate] = useState({ month: today.getMonth() + 1, year: today.getFullYear() });
   const isStaff = user?.role !== 'client';
 
-  const load = () => {
+  const load = useCallback(() => {
     apiClient.get('/calendar', { params: { month: viewDate.month, year: viewDate.year } }).then((r) => {
       setEvents(r.data || []);
       logger.info('Calendar events loaded', { count: r.data?.length || 0, month: viewDate.month });
@@ -177,9 +177,9 @@ export default function CalendarView() {
     if (isStaff) {
       apiClient.get('/clients').then((r) => setClients(r.data || [])).catch((e) => logger.error('Failed to load clients', { error: e.message }));
     }
-  };
+  }, [viewDate, isStaff]);
 
-  useEffect(() => { load(); }, [viewDate]);
+  useEffect(() => { load(); }, [load]);
 
   const daysInMonth = new Date(viewDate.year, viewDate.month, 0).getDate();
   const firstDay = new Date(viewDate.year, viewDate.month - 1, 1).getDay();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
@@ -104,7 +104,7 @@ export default function AdsView() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const load = () => {
+  const load = useCallback(() => {
     apiClient.get('/ads').then((r) => {
       setAds(r.data || []);
       logger.info('Ads campaigns loaded', { count: r.data?.length || 0 });
@@ -112,9 +112,9 @@ export default function AdsView() {
     if (user?.role !== 'client') {
       apiClient.get('/clients').then((r) => setClients(r.data || [])).catch((e) => logger.error('Failed to load clients', { error: e.message }));
     }
-  };
+  }, [user]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const totalBudget = ads.reduce((s, a) => s + (a.budget || 0), 0);
   const totalSpent = ads.reduce((s, a) => s + (a.spent || 0), 0);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
@@ -134,7 +134,7 @@ export default function KPIView() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const load = () => {
+  const load = useCallback(() => {
     apiClient.get('/kpis').then((r) => {
       setKpis(r.data || []);
       logger.info('KPIs loaded', { count: r.data?.length || 0 });
@@ -142,9 +142,9 @@ export default function KPIView() {
     if (user?.role !== 'client') {
       apiClient.get('/clients').then((r) => setClients(r.data || [])).catch((e) => logger.error('Failed to load clients', { error: e.message }));
     }
-  };
+  }, [user]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const totalReach = kpis.reduce((s, k) => s + (k.reach || 0), 0);
   const avgEngagement = kpis.length ? (kpis.reduce((s, k) => s + (k.engagement_rate || 0), 0) / kpis.length).toFixed(1) : 0;
