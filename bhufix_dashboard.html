@@ -1,0 +1,1531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BhuFix — Agency Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #07080F;
+  --surface: rgba(255,255,255,0.04);
+  --surface2: rgba(255,255,255,0.07);
+  --glass: rgba(255,255,255,0.06);
+  --glass-border: rgba(255,255,255,0.1);
+  --gold: #E8C547;
+  --gold2: #F5D97A;
+  --cyan: #4DD9FF;
+  --violet: #A78BFA;
+  --rose: #F472B6;
+  --green: #34D399;
+  --text: #F0EEF8;
+  --muted: rgba(240,238,248,0.45);
+  --muted2: rgba(240,238,248,0.25);
+  --radius: 20px;
+  --radius-sm: 12px;
+}
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  cursor: default;
+}
+
+/* ── AMBIENT BACKGROUND ── */
+.ambient {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  overflow: hidden;
+}
+.orb {
+  position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.18;
+  animation: drift 14s ease-in-out infinite alternate;
+}
+.orb1 { width:600px; height:600px; background:#E8C547; top:-200px; left:-200px; animation-delay:0s; }
+.orb2 { width:500px; height:500px; background:#4DD9FF; top:30%; right:-150px; animation-delay:-5s; }
+.orb3 { width:400px; height:400px; background:#A78BFA; bottom:-100px; left:30%; animation-delay:-9s; }
+.orb4 { width:300px; height:300px; background:#F472B6; bottom:20%; right:20%; animation-delay:-3s; }
+
+@keyframes drift {
+  from { transform: translate(0,0) scale(1); }
+  to { transform: translate(40px, 30px) scale(1.08); }
+}
+
+/* ── LAYOUT ── */
+.layout { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 240px; flex-shrink: 0;
+  background: rgba(7,8,15,0.7);
+  backdrop-filter: blur(24px);
+  border-right: 1px solid var(--glass-border);
+  display: flex; flex-direction: column;
+  padding: 28px 16px;
+  position: fixed; top:0; left:0; height:100vh;
+  z-index: 100;
+  transition: transform 0.3s ease;
+}
+
+.logo-area {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 8px 28px;
+  border-bottom: 1px solid var(--glass-border);
+  margin-bottom: 24px;
+}
+
+.logo-mark {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--gold), var(--cyan));
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Syne', sans-serif;
+  font-weight: 800; font-size: 16px; color: #07080F;
+  box-shadow: 0 0 20px rgba(232,197,71,0.4);
+  flex-shrink: 0;
+}
+
+.logo-text { line-height: 1.2; }
+.logo-name { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; color: var(--text); }
+.logo-sub { font-size: 10px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; }
+
+.nav-label {
+  font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase;
+  color: var(--muted2); padding: 0 12px; margin-bottom: 8px; margin-top: 8px;
+}
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  cursor: pointer; transition: all 0.2s; margin-bottom: 2px;
+  border: 1px solid transparent;
+}
+
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active {
+  background: rgba(232,197,71,0.1);
+  border-color: rgba(232,197,71,0.25);
+  color: var(--gold);
+}
+
+.nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+.nav-badge {
+  margin-left: auto; background: var(--rose);
+  color: white; font-size: 9px; font-weight: 700;
+  padding: 2px 7px; border-radius: 20px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.user-chip {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  background: var(--surface); border-radius: 12px; border: 1px solid var(--glass-border);
+}
+.user-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--violet), var(--rose));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: white; flex-shrink: 0;
+}
+.user-name { font-size: 12px; font-weight: 600; color: var(--text); }
+.user-role { font-size: 10px; color: var(--muted); }
+
+/* ── MAIN ── */
+.main { margin-left: 240px; flex: 1; padding: 32px; min-height: 100vh; }
+
+/* ── TOPBAR ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 36px;
+}
+
+.topbar-left h1 {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: clamp(22px, 3vw, 30px);
+  background: linear-gradient(135deg, var(--text) 0%, var(--gold) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.topbar-left p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px; border-radius: 50px; font-size: 13px;
+  font-weight: 600; cursor: pointer; border: none; transition: all 0.25s;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold), #F5A623);
+  color: #07080F;
+  box-shadow: 0 4px 24px rgba(232,197,71,0.35);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(232,197,71,0.5); }
+
+.btn-glass {
+  background: var(--glass); border: 1px solid var(--glass-border);
+  color: var(--text); backdrop-filter: blur(12px);
+}
+.btn-glass:hover { background: var(--surface2); transform: translateY(-1px); }
+
+/* ── SECTION TITLE ── */
+.section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.section-title {
+  font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--text);
+}
+.section-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* ── STAT CARDS ── */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+
+.stat-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 22px 20px;
+  backdrop-filter: blur(20px);
+  position: relative; overflow: hidden;
+  transition: transform 0.3s, border-color 0.3s;
+}
+
+.stat-card::before {
+  content: ''; position: absolute;
+  top: -1px; left: 20px; right: 20px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+}
+
+.stat-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.18); }
+
+.stat-glow {
+  position: absolute; width: 80px; height: 80px; border-radius: 50%;
+  filter: blur(30px); opacity: 0.3; top: -10px; right: -10px;
+}
+
+.stat-icon { font-size: 20px; margin-bottom: 12px; }
+.stat-val {
+  font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800;
+  line-height: 1; margin-bottom: 4px;
+}
+.stat-label { font-size: 12px; color: var(--muted); }
+.stat-delta {
+  position: absolute; top: 20px; right: 20px;
+  font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px;
+}
+.delta-up { background: rgba(52,211,153,0.15); color: var(--green); }
+.delta-down { background: rgba(244,114,182,0.15); color: var(--rose); }
+
+/* ── GRID LAYOUT ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+.grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; margin-bottom: 28px; }
+.grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 28px; }
+
+/* ── CARD ── */
+.card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(20px);
+  padding: 24px;
+  position: relative; overflow: hidden;
+  transition: border-color 0.3s;
+}
+.card::before {
+  content: ''; position: absolute;
+  top: -1px; left: 15%; right: 15%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+}
+.card:hover { border-color: rgba(255,255,255,0.16); }
+
+/* ── CLIENT CARDS ── */
+.clients-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.client-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(20px);
+  padding: 20px;
+  position: relative; overflow: hidden;
+  transition: all 0.3s; cursor: pointer;
+}
+
+.client-card::before {
+  content: ''; position: absolute; top:0; left:0; right:0; height:2px;
+  opacity: 0; transition: opacity 0.3s;
+}
+
+.client-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(255,255,255,0.2);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+
+.client-card:hover::before { opacity: 1; }
+
+.client-card[data-level="Gold"]::before { background: linear-gradient(90deg, var(--gold), var(--gold2)); }
+.client-card[data-level="Platinum"]::before { background: linear-gradient(90deg, var(--cyan), var(--violet)); }
+.client-card[data-level="Silver"]::before { background: linear-gradient(90deg, #9CA3AF, #D1D5DB); }
+
+.client-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+
+.client-logo {
+  width: 48px; height: 48px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+.client-info { flex: 1; min-width: 0; }
+.client-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.client-industry { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.client-level {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; padding: 3px 10px; border-radius: 20px; flex-shrink: 0;
+}
+.level-gold { background: rgba(232,197,71,0.15); color: var(--gold); border: 1px solid rgba(232,197,71,0.3); }
+.level-platinum { background: rgba(77,217,255,0.1); color: var(--cyan); border: 1px solid rgba(77,217,255,0.25); }
+.level-silver { background: rgba(156,163,175,0.15); color: #D1D5DB; border: 1px solid rgba(156,163,175,0.3); }
+
+.client-metrics {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px; margin-bottom: 14px;
+}
+
+.metric-mini {
+  background: rgba(255,255,255,0.04); border-radius: 10px; padding: 10px 8px; text-align: center;
+}
+.metric-mini-val { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; }
+.metric-mini-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+.client-progress-label {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--muted); margin-bottom: 6px;
+}
+.progress-bar {
+  height: 4px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; border-radius: 4px;
+  transition: width 1s ease;
+}
+
+.client-footer {
+  display: flex; align-items: center; justify-content: space-between; margin-top: 14px;
+  padding-top: 14px; border-top: 1px solid var(--glass-border);
+}
+
+.client-started { font-size: 11px; color: var(--muted); }
+.client-actions { display: flex; gap: 6px; }
+
+.icon-btn {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--surface2); border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; cursor: pointer; transition: all 0.2s;
+}
+.icon-btn:hover { background: rgba(232,197,71,0.15); border-color: rgba(232,197,71,0.3); }
+
+/* ── CONTENT CALENDAR ── */
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 16px;
+}
+.cal-header-cell {
+  text-align: center; font-size: 10px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--muted2); padding: 6px 0;
+}
+.cal-cell {
+  min-height: 80px; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  padding: 8px; font-size: 11px; transition: all 0.2s; cursor: pointer;
+}
+.cal-cell:hover { border-color: rgba(232,197,71,0.3); background: rgba(232,197,71,0.04); }
+.cal-cell.today { border-color: rgba(232,197,71,0.5); background: rgba(232,197,71,0.06); }
+.cal-day-num { font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--muted); }
+.cal-cell.today .cal-day-num { color: var(--gold); }
+.cal-tag {
+  font-size: 9px; padding: 2px 5px; border-radius: 4px;
+  margin-bottom: 3px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ct-reel { background: rgba(244,114,182,0.2); color: var(--rose); }
+.ct-post { background: rgba(77,217,255,0.15); color: var(--cyan); }
+.ct-story { background: rgba(232,197,71,0.15); color: var(--gold); }
+.ct-ad { background: rgba(167,139,250,0.2); color: var(--violet); }
+
+/* ── ADS BUDGET TRACKER ── */
+.budget-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.budget-item:last-child { border-bottom: none; }
+.budget-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.budget-name { font-size: 13px; font-weight: 500; flex: 1; }
+.budget-platform { font-size: 10px; color: var(--muted); margin-top: 1px; }
+.budget-bar-wrap { flex: 2; }
+.budget-bar { height: 6px; background: rgba(255,255,255,0.07); border-radius: 6px; overflow: hidden; margin-bottom: 4px; }
+.budget-fill { height: 100%; border-radius: 6px; }
+.budget-nums { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+.budget-spent { font-size: 13px; font-weight: 700; text-align: right; min-width: 80px; }
+
+/* ── CHAT ── */
+.chat-wrap {
+  display: flex; flex-direction: column; height: 380px;
+}
+.chat-messages {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 0 12px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+.chat-msg { display: flex; gap: 10px; }
+.chat-msg.me { flex-direction: row-reverse; }
+.chat-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
+}
+.chat-bubble {
+  max-width: 70%; padding: 10px 14px; border-radius: 16px; font-size: 13px; line-height: 1.5;
+}
+.chat-msg:not(.me) .chat-bubble {
+  background: var(--surface2); border: 1px solid var(--glass-border);
+  border-radius: 4px 16px 16px 16px;
+}
+.chat-msg.me .chat-bubble {
+  background: linear-gradient(135deg, rgba(232,197,71,0.2), rgba(245,169,35,0.15));
+  border: 1px solid rgba(232,197,71,0.25);
+  border-radius: 16px 4px 16px 16px;
+}
+.chat-time { font-size: 9px; color: var(--muted2); margin-top: 4px; }
+.chat-input-area {
+  display: flex; gap: 10px; align-items: center; padding-top: 12px;
+  border-top: 1px solid var(--glass-border);
+}
+.chat-input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--glass-border);
+  border-radius: 50px; padding: 10px 18px; font-size: 13px;
+  color: var(--text); font-family: 'DM Sans', sans-serif; outline: none;
+  transition: border-color 0.2s;
+}
+.chat-input:focus { border-color: rgba(232,197,71,0.4); }
+.chat-input::placeholder { color: var(--muted2); }
+.send-btn {
+  width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
+  background: linear-gradient(135deg, var(--gold), #F5A623);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(232,197,71,0.35);
+}
+.send-btn:hover { transform: scale(1.1); box-shadow: 0 6px 24px rgba(232,197,71,0.5); }
+
+/* ── STRATEGY / KPI TABLE ── */
+.kpi-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.kpi-row:last-child { border-bottom: none; }
+.kpi-platform { display: flex; align-items: center; gap: 10px; }
+.kpi-platform-icon { font-size: 18px; width: 32px; }
+.kpi-platform-name { font-size: 13px; font-weight: 600; }
+.kpi-platform-sub { font-size: 11px; color: var(--muted); }
+.kpi-metrics { display: flex; gap: 24px; text-align: right; }
+.kpi-val-wrap { }
+.kpi-num { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; }
+.kpi-unit { font-size: 10px; color: var(--muted); }
+
+/* ── DRIVE LINKS ── */
+.drive-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px; border-radius: 12px; background: var(--surface);
+  border: 1px solid var(--glass-border); margin-bottom: 8px;
+  cursor: pointer; transition: all 0.2s;
+  text-decoration: none;
+}
+.drive-item:hover { border-color: rgba(77,217,255,0.3); background: rgba(77,217,255,0.05); }
+.drive-icon { font-size: 22px; }
+.drive-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.drive-meta { font-size: 11px; color: var(--muted); }
+.drive-badge {
+  margin-left: auto; font-size: 10px; padding: 3px 8px; border-radius: 20px;
+  background: rgba(52,211,153,0.15); color: var(--green);
+}
+
+/* ── POSTING TIME WHEEL ── */
+.time-slots { display: flex; flex-direction: column; gap: 8px; }
+.time-slot {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  border-radius: 10px; background: var(--surface);
+  border: 1px solid var(--glass-border);
+}
+.time-slot-time { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; min-width: 70px; }
+.time-slot-label { font-size: 12px; color: var(--muted); flex: 1; }
+.time-slot-score { display: flex; gap: 2px; }
+.dot-score { width: 6px; height: 6px; border-radius: 50%; }
+.dot-filled { background: var(--gold); }
+.dot-empty { background: rgba(255,255,255,0.1); }
+.best-tag { font-size: 10px; background: rgba(232,197,71,0.15); color: var(--gold); padding: 2px 8px; border-radius: 20px; }
+
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(7,8,15,0.85); backdrop-filter: blur(8px);
+  display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: #0D0E1A;
+  border: 1px solid var(--glass-border);
+  border-radius: 24px; padding: 32px; width: 100%; max-width: 560px;
+  position: relative; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.6);
+  animation: modalIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes modalIn {
+  from { opacity:0; transform: scale(0.92) translateY(20px); }
+  to { opacity:1; transform: scale(1) translateY(0); }
+}
+.modal-close {
+  position: absolute; top: 20px; right: 20px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--surface2); border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px; color: var(--muted);
+  transition: all 0.2s;
+}
+.modal-close:hover { background: rgba(244,114,182,0.15); color: var(--rose); }
+.modal h2 { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; margin-bottom: 24px; }
+.form-row { margin-bottom: 16px; }
+.form-label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; display: block; }
+.form-input, .form-select {
+  width: 100%; background: var(--surface2); border: 1px solid var(--glass-border);
+  border-radius: 12px; padding: 12px 16px; font-size: 14px;
+  color: var(--text); font-family: 'DM Sans', sans-serif; outline: none;
+  transition: border-color 0.2s;
+}
+.form-input:focus, .form-select:focus { border-color: rgba(232,197,71,0.5); }
+.form-select option { background: #0D0E1A; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-actions { display: flex; gap: 12px; margin-top: 24px; }
+
+/* ── TABS ── */
+.tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--surface); border-radius: 12px; padding: 4px; }
+.tab {
+  padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  cursor: pointer; color: var(--muted); transition: all 0.2s;
+}
+.tab.active { background: var(--glass); color: var(--text); border: 1px solid var(--glass-border); }
+
+/* ── NOTIFICATIONS ── */
+.notif-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.notif-text { font-size: 13px; line-height: 1.5; }
+.notif-time { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.notif-unread .notif-text { color: var(--text); font-weight: 500; }
+.notif-read .notif-text { color: var(--muted); }
+
+/* ── STRATEGY PILLARS ── */
+.pillar-mini {
+  background: var(--surface); border: 1px solid var(--glass-border);
+  border-radius: 12px; padding: 14px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 12px;
+}
+.pillar-emoji { font-size: 20px; }
+.pillar-info { flex: 1; }
+.pillar-title { font-size: 13px; font-weight: 600; }
+.pillar-freq { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.pillar-status { font-size: 10px; padding: 3px 8px; border-radius: 20px; }
+.s-active { background: rgba(52,211,153,0.15); color: var(--green); }
+.s-pending { background: rgba(232,197,71,0.15); color: var(--gold); }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* ── SECTION VIEWS ── */
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── PAGE ENTRANCE ── */
+@keyframes pageIn {
+  from { opacity:0; transform: translateY(16px); }
+  to { opacity:1; transform: translateY(0); }
+}
+.view.active { animation: pageIn 0.4s ease both; }
+
+/* ── FLOATING PARTICLES ── */
+.particle {
+  position: fixed; width: 2px; height: 2px; background: var(--gold);
+  border-radius: 50%; pointer-events: none; opacity: 0;
+  animation: particle-float 8s ease-in-out infinite;
+}
+@keyframes particle-float {
+  0% { opacity:0; transform: translateY(100vh) translateX(0); }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.2; }
+  100% { opacity:0; transform: translateY(-10vh) translateX(60px); }
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1200px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 900px) {
+  .sidebar { transform: translateX(-100%); }
+  .main { margin-left: 0; padding: 20px; }
+  .grid-2, .grid-1-2, .grid-2-1 { grid-template-columns: 1fr; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .cal-grid { grid-template-columns: repeat(4, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- AMBIENT -->
+<div class="ambient">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+  <div class="orb orb4"></div>
+</div>
+
+<!-- PARTICLES -->
+<div class="particle" style="left:15%; animation-delay:0s; animation-duration:10s;"></div>
+<div class="particle" style="left:35%; animation-delay:-3s; animation-duration:12s; background: var(--cyan);"></div>
+<div class="particle" style="left:65%; animation-delay:-6s; animation-duration:9s; background: var(--violet);"></div>
+<div class="particle" style="left:85%; animation-delay:-9s; animation-duration:11s;"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="logo-area">
+    <div class="logo-mark">B</div>
+    <div class="logo-text">
+      <div class="logo-name">BhuFix</div>
+      <div class="logo-sub">Command Center</div>
+    </div>
+  </div>
+
+  <div class="nav-label">Main</div>
+  <div class="nav-item active" onclick="showView('dashboard')">
+    <span class="nav-icon">⚡</span> Dashboard
+  </div>
+  <div class="nav-item" onclick="showView('clients')">
+    <span class="nav-icon">👥</span> Clients
+    <span class="nav-badge">12</span>
+  </div>
+  <div class="nav-item" onclick="showView('calendar')">
+    <span class="nav-icon">📅</span> Content Calendar
+  </div>
+  <div class="nav-item" onclick="showView('ads')">
+    <span class="nav-icon">📊</span> Meta Ads
+  </div>
+
+  <div class="nav-label">Work</div>
+  <div class="nav-item" onclick="showView('strategy')">
+    <span class="nav-icon">🎯</span> Strategy Hub
+  </div>
+  <div class="nav-item" onclick="showView('drive')">
+    <span class="nav-icon">📁</span> Drive Links
+  </div>
+  <div class="nav-item" onclick="showView('chat')">
+    <span class="nav-icon">💬</span> Team Chat
+    <span class="nav-badge" style="background:var(--cyan);">3</span>
+  </div>
+
+  <div class="nav-label">Settings</div>
+  <div class="nav-item" onclick="showView('kpi')">
+    <span class="nav-icon">📈</span> KPI Tracker
+  </div>
+  <div class="nav-item">
+    <span class="nav-icon">⚙️</span> Settings
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="user-chip">
+      <div class="user-avatar">BF</div>
+      <div>
+        <div class="user-name">BhuFix Admin</div>
+        <div class="user-role">Super Admin</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ═══════════════════ DASHBOARD VIEW ═══════════════════ -->
+  <div class="view active" id="view-dashboard">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Good Morning, BhuFix ☀️</h1>
+        <p>Friday, 10 April 2026 · 12 active clients · 4 posts due today</p>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-glass" onclick="showView('clients')">👥 View Clients</button>
+        <button class="btn btn-primary" onclick="openModal()">＋ Add Client</button>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-glow" style="background: var(--gold);"></div>
+        <div class="stat-icon">👥</div>
+        <div class="stat-val" style="color: var(--gold);">12</div>
+        <div class="stat-label">Active Clients</div>
+        <span class="stat-delta delta-up">+2 this month</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-glow" style="background: var(--cyan);"></div>
+        <div class="stat-icon">🎬</div>
+        <div class="stat-val" style="color: var(--cyan);">48</div>
+        <div class="stat-label">Reels Delivered</div>
+        <span class="stat-delta delta-up">+12 vs last month</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-glow" style="background: var(--violet);"></div>
+        <div class="stat-icon">💰</div>
+        <div class="stat-val" style="color: var(--violet);">₹2.4L</div>
+        <div class="stat-label">Total Ad Spend</div>
+        <span class="stat-delta delta-up">On budget</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-glow" style="background: var(--green);"></div>
+        <div class="stat-icon">📈</div>
+        <div class="stat-val" style="color: var(--green);">94%</div>
+        <div class="stat-label">Client Satisfaction</div>
+        <span class="stat-delta delta-up">↑ 6% vs last</span>
+      </div>
+    </div>
+
+    <!-- MIDDLE ROW -->
+    <div class="grid-2-1">
+      <!-- RECENT CLIENTS -->
+      <div class="card">
+        <div class="section-head">
+          <div>
+            <div class="section-title">Recent Clients</div>
+            <div class="section-sub">Latest onboarded accounts</div>
+          </div>
+          <button class="btn btn-glass" style="font-size:12px; padding:7px 14px;" onclick="showView('clients')">View All</button>
+        </div>
+        <div id="recent-clients-list"></div>
+      </div>
+
+      <!-- NOTIFICATIONS -->
+      <div class="card">
+        <div class="section-head">
+          <div>
+            <div class="section-title">Alerts</div>
+            <div class="section-sub">Today's tasks</div>
+          </div>
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--rose);box-shadow:0 0 8px var(--rose);"></div>
+        </div>
+        <div class="notif-item notif-unread">
+          <div class="notif-dot" style="background:var(--rose);"></div>
+          <div>
+            <div class="notif-text">Vaibha Wedding — Reel due for posting at 7PM</div>
+            <div class="notif-time">Today</div>
+          </div>
+        </div>
+        <div class="notif-item notif-unread">
+          <div class="notif-dot" style="background:var(--gold);"></div>
+          <div>
+            <div class="notif-text">Meta Ads budget for TechNova hitting 80%</div>
+            <div class="notif-time">2 hrs ago</div>
+          </div>
+        </div>
+        <div class="notif-item notif-unread">
+          <div class="notif-dot" style="background:var(--cyan);"></div>
+          <div>
+            <div class="notif-text">New team chat message from Rahul</div>
+            <div class="notif-time">45 min ago</div>
+          </div>
+        </div>
+        <div class="notif-item notif-read">
+          <div class="notif-dot" style="background:var(--muted2);"></div>
+          <div>
+            <div class="notif-text">GlowSkin content calendar approved ✓</div>
+            <div class="notif-time">Yesterday</div>
+          </div>
+        </div>
+        <div class="notif-item notif-read">
+          <div class="notif-dot" style="background:var(--muted2);"></div>
+          <div>
+            <div class="notif-text">Monthly report for FitFuel sent</div>
+            <div class="notif-time">Yesterday</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW -->
+    <div class="grid-2">
+      <!-- TODAY'S POSTING TIMES -->
+      <div class="card">
+        <div class="section-head">
+          <div>
+            <div class="section-title">⏰ Best Posting Times</div>
+            <div class="section-sub">Optimal slots for today (IST)</div>
+          </div>
+        </div>
+        <div class="time-slots">
+          <div class="time-slot">
+            <div class="time-slot-time" style="color:var(--cyan);">7:00 AM</div>
+            <div class="time-slot-label">Morning peak — max early scrollers</div>
+            <div class="time-slot-score">
+              <div class="dot-score dot-filled"></div><div class="dot-score dot-filled"></div><div class="dot-score dot-filled"></div><div class="dot-score dot-filled"></div><div class="dot-score dot-filled"></div>
+            </div>
+            <span class="best-tag">🔥 Best</span>
+          </div>
+          <div class="time-slot">
+            <div class="time-slot-time" style="color:var(--gold);">12:30 PM</div>
+            <div class="time-slot-label">Lunch break — high engagement window</div>
+            <div class="time-slot-score">
+              <div class="dot-score dot-filled"></div><div class="dot-score dot-filled"></div><div class="dot-score dot-filled"></div><div class="dot-score dot-filled"></div><div class="dot-score dot-empty"></div>
+            </div>
+          </div>
+          <div class="time-slot">
+            <div class="time-slot-time" style="color:var(--violet);">7:30 PM</div>
+            <div class="time-slot-label">Evening scroll — commute + relax time</div>
+            <div class="time-slot-score">
+              <div class="dot-score dot-filled"></div><div class="dot-score dot-filled"></div><div class="dot-score dot-filled"></div><div class="dot-score dot-filled"></div><div class="dot-score dot-filled"></div>
+            </div>
+            <span class="best-tag">🔥 Best</span>
+          </div>
+          <div class="time-slot">
+            <div class="time-slot-time" style="color:var(--muted);">10:00 PM</div>
+            <div class="time-slot-label">Late night — niche audience only</div>
+            <div class="time-slot-score">
+              <div class="dot-score dot-filled"></div><div class="dot-score dot-filled"></div><div class="dot-score dot-empty"></div><div class="dot-score dot-empty"></div><div class="dot-score dot-empty"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- QUICK STRATEGY OVERVIEW -->
+      <div class="card">
+        <div class="section-head">
+          <div>
+            <div class="section-title">🎯 Active Strategies</div>
+            <div class="section-sub">Content pillars live this month</div>
+          </div>
+        </div>
+        <div class="pillar-mini">
+          <span class="pillar-emoji">🎬</span>
+          <div class="pillar-info">
+            <div class="pillar-title">Reveal Reels</div>
+            <div class="pillar-freq">4× per week · All clients</div>
+          </div>
+          <span class="pillar-status s-active">Active</span>
+        </div>
+        <div class="pillar-mini">
+          <span class="pillar-emoji">📖</span>
+          <div class="pillar-info">
+            <div class="pillar-title">Educational Content</div>
+            <div class="pillar-freq">2× per week · Selected clients</div>
+          </div>
+          <span class="pillar-status s-active">Active</span>
+        </div>
+        <div class="pillar-mini">
+          <span class="pillar-emoji">💬</span>
+          <div class="pillar-info">
+            <div class="pillar-title">Testimonial Posts</div>
+            <div class="pillar-freq">1× per week · All clients</div>
+          </div>
+          <span class="pillar-status s-active">Active</span>
+        </div>
+        <div class="pillar-mini">
+          <span class="pillar-emoji">🤝</span>
+          <div class="pillar-info">
+            <div class="pillar-title">Vendor Collabs</div>
+            <div class="pillar-freq">1× per week · Gold clients</div>
+          </div>
+          <span class="pillar-status s-pending">In Progress</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ CLIENTS VIEW ═══════════════════ -->
+  <div class="view" id="view-clients">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Client Profiles</h1>
+        <p>All your clients in one place — click any card to manage</p>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-glass">🔍 Search</button>
+        <button class="btn btn-primary" onclick="openModal()">＋ Add Client</button>
+      </div>
+    </div>
+    <div class="clients-grid" id="clients-grid"></div>
+  </div>
+
+  <!-- ═══════════════════ CALENDAR VIEW ═══════════════════ -->
+  <div class="view" id="view-calendar">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Content Calendar</h1>
+        <p>April 2026 · Plan, schedule and track all content</p>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-glass">← March</button>
+        <button class="btn btn-glass">May →</button>
+        <button class="btn btn-primary">＋ Add Post</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="cal-grid">
+        <div class="cal-header-cell">MON</div>
+        <div class="cal-header-cell">TUE</div>
+        <div class="cal-header-cell">WED</div>
+        <div class="cal-header-cell">THU</div>
+        <div class="cal-header-cell">FRI</div>
+        <div class="cal-header-cell">SAT</div>
+        <div class="cal-header-cell">SUN</div>
+      </div>
+      <div class="cal-grid" id="cal-body"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ ADS VIEW ═══════════════════ -->
+  <div class="view" id="view-ads">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Meta Ads Tracker</h1>
+        <p>April 2026 · Monthly ad budget overview per client</p>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-primary">＋ Add Campaign</button>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="stat-card" style="padding:24px;">
+        <div class="stat-glow" style="background:var(--gold);"></div>
+        <div class="stat-icon">💰</div>
+        <div class="stat-val" style="color:var(--gold);">₹2,40,000</div>
+        <div class="stat-label">Total Monthly Budget</div>
+        <span class="stat-delta delta-up">All clients combined</span>
+      </div>
+      <div class="stat-card" style="padding:24px;">
+        <div class="stat-glow" style="background:var(--rose);"></div>
+        <div class="stat-icon">📉</div>
+        <div class="stat-val" style="color:var(--rose);">₹1,62,000</div>
+        <div class="stat-label">Spent So Far</div>
+        <span class="stat-delta delta-up">67.5% of budget</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-head">
+        <div>
+          <div class="section-title">Client-wise Ad Spend</div>
+          <div class="section-sub">April 2026 · Resets on 1st May</div>
+        </div>
+      </div>
+      <div id="ads-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ STRATEGY VIEW ═══════════════════ -->
+  <div class="view" id="view-strategy">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Strategy Hub</h1>
+        <p>Content pillars, hooks, funnels and plans for all clients</p>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" onclick="setTab(this,'pillars')">Content Pillars</div>
+      <div class="tab" onclick="setTab(this,'hooks')">Hook Library</div>
+      <div class="tab" onclick="setTab(this,'funnel')">Ad Funnels</div>
+    </div>
+
+    <div id="tab-pillars">
+      <div class="grid-3">
+        <div class="card" style="border-color:rgba(232,197,71,0.3);">
+          <div style="font-size:32px;margin-bottom:12px;">🎬</div>
+          <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">The Reveal</div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:14px;">Empty → magical transformation. Highest save rate. Must post 4× weekly.</div>
+          <span style="font-size:11px;background:rgba(232,197,71,0.12);color:var(--gold);padding:4px 10px;border-radius:20px;">4× per week</span>
+        </div>
+        <div class="card" style="border-color:rgba(77,217,255,0.25);">
+          <div style="font-size:32px;margin-bottom:12px;">🎥</div>
+          <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">Behind The Scenes</div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:14px;">Team, chaos, effort. Builds trust and emotional connection with audience.</div>
+          <span style="font-size:11px;background:rgba(77,217,255,0.1);color:var(--cyan);padding:4px 10px;border-radius:20px;">3× per week</span>
+        </div>
+        <div class="card" style="border-color:rgba(167,139,250,0.25);">
+          <div style="font-size:32px;margin-bottom:12px;">💬</div>
+          <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">Testimonials</div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:14px;">Real client reactions. Most shareable emotional content. Goes viral organically.</div>
+          <span style="font-size:11px;background:rgba(167,139,250,0.12);color:var(--violet);padding:4px 10px;border-radius:20px;">1× per week</span>
+        </div>
+        <div class="card" style="border-color:rgba(52,211,153,0.2);">
+          <div style="font-size:32px;margin-bottom:12px;">📚</div>
+          <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">Education</div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:14px;">Tips, mistakes to avoid, planning guides. Heavy saves & shares = algorithm boost.</div>
+          <span style="font-size:11px;background:rgba(52,211,153,0.12);color:var(--green);padding:4px 10px;border-radius:20px;">2× per week</span>
+        </div>
+        <div class="card" style="border-color:rgba(244,114,182,0.2);">
+          <div style="font-size:32px;margin-bottom:12px;">🤝</div>
+          <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:8px;">Collabs</div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:14px;">Tag vendors, feature couples, collab with photographers. Reaches new audiences instantly.</div>
+          <span style="font-size:11px;background:rgba(244,114,182,0.12);color:var(--rose);padding:4px 10px;border-radius:20px;">1× per week</span>
+        </div>
+        <div class="card" style="border-color:rgba(232,197,71,0.2); border-style: dashed; display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;cursor:pointer;min-height:160px;">
+          <div style="font-size:28px;color:var(--muted2);">＋</div>
+          <div style="font-size:13px;color:var(--muted);">Add New Pillar</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-hooks" style="display:none;">
+      <div class="card">
+        <div class="section-head"><div class="section-title">🪝 Hook Template Library</div></div>
+        <div id="hook-list"></div>
+      </div>
+    </div>
+
+    <div id="tab-funnel" style="display:none;">
+      <div class="card">
+        <div class="section-head"><div class="section-title">📣 3-Stage Meta Ads Funnel</div></div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
+          <div style="width:100%;max-width:560px;background:rgba(77,217,255,0.06);border:1px solid rgba(77,217,255,0.2);border-radius:16px;padding:24px;margin-bottom:0;">
+            <span style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--cyan);font-weight:700;">🟦 TOP OF FUNNEL — Awareness</span>
+            <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin:10px 0 8px;">Reach New People</div>
+            <div style="font-size:13px;color:var(--muted);line-height:1.7;">Objective: Video Views. Boost your best Reveal Reels. Target engaged couples, wedding interests, age 22–38, local city + 50km. Budget: ₹200–300/day.</div>
+          </div>
+          <div style="width:2px;height:28px;background:linear-gradient(to bottom,var(--cyan),var(--gold));margin:0 auto;"></div>
+          <div style="width:100%;max-width:560px;background:rgba(232,197,71,0.06);border:1px solid rgba(232,197,71,0.2);border-radius:16px;padding:24px;">
+            <span style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;">🟨 MID FUNNEL — Consideration</span>
+            <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin:10px 0 8px;">Retarget Warm Audience</div>
+            <div style="font-size:13px;color:var(--muted);line-height:1.7;">Objective: Engagement. Target profile visitors + video viewers (last 30 days). Show carousel of best event transformations. Budget: ₹150–200/day.</div>
+          </div>
+          <div style="width:2px;height:28px;background:linear-gradient(to bottom,var(--gold),var(--green));margin:0 auto;"></div>
+          <div style="width:100%;max-width:560px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.2);border-radius:16px;padding:24px;">
+            <span style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--green);font-weight:700;">🟩 BOTTOM FUNNEL — Conversion</span>
+            <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin:10px 0 8px;">Convert to Clients</div>
+            <div style="font-size:13px;color:var(--muted);line-height:1.7;">Objective: Messages / Lead Gen. Testimonial video + strong CTA. Retarget engaged users (last 60 days). Budget: ₹100–150/day.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ DRIVE VIEW ═══════════════════ -->
+  <div class="view" id="view-drive">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Drive Links</h1>
+        <p>Google Drive folders — one per client, all in one place</p>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-primary">＋ Add Link</button>
+      </div>
+    </div>
+    <div class="card">
+      <div id="drive-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ CHAT VIEW ═══════════════════ -->
+  <div class="view" id="view-chat">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Team Chat</h1>
+        <p>Live internal messaging — BhuFix command center</p>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-head">
+          <div class="section-title">💬 #general</div>
+        </div>
+        <div class="chat-wrap">
+          <div class="chat-messages" id="chat-messages">
+            <div class="chat-msg">
+              <div class="chat-avatar" style="background:linear-gradient(135deg,var(--violet),var(--rose));">R</div>
+              <div>
+                <div class="chat-bubble">Hey team! Vaibha Wedding reel is ready for review. Can someone check before we post at 7PM?</div>
+                <div class="chat-time">Rahul · 10:30 AM</div>
+              </div>
+            </div>
+            <div class="chat-msg">
+              <div class="chat-avatar" style="background:linear-gradient(135deg,var(--cyan),var(--green));">P</div>
+              <div>
+                <div class="chat-bubble">On it! Reviewing now 🔥</div>
+                <div class="chat-time">Priya · 10:34 AM</div>
+              </div>
+            </div>
+            <div class="chat-msg">
+              <div class="chat-avatar" style="background:linear-gradient(135deg,var(--gold),#F5A623);">A</div>
+              <div>
+                <div class="chat-bubble">TechNova ad budget is at 80% — should we pause or request more from client?</div>
+                <div class="chat-time">Arjun · 11:15 AM</div>
+              </div>
+            </div>
+            <div class="chat-msg me">
+              <div class="chat-avatar" style="background:linear-gradient(135deg,var(--gold),var(--rose));">B</div>
+              <div>
+                <div class="chat-bubble">Request more — their results are great. Send them the ROAS report first 📊</div>
+                <div class="chat-time">You · 11:22 AM</div>
+              </div>
+            </div>
+            <div class="chat-msg">
+              <div class="chat-avatar" style="background:linear-gradient(135deg,var(--violet),var(--rose));">R</div>
+              <div>
+                <div class="chat-bubble">GlowSkin testimonial reel got 45K views overnight! Client is thrilled 🙌</div>
+                <div class="chat-time">Rahul · 12:05 PM</div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <input class="chat-input" id="chat-input" placeholder="Message the team…" onkeypress="handleChat(event)">
+            <button class="send-btn" onclick="sendChat()">➤</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-head"><div class="section-title">👤 Team Members Online</div></div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border-radius:12px;border:1px solid var(--glass-border);">
+            <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--rose));display:flex;align-items:center;justify-content:center;font-weight:700;position:relative;">R<span style="position:absolute;bottom:0;right:0;width:10px;height:10px;background:var(--green);border-radius:50%;border:2px solid #07080F;"></span></div>
+            <div><div style="font-size:13px;font-weight:600;">Rahul Sharma</div><div style="font-size:11px;color:var(--muted);">Content Manager · 🟢 Online</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border-radius:12px;border:1px solid var(--glass-border);">
+            <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--green));display:flex;align-items:center;justify-content:center;font-weight:700;position:relative;">P<span style="position:absolute;bottom:0;right:0;width:10px;height:10px;background:var(--green);border-radius:50%;border:2px solid #07080F;"></span></div>
+            <div><div style="font-size:13px;font-weight:600;">Priya Verma</div><div style="font-size:11px;color:var(--muted);">Video Editor · 🟢 Online</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border-radius:12px;border:1px solid var(--glass-border);">
+            <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--gold),#F5A623);display:flex;align-items:center;justify-content:center;font-weight:700;position:relative;">A<span style="position:absolute;bottom:0;right:0;width:10px;height:10px;background:var(--gold);border-radius:50%;border:2px solid #07080F;"></span></div>
+            <div><div style="font-size:13px;font-weight:600;">Arjun Mehta</div><div style="font-size:11px;color:var(--muted);">Ads Manager · 🟡 Away</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border-radius:12px;border:1px solid var(--glass-border);">
+            <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--rose),var(--violet));display:flex;align-items:center;justify-content:center;font-weight:700;position:relative;">S<span style="position:absolute;bottom:0;right:0;width:10px;height:10px;background:rgba(255,255,255,0.2);border-radius:50%;border:2px solid #07080F;"></span></div>
+            <div><div style="font-size:13px;font-weight:600;">Sneha Das</div><div style="font-size:11px;color:var(--muted);">Strategist · ⚫ Offline</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ KPI VIEW ═══════════════════ -->
+  <div class="view" id="view-kpi">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>KPI Tracker</h1>
+        <p>Monthly performance targets vs actuals — all clients</p>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-glow" style="background:var(--cyan);"></div>
+        <div class="stat-icon">👁️</div>
+        <div class="stat-val" style="color:var(--cyan);">4.2M</div>
+        <div class="stat-label">Total Reach</div>
+        <span class="stat-delta delta-up">↑ 38%</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-glow" style="background:var(--rose);"></div>
+        <div class="stat-icon">❤️</div>
+        <div class="stat-val" style="color:var(--rose);">6.4%</div>
+        <div class="stat-label">Avg Engagement</div>
+        <span class="stat-delta delta-up">↑ 1.2%</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-glow" style="background:var(--violet);"></div>
+        <div class="stat-icon">💬</div>
+        <div class="stat-val" style="color:var(--violet);">384</div>
+        <div class="stat-label">DM Inquiries</div>
+        <span class="stat-delta delta-up">↑ 22%</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-glow" style="background:var(--green);"></div>
+        <div class="stat-icon">🤝</div>
+        <div class="stat-val" style="color:var(--green);">47</div>
+        <div class="stat-label">New Bookings</div>
+        <span class="stat-delta delta-up">↑ 15%</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-head"><div class="section-title">Platform KPIs — April 2026</div></div>
+      <div class="kpi-row">
+        <div class="kpi-platform">
+          <div class="kpi-platform-icon">📸</div>
+          <div><div class="kpi-platform-name">Instagram</div><div class="kpi-platform-sub">All clients combined</div></div>
+        </div>
+        <div class="kpi-metrics">
+          <div class="kpi-val-wrap"><div class="kpi-num" style="color:var(--rose);">2.8M</div><div class="kpi-unit">Reach</div></div>
+          <div class="kpi-val-wrap"><div class="kpi-num" style="color:var(--gold);">7.2%</div><div class="kpi-unit">Engagement</div></div>
+          <div class="kpi-val-wrap"><div class="kpi-num" style="color:var(--green);">+18.4K</div><div class="kpi-unit">Followers</div></div>
+        </div>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi-platform">
+          <div class="kpi-platform-icon">🎵</div>
+          <div><div class="kpi-platform-name">TikTok</div><div class="kpi-platform-sub">Selected clients</div></div>
+        </div>
+        <div class="kpi-metrics">
+          <div class="kpi-val-wrap"><div class="kpi-num" style="color:var(--rose);">980K</div><div class="kpi-unit">Reach</div></div>
+          <div class="kpi-val-wrap"><div class="kpi-num" style="color:var(--gold);">9.1%</div><div class="kpi-unit">Engagement</div></div>
+          <div class="kpi-val-wrap"><div class="kpi-num" style="color:var(--green);">+6.2K</div><div class="kpi-unit">Followers</div></div>
+        </div>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi-platform">
+          <div class="kpi-platform-icon">💼</div>
+          <div><div class="kpi-platform-name">LinkedIn</div><div class="kpi-platform-sub">Corporate clients</div></div>
+        </div>
+        <div class="kpi-metrics">
+          <div class="kpi-val-wrap"><div class="kpi-num" style="color:var(--rose);">240K</div><div class="kpi-unit">Reach</div></div>
+          <div class="kpi-val-wrap"><div class="kpi-num" style="color:var(--gold);">3.8%</div><div class="kpi-unit">Engagement</div></div>
+          <div class="kpi-val-wrap"><div class="kpi-num" style="color:var(--green);">+1.1K</div><div class="kpi-unit">Followers</div></div>
+        </div>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi-platform">
+          <div class="kpi-platform-icon">▶️</div>
+          <div><div class="kpi-platform-name">YouTube Shorts</div><div class="kpi-platform-sub">Premium clients</div></div>
+        </div>
+        <div class="kpi-metrics">
+          <div class="kpi-val-wrap"><div class="kpi-num" style="color:var(--rose);">180K</div><div class="kpi-unit">Views</div></div>
+          <div class="kpi-val-wrap"><div class="kpi-num" style="color:var(--gold);">4.5%</div><div class="kpi-unit">Engagement</div></div>
+          <div class="kpi-val-wrap"><div class="kpi-num" style="color:var(--green);">+850</div><div class="kpi-unit">Subscribers</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ADD CLIENT MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-close" onclick="closeModal()">✕</div>
+    <h2>➕ Add New Client</h2>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">Client Name</label>
+        <input class="form-input" id="f-name" placeholder="e.g. Vaibha Wedding">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Industry</label>
+        <input class="form-input" id="f-industry" placeholder="e.g. Wedding & Events">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label class="form-label">Project Level</label>
+        <select class="form-select" id="f-level">
+          <option>Gold</option>
+          <option>Platinum</option>
+          <option>Silver</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Month Started</label>
+        <input class="form-input" id="f-start" type="month" value="2026-04">
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Monthly Ad Budget (₹)</label>
+      <input class="form-input" id="f-budget" placeholder="e.g. 20000">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Google Drive Link</label>
+      <input class="form-input" id="f-drive" placeholder="https://drive.google.com/…">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Instagram Handle</label>
+      <input class="form-input" id="f-insta" placeholder="@vaibha_wedding">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Logo Emoji / Initials</label>
+      <input class="form-input" id="f-logo" placeholder="e.g. VW or 💍">
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-glass" onclick="closeModal()" style="flex:1;">Cancel</button>
+      <button class="btn btn-primary" onclick="addClient()" style="flex:2;">✦ Add Client</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──
+const clients = [
+  { name:"Vaibha Wedding", industry:"Wedding & Events", level:"Gold", start:"Apr 2026", logo:"💍", color:"#E8C547", followers:"2.4K", reels:12, budget:20000, spent:14000, drive:"https://drive.google.com", insta:"@vaibha_wedding", progress:68 },
+  { name:"GlowSkin Studio", industry:"Beauty & Skincare", level:"Platinum", start:"Feb 2026", logo:"✨", color:"#A78BFA", followers:"18K", reels:28, budget:35000, spent:28000, drive:"https://drive.google.com", insta:"@glowskin_studio", progress:80 },
+  { name:"TechNova Labs", industry:"Tech Startup", level:"Platinum", start:"Jan 2026", logo:"🚀", color:"#4DD9FF", followers:"9.2K", reels:34, budget:45000, spent:38000, drive:"https://drive.google.com", insta:"@technova_labs", progress:84 },
+  { name:"FitFuel Nutrition", industry:"Health & Wellness", level:"Gold", start:"Mar 2026", logo:"💪", color:"#34D399", followers:"5.1K", reels:20, budget:18000, spent:9000, drive:"https://drive.google.com", insta:"@fitfuel_official", progress:50 },
+  { name:"Casa Decor", industry:"Interior Design", level:"Silver", start:"Mar 2026", logo:"🏡", color:"#F472B6", followers:"3.8K", reels:16, budget:12000, spent:7000, drive:"https://drive.google.com", insta:"@casa_decor_in", progress:58 },
+  { name:"RoyalBites Cafe", industry:"Food & Beverage", level:"Gold", start:"Feb 2026", logo:"☕", color:"#E8C547", followers:"7.3K", reels:22, budget:15000, spent:11000, drive:"https://drive.google.com", insta:"@royalbites_cafe", progress:73 },
+];
+
+const hooks = [
+  { title:"The 'Before I Show You' Hook", body:"Builds anticipation. Best for reveals.", example:'"Before I show you how this venue looked 6 hours ago, take a deep breath… 😮"' },
+  { title:"The Controversy Hook", body:"Sparks comments = algorithm loves it.", example:'"Unpopular opinion: Most wedding planners are charging you for things they don\'t do 👀"' },
+  { title:"The POV Hook", body:"Puts viewer inside the experience. High watch time.", example:'"POV: You hired Vaibha Wedding and this is what your venue looked like 🪄"' },
+  { title:"The Number Hook", body:"Specific numbers = instant curiosity.", example:'"We transformed this hall in 4 hours and 37 minutes. Time-lapse 🔥"' },
+  { title:"The Client Said Hook", body:"Social proof as opener = instant trust.", example:'"Our client said this was beyond anything she imagined 🥹"' },
+  { title:"The Mistake Hook", body:"People love watching what went wrong.", example:'"Something went wrong 2 hours before the wedding. Here\'s how we fixed it live 😰"' },
+];
+
+// ── RENDER CLIENTS ──
+function renderClients() {
+  const grid = document.getElementById('clients-grid');
+  const recent = document.getElementById('recent-clients-list');
+  if (!grid) return;
+  grid.innerHTML = clients.map(c => clientCardHTML(c)).join('');
+  if (recent) {
+    recent.innerHTML = clients.slice(0,4).map(c => `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+        <div style="width:38px;height:38px;border-radius:10px;background:${c.color}22;border:1px solid ${c.color}44;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">${c.logo}</div>
+        <div style="flex:1;"><div style="font-size:13px;font-weight:600;">${c.name}</div><div style="font-size:11px;color:var(--muted);">${c.industry}</div></div>
+        <div style="text-align:right;"><div style="font-size:13px;font-weight:700;color:${c.color};">${c.followers}</div><div style="font-size:10px;color:var(--muted);">followers</div></div>
+      </div>
+    `).join('');
+  }
+}
+
+function clientCardHTML(c) {
+  const lc = c.level === 'Gold' ? 'level-gold' : c.level === 'Platinum' ? 'level-platinum' : 'level-silver';
+  const fc = c.level === 'Gold' ? 'linear-gradient(135deg,var(--gold),#F5A623)' : c.level === 'Platinum' ? 'linear-gradient(135deg,var(--cyan),var(--violet))' : 'linear-gradient(135deg,#9CA3AF,#D1D5DB)';
+  const pc = c.level === 'Gold' ? 'var(--gold)' : c.level === 'Platinum' ? 'var(--cyan)' : '#9CA3AF';
+  return `
+    <div class="client-card" data-level="${c.level}">
+      <div class="client-header">
+        <div class="client-logo" style="background:${fc};">${c.logo}</div>
+        <div class="client-info">
+          <div class="client-name">${c.name}</div>
+          <div class="client-industry">${c.industry} · ${c.insta}</div>
+        </div>
+        <span class="client-level ${lc}">${c.level}</span>
+      </div>
+      <div class="client-metrics">
+        <div class="metric-mini">
+          <div class="metric-mini-val" style="color:var(--rose);">${c.followers}</div>
+          <div class="metric-mini-label">Followers</div>
+        </div>
+        <div class="metric-mini">
+          <div class="metric-mini-val" style="color:var(--cyan);">${c.reels}</div>
+          <div class="metric-mini-label">Reels</div>
+        </div>
+        <div class="metric-mini">
+          <div class="metric-mini-val" style="color:var(--green);">₹${(c.budget/1000).toFixed(0)}K</div>
+          <div class="metric-mini-label">Ad Budget</div>
+        </div>
+      </div>
+      <div class="client-progress-label">
+        <span>Monthly Progress</span><span>${c.progress}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:${c.progress}%;background:${pc};"></div>
+      </div>
+      <div class="client-footer">
+        <div class="client-started">📅 Started ${c.start}</div>
+        <div class="client-actions">
+          <div class="icon-btn" title="Drive" onclick="window.open('${c.drive}','_blank')">📁</div>
+          <div class="icon-btn" title="Instagram">📸</div>
+          <div class="icon-btn" title="Edit">✏️</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── RENDER ADS ──
+function renderAds() {
+  const el = document.getElementById('ads-list');
+  if (!el) return;
+  const colors = ['var(--gold)','var(--cyan)','var(--violet)','var(--green)','var(--rose)','#F59E0B'];
+  el.innerHTML = clients.map((c,i) => {
+    const pct = Math.round(c.spent / c.budget * 100);
+    return `
+      <div class="budget-item">
+        <div class="budget-dot" style="background:${colors[i]};"></div>
+        <div>
+          <div class="budget-name">${c.logo} ${c.name}</div>
+          <div class="budget-platform">Instagram + Meta · ${c.insta}</div>
+        </div>
+        <div class="budget-bar-wrap">
+          <div class="budget-bar"><div class="budget-fill" style="width:${pct}%;background:${colors[i]};"></div></div>
+          <div class="budget-nums"><span>₹${c.spent.toLocaleString('en-IN')} spent</span><span>₹${c.budget.toLocaleString('en-IN')} budget</span></div>
+        </div>
+        <div class="budget-spent" style="color:${colors[i]};">${pct}%</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── RENDER DRIVE ──
+function renderDrive() {
+  const el = document.getElementById('drive-list');
+  if (!el) return;
+  el.innerHTML = clients.map(c => `
+    <a class="drive-item" href="${c.drive}" target="_blank">
+      <span class="drive-icon">📁</span>
+      <div>
+        <div class="drive-name">${c.logo} ${c.name}</div>
+        <div class="drive-meta">${c.industry} · Started ${c.start} · ${c.insta}</div>
+      </div>
+      <span class="drive-badge">Open →</span>
+    </a>
+  `).join('');
+}
+
+// ── RENDER CALENDAR ──
+function renderCalendar() {
+  const body = document.getElementById('cal-body');
+  if (!body) return;
+  const tags = [
+    [{t:'Reveal Reel',c:'ct-reel'},{t:'Story Tips',c:'ct-story'}],
+    [{t:'BTS Post',c:'ct-post'}],
+    [{t:'Collab Reel',c:'ct-reel'},{t:'Poll Story',c:'ct-story'}],
+    [{t:'Ad Live',c:'ct-ad'}],
+    [{t:'Testimonial',c:'ct-post'},{t:'Reel',c:'ct-reel'}],
+    [{t:'Event Reel',c:'ct-reel'}],
+    [],
+    [{t:'Reveal Reel',c:'ct-reel'}],
+    [{t:'Educational',c:'ct-post'},{t:'Story',c:'ct-story'}],
+    [{t:'Vendor Reel',c:'ct-reel'}],
+    [{t:'Ad Boost',c:'ct-ad'},{t:'BTS',c:'ct-post'}],
+    [{t:'Testimonial',c:'ct-post'}],
+    [{t:'Weekend Reel',c:'ct-reel'}],
+    [],
+  ];
+  body.innerHTML = Array.from({length:30}, (_,i) => {
+    const day = i+1;
+    const ts = tags[i % tags.length] || [];
+    const today = day === 10;
+    return `<div class="cal-cell${today?' today':''}">
+      <div class="cal-day-num">${day}</div>
+      ${ts.map(t=>`<span class="cal-tag ${t.c}">${t.t}</span>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ── RENDER HOOKS ──
+function renderHooks() {
+  const el = document.getElementById('hook-list');
+  if (!el) return;
+  el.innerHTML = hooks.map((h,i) => `
+    <div style="display:flex;align-items:flex-start;gap:16px;padding:16px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--gold);min-width:32px;">${String(i+1).padStart(2,'0')}</div>
+      <div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px;">${h.title}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${h.body}</div>
+        <div style="font-size:13px;color:var(--gold-light);font-style:italic;background:rgba(232,197,71,0.07);padding:8px 12px;border-radius:8px;">${h.example}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── NAVIGATION ──
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const el = document.getElementById('view-' + id);
+  if (el) el.classList.add('active');
+  const nav = [...document.querySelectorAll('.nav-item')].find(n => n.getAttribute('onclick')?.includes(id));
+  if (nav) nav.classList.add('active');
+
+  if (id === 'clients') renderClients();
+  if (id === 'ads') renderAds();
+  if (id === 'drive') renderDrive();
+  if (id === 'calendar') renderCalendar();
+  if (id === 'strategy') renderHooks();
+}
+
+// ── TABS ──
+function setTab(el, id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['pillars','hooks','funnel'].forEach(t => {
+    const el2 = document.getElementById('tab-'+t);
+    if (el2) el2.style.display = t === id ? 'block' : 'none';
+  });
+  if (id === 'hooks') renderHooks();
+}
+
+// ── MODAL ──
+function openModal() { document.getElementById('modal').classList.add('open'); }
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function closeModalOutside(e) { if (e.target.id === 'modal') closeModal(); }
+
+function addClient() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { alert('Please enter a client name'); return; }
+  clients.push({
+    name, industry: document.getElementById('f-industry').value || 'General',
+    level: document.getElementById('f-level').value,
+    start: new Date(document.getElementById('f-start').value).toLocaleDateString('en-US',{month:'short',year:'numeric'}),
+    logo: document.getElementById('f-logo').value || name[0].toUpperCase(),
+    color: '#E8C547', followers: '0',
+    reels: 0,
+    budget: parseInt(document.getElementById('f-budget').value) || 0,
+    spent: 0,
+    drive: document.getElementById('f-drive').value || 'https://drive.google.com',
+    insta: document.getElementById('f-insta').value || '@new_client',
+    progress: 0
+  });
+  closeModal();
+  renderClients();
+  showView('clients');
+  ['f-name','f-industry','f-budget','f-drive','f-insta','f-logo'].forEach(id => document.getElementById(id).value = '');
+}
+
+// ── CHAT ──
+function handleChat(e) { if (e.key === 'Enter') sendChat(); }
+function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg me';
+  div.innerHTML = `
+    <div class="chat-avatar" style="background:linear-gradient(135deg,var(--gold),var(--rose));">B</div>
+    <div>
+      <div class="chat-bubble">${msg}</div>
+      <div class="chat-time">You · Just now</div>
+    </div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  input.value = '';
+}
+
+// ── INIT ──
+renderClients();
+renderCalendar();
+</script>
+</body>
+</html>

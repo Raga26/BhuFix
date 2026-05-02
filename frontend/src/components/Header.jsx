@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { navLinks } from "../data/mock";
-import { Menu, X, ArrowRight, Sun, Moon } from "lucide-react";
+import { Menu, X, ArrowRight, Sun, Moon, LayoutDashboard, LogIn } from "lucide-react";
 import { Button } from "./ui/button";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 
 const ThemeToggle = ({ theme, toggleTheme }) => (
   <button
@@ -32,6 +34,8 @@ export const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -79,13 +83,35 @@ export const Header = () => {
 
         <div className="hidden lg:flex items-center gap-3">
           <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
-          <Button
-            onClick={() => scrollTo("#contact")}
-            className="flex items-center gap-2 bg-coral hover:bg-coral-dark text-white font-semibold px-6 py-2.5 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-coral/25 hover:-translate-y-0.5"
-          >
-            Get a Quote
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+          {user ? (
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="flex items-center gap-2 bg-coral hover:bg-coral-dark text-white font-semibold px-5 py-2.5 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-coral/25 hover:-translate-y-0.5"
+            >
+              <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                {user.name?.[0]?.toUpperCase() ?? "U"}
+              </span>
+              Dashboard
+              <LayoutDashboard className="h-4 w-4" />
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => navigate("/login")}
+                className="flex items-center gap-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-coral hover:text-coral dark:hover:text-coral font-semibold px-5 py-2.5 rounded-full transition-all duration-300"
+              >
+                <LogIn className="h-4 w-4" />
+                Login
+              </button>
+              <Button
+                onClick={() => scrollTo("#contact")}
+                className="flex items-center gap-2 bg-coral hover:bg-coral-dark text-white font-semibold px-6 py-2.5 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-coral/25 hover:-translate-y-0.5"
+              >
+                Get a Quote
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
 
         <div className="lg:hidden flex items-center gap-2">
@@ -122,6 +148,26 @@ export const Header = () => {
           >
             Get a Quote
           </Button>
+          {user ? (
+            <button
+              onClick={() => { setMobileOpen(false); navigate("/dashboard"); }}
+              className="w-full mt-2 flex items-center justify-center gap-2 border border-coral text-coral font-semibold py-2.5 rounded-full transition-all duration-300 hover:bg-coral/10"
+            >
+              <span className="w-6 h-6 rounded-full bg-coral/20 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                {user.name?.[0]?.toUpperCase() ?? "U"}
+              </span>
+              Go to Dashboard
+              <LayoutDashboard className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              onClick={() => { setMobileOpen(false); navigate("/login"); }}
+              className="w-full mt-2 flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-semibold py-2.5 rounded-full transition-all duration-300 hover:border-coral hover:text-coral"
+            >
+              <LogIn className="h-4 w-4" />
+              Login
+            </button>
+          )}
         </div>
       </div>
     </header>

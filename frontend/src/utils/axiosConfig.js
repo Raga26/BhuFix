@@ -39,14 +39,13 @@ apiClient.interceptors.request.use(
     const requestId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     config.headers['X-Request-ID'] = requestId;
 
-    // Log the request
-    const requestData = {
-      method: config.method.toUpperCase(),
-      url: config.url,
-      params: config.params,
-      body: config.data,
-    };
+    // Attach JWT token if present
+    const token = localStorage.getItem('bhufix_token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
 
+    // Log the request
     logger.apiRequest(config.method.toUpperCase(), config.url, config.data);
 
     // Store request ID for response correlation

@@ -108,3 +108,15 @@ html {
     @apply bg-background text-foreground;
     }
 }
+
+/* Select element option styling to fix dropdown visibility */
+select option {
+  color: #ffffff;
+  background-color: #1a1b2e;
+  padding: 8px;
+}
+
+select option:checked {
+  background-color: #E8734A;
+  color: #ffffff;
+}
