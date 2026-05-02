@@ -416,6 +416,16 @@ class ClientCreate(BaseModel):
     drive_link: str = ""
     start_date: str = ""
 
+    @field_validator('reels_count', 'ad_budget', 'ad_spent', 'monthly_progress', mode='before')
+    @classmethod
+    def coerce_empty_to_zero(cls, v):
+        if v is None or v == '':
+            return 0
+        try:
+            return int(float(str(v)))
+        except (ValueError, TypeError):
+            return 0
+
 class ClientUpdate(BaseModel):
     name: Optional[str] = None
     industry: Optional[str] = None
@@ -761,14 +771,20 @@ async def reset_user_password(user_id: str, data: dict, current_user: dict = Dep
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     if current_user["role"] in ["owner", "employee"]:
+        def to_int(v):
+            try:
+                return int(float(str(v))) if v not in (None, '') else 0
+            except (ValueError, TypeError):
+                return 0
+
         total_clients = await db.clients.count_documents({})
         clients_data = await db.clients.find({}, {"reels_count": 1}).to_list(1000)
-        total_reels = sum(c.get("reels_count", 0) for c in clients_data)
+        total_reels = sum(to_int(c.get("reels_count", 0)) for c in clients_data)
         ads = await db.ads_campaigns.find({}).to_list(1000)
-        total_budget = sum(a.get("budget", 0) for a in ads)
-        total_spent = sum(a.get("spent", 0) for a in ads)
+        total_budget = sum(to_int(a.get("budget", 0)) for a in ads)
+        total_spent = sum(to_int(a.get("spent", 0)) for a in ads)
         kpis = await db.kpis.find({}).to_list(1000)
-        total_dm = sum(k.get("dm_inquiries", 0) for k in kpis)
+        total_dm = sum(to_int(k.get("dm_inquiries", 0)) for k in kpis)
         return {
             "total_clients": total_clients,
             "total_reels": total_reels,

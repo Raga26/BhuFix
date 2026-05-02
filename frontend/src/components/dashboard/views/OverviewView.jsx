@@ -42,9 +42,9 @@ export default function OverviewView() {
   const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
 
   useEffect(() => {
-    apiClient.get('/dashboard/stats').then((r) => setStats(r.data));
+    apiClient.get('/dashboard/stats').then((r) => setStats(r.data)).catch(() => {});
     if (user?.role !== 'client') {
-      apiClient.get('/clients').then((r) => setClients(r.data?.slice(0, 4) || []));
+      apiClient.get('/clients').then((r) => setClients(r.data?.slice(0, 4) || [])).catch(() => {});
     }
   }, [user]);
 

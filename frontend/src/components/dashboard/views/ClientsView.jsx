@@ -85,6 +85,8 @@ function ClientModal({ client, clients, onClose, onSave }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
+  const toNum = (v) => (v === '' || v === null || v === undefined ? 0 : Number(v) || 0);
+
   const handleSave = async () => {
     if (!form.name.trim()) {
       toast.error('Client name is required');
@@ -92,6 +94,13 @@ function ClientModal({ client, clients, onClose, onSave }) {
       return;
     }
     setSaving(true);
+    const payload = {
+      ...form,
+      reels_count: toNum(form.reels_count),
+      ad_budget: toNum(form.ad_budget),
+      ad_spent: toNum(form.ad_spent),
+      monthly_progress: toNum(form.monthly_progress),
+    };
     try {
       logger.formSubmit('ClientsView', isEdit ? 'update_client' : 'create_client', {
         name: form.name,
@@ -99,11 +108,11 @@ function ClientModal({ client, clients, onClose, onSave }) {
         level: form.level,
       });
       if (isEdit) {
-        await apiClient.put(`/clients/${form.id}`, form);
+        await apiClient.put(`/clients/${form.id}`, payload);
         toast.success('Client updated successfully');
         logger.success('Client updated', { clientId: form.id });
       } else {
-        await apiClient.post('/clients', form);
+        await apiClient.post('/clients', payload);
         toast.success('Client added successfully');
         logger.success('New client created', { name: form.name });
       }
@@ -211,7 +220,7 @@ export default function ClientsView() {
   useEffect(() => { load(); }, []);
 
   const filtered = clients.filter((c) =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.industry?.toLowerCase().includes(search.toLowerCase())
+    !search || c.name?.toLowerCase().includes(search.toLowerCase()) || c.industry?.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleDeleteClient = async () => {
