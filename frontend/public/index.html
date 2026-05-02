@@ -84,6 +84,13 @@
         Learn how to configure a non-root public URL by running `npm run build`.
         -->
         <title>Bhufix — Digital Marketing Agency | Elevate Your Brand</title>
+        <!-- Apply theme class before React loads to prevent flash of white -->
+        <script>
+            try {
+                var theme = localStorage.getItem('theme') || 'dark';
+                if (theme === 'dark') document.documentElement.classList.add('dark');
+            } catch (e) {}
+        </script>
         <script>window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);</script>
         <!--
         These two scripts have been added for the Visual Edits, please do not edit or remove them

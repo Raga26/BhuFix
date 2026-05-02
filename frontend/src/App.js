@@ -106,9 +106,9 @@ function App() {
   }, []);
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <ErrorBoundary>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
           <div className="App">
             <BrowserRouter>
               <Toaster position="top-right" richColors />
@@ -174,9 +174,9 @@ function App() {
               </Routes>
             </BrowserRouter>
           </div>
-        </ErrorBoundary>
-      </AuthProvider>
-    </ThemeProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 
