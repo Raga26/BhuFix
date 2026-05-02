@@ -509,15 +509,25 @@ async def seed_owner():
     if not OWNER_EMAIL or not OWNER_PASSWORD:
         logger.warning("OWNER_EMAIL/OWNER_PASSWORD not set — skipping owner seed")
         return
+    new_hash = get_password_hash(OWNER_PASSWORD)
     existing = await db.users.find_one({"email": OWNER_EMAIL.lower()})
     if existing:
-        logger.info(f"✓ Owner account already exists: {OWNER_EMAIL}")
+        await db.users.update_one(
+            {"email": OWNER_EMAIL.lower()},
+            {"$set": {
+                "password_hash": new_hash,
+                "role": "owner",
+                "is_active": True,
+                "name": OWNER_NAME,
+            }}
+        )
+        logger.info(f"✓ Owner account password synced from env: {OWNER_EMAIL}")
         return
     owner = {
         "id": str(uuid.uuid4()),
         "email": OWNER_EMAIL.lower(),
         "name": OWNER_NAME,
-        "password_hash": get_password_hash(OWNER_PASSWORD),
+        "password_hash": new_hash,
         "role": "owner",
         "client_id": None,
         "is_active": True,
