@@ -93,7 +93,7 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
   );
 }
 
-function EventDetailModal({ event, clients, onClose, onEdit, onDelete }) {
+function EventDetailModal({ event, clients, onClose, onEdit, onDelete, canMutate }) {
   const clientName = clients.find(c => c.id === event.client_id)?.name || event.client_id;
   const ts = TYPE_STYLE[event.type] || TYPE_STYLE.post;
   const [deleting, setDeleting] = useState(false);
@@ -147,10 +147,14 @@ function EventDetailModal({ event, clients, onClose, onEdit, onDelete }) {
 
         <div className="flex gap-2">
           <button onClick={onClose} className="flex-1 bg-white/[0.06] border border-white/[0.08] text-white/60 text-sm font-semibold py-2.5 rounded-xl hover:bg-white/[0.1] transition-colors">Close</button>
-          <button onClick={onEdit} className="flex-1 bg-blue-600/50 hover:bg-blue-600 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">Edit</button>
-          <button onClick={handleDelete} disabled={deleting} className="flex-1 bg-red-600/50 hover:bg-red-600 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-60 transition-colors">
-            {deleting ? 'Deleting…' : 'Delete'}
-          </button>
+          {canMutate && (
+            <>
+              <button onClick={onEdit} className="flex-1 bg-blue-600/50 hover:bg-blue-600 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">Edit</button>
+              <button onClick={handleDelete} disabled={deleting} className="flex-1 bg-red-600/50 hover:bg-red-600 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-60 transition-colors">
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -168,6 +172,7 @@ export default function CalendarView() {
   const today = new Date();
   const [viewDate, setViewDate] = useState({ month: today.getMonth() + 1, year: today.getFullYear() });
   const isStaff = user?.role !== 'client';
+  const isOwner = user?.role === 'owner';
 
   const load = useCallback(() => {
     apiClient.get('/calendar', { params: { month: viewDate.month, year: viewDate.year } }).then((r) => {
@@ -221,7 +226,7 @@ export default function CalendarView() {
         <div className="flex items-center gap-2">
           <button onClick={prevMonth} className="bg-white/[0.06] border border-white/[0.08] text-white/60 hover:text-white text-sm px-3 py-2 rounded-xl transition-colors">← Prev</button>
           <button onClick={nextMonth} className="bg-white/[0.06] border border-white/[0.08] text-white/60 hover:text-white text-sm px-3 py-2 rounded-xl transition-colors">Next →</button>
-          {isStaff && (
+          {isOwner && (
             <button onClick={() => { setPrefillDate(''); setModal({ create: true }); }}
               className="bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold px-4 py-2 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] hover:-translate-y-0.5 transition-all">
               + Add Post
@@ -248,8 +253,8 @@ export default function CalendarView() {
             return (
               <div
                 key={day}
-                onClick={() => { if (isStaff) { setPrefillDate(dateStr); setModal({ create: true }); } }}
-                className={`min-h-[70px] sm:min-h-[80px] rounded-xl p-1.5 border transition-all ${isStaff ? 'cursor-pointer' : ''} ${
+                onClick={() => { if (isOwner) { setPrefillDate(dateStr); setModal({ create: true }); } }}
+                className={`min-h-[70px] sm:min-h-[80px] rounded-xl p-1.5 border transition-all ${isOwner ? 'cursor-pointer' : ''} ${
                   today_
                     ? 'border-[#E8734A]/40 bg-[#E8734A]/[0.06]'
                     : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04]'
@@ -289,7 +294,7 @@ export default function CalendarView() {
         ))}
       </div>
 
-      {modal && isStaff && (
+      {modal && isOwner && (
         <EventModal
           event={modal.create ? { client_id: clients[0]?.id || '', title: '', type: 'reel', date: prefillDate, status: 'scheduled' } : modal}
           clients={clients}
@@ -306,6 +311,7 @@ export default function CalendarView() {
           onClose={() => setDetailModal(null)}
           onEdit={() => { setDetailModal(null); setModal(detailModal); }}
           onDelete={load}
+          canMutate={isOwner}
         />
       )}
     </div>

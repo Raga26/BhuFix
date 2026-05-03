@@ -10,6 +10,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -34,6 +35,17 @@ export default function LoginPage() {
       <div className="absolute bottom-[-100px] right-[-100px] w-[400px] h-[400px] bg-[#4DD9FF] rounded-full opacity-8 blur-[100px] pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-md">
+        {/* Back to home */}
+        <div className="mb-6">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 text-white/40 hover:text-white/80 text-sm font-medium transition-colors group"
+          >
+            <span className="text-lg group-hover:-translate-x-0.5 transition-transform">←</span>
+            Back to BhuFix.com
+          </button>
+        </div>
+
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-3 group">
@@ -42,7 +54,7 @@ export default function LoginPage() {
             </div>
             <div className="text-left">
               <div className="text-white font-extrabold text-xl tracking-tight">BhuFix</div>
-              <div className="text-white/40 text-xs tracking-widest uppercase">Command Center</div>
+              <div className="text-white/40 text-xs tracking-widest uppercase">Dashboard</div>
             </div>
           </Link>
         </div>
@@ -73,14 +85,24 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-white/50 text-xs uppercase tracking-widest mb-2">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 text-sm outline-none focus:border-[#E8734A]/50 transition-colors"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-3 pr-12 text-white placeholder-white/20 text-sm outline-none focus:border-[#E8734A]/50 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors p-1 text-sm select-none"
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
             </div>
 
             <button
@@ -98,10 +120,27 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-white/30 text-xs mt-6">
-          Need access?{' '}
-          <Link to="/#contact" className="text-[#E8734A] hover:underline">
-            Contact BhuFix
+        {/* Role guide */}
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-3.5 text-center">
+            <div className="text-base mb-1">🏢</div>
+            <div className="text-white/60 text-xs font-semibold mb-0.5">Team Member?</div>
+            <div className="text-white/30 text-[10px] leading-relaxed">
+              Use credentials provided by the owner
+            </div>
+          </div>
+          <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-3.5 text-center">
+            <div className="text-base mb-1">👤</div>
+            <div className="text-white/60 text-xs font-semibold mb-0.5">Client?</div>
+            <div className="text-white/30 text-[10px] leading-relaxed">
+              Your account is set up by our team
+            </div>
+          </div>
+        </div>
+        <p className="text-center text-white/25 text-xs mt-4">
+          New here?{' '}
+          <Link to="/#contact" className="text-[#E8734A]/80 hover:text-[#E8734A] transition-colors">
+            Get in touch with BhuFix
           </Link>
         </p>
       </div>

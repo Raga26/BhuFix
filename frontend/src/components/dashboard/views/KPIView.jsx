@@ -128,6 +128,7 @@ function fmtNum(n) {
 
 export default function KPIView() {
   const { user } = useAuth();
+  const isOwner = user?.role === 'owner';
   const [kpis, setKpis] = useState([]);
   const [clients, setClients] = useState([]);
   const [modal, setModal] = useState(null);
@@ -139,7 +140,7 @@ export default function KPIView() {
       setKpis(r.data || []);
       logger.info('KPIs loaded', { count: r.data?.length || 0 });
     }).catch((e) => logger.error('Failed to load KPIs', { error: e.message }));
-    if (user?.role !== 'client') {
+    if (user?.role === 'owner') {
       apiClient.get('/clients').then((r) => setClients(r.data || [])).catch((e) => logger.error('Failed to load clients', { error: e.message }));
     }
   }, [user]);
@@ -189,7 +190,7 @@ export default function KPIView() {
           <h1 className="text-white font-extrabold text-2xl">KPI Tracker</h1>
           <p className="text-white/40 text-sm mt-1">Performance metrics across all clients and platforms</p>
         </div>
-        {user?.role !== 'client' && (
+        {isOwner && (
           <button onClick={() => setModal({})}
             className="bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] hover:-translate-y-0.5 transition-all self-start">
             + Add KPI
@@ -256,7 +257,7 @@ export default function KPIView() {
                   <div className="text-white text-sm font-medium">{clientName(kpi.client_id)}</div>
                   <div className="text-white/30 text-xs">{kpi.platform} · {kpi.month}/{kpi.year} · Reach: {fmtNum(kpi.reach)}, Engagement: {kpi.engagement_rate}%, DMs: {kpi.dm_inquiries}, Bookings: {kpi.bookings}</div>
                 </div>
-                {user?.role !== 'client' && (
+                {isOwner && (
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => setModal(kpi)}
@@ -278,7 +279,7 @@ export default function KPIView() {
         )}
       </div>
 
-      {modal && clients.length > 0 && (
+      {modal && isOwner && clients.length > 0 && (
         <AddKPIModal
           clients={clients}
           onClose={() => setModal(null)}

@@ -11,7 +11,7 @@ const LEVEL_STYLE = {
   Silver: { bg: 'rgba(156,163,175,0.12)', color: '#9CA3AF', border: 'rgba(156,163,175,0.25)', gradient: 'linear-gradient(135deg,#9CA3AF,#D1D5DB)' },
 };
 
-function ClientCard({ client, onEdit, onDelete }) {
+function ClientCard({ client, onEdit, onDelete, canMutate }) {
   const ls = LEVEL_STYLE[client.level] || LEVEL_STYLE.Silver;
   const pct = client.monthly_progress || 0;
   return (
@@ -60,16 +60,20 @@ function ClientCard({ client, onEdit, onDelete }) {
               📁
             </a>
           )}
-          <button onClick={() => onEdit(client)}
-            className="w-7 h-7 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-xs hover:bg-[#E8734A]/15 hover:border-[#E8734A]/30 transition-all"
-            title="Edit client">
-            ✏️
-          </button>
-          <button onClick={() => onDelete(client)}
-            className="w-7 h-7 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-xs hover:bg-red-600/15 hover:border-red-600/30 transition-all"
-            title="Delete client">
-            🗑️
-          </button>
+          {canMutate && (
+            <>
+              <button onClick={() => onEdit(client)}
+                className="w-7 h-7 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-xs hover:bg-[#E8734A]/15 hover:border-[#E8734A]/30 transition-all"
+                title="Edit client">
+                ✏️
+              </button>
+              <button onClick={() => onDelete(client)}
+                className="w-7 h-7 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-xs hover:bg-red-600/15 hover:border-red-600/30 transition-all"
+                title="Delete client">
+                🗑️
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -198,6 +202,7 @@ function ClientModal({ client, clients, onClose, onSave }) {
 
 export default function ClientsView() {
   const { user } = useAuth();
+  const isOwner = user?.role === 'owner';
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
@@ -276,7 +281,7 @@ export default function ClientsView() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map((c) => (
-            <ClientCard key={c.id} client={c} onEdit={(cl) => setModal(cl)} onDelete={(cl) => setDeleteConfirm(cl)} />
+            <ClientCard key={c.id} client={c} onEdit={(cl) => setModal(cl)} onDelete={(cl) => setDeleteConfirm(cl)} canMutate={isOwner} />
           ))}
         </div>
       )}

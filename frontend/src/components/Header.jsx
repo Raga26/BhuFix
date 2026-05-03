@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { navLinks } from "../data/mock";
-import { Menu, X, ArrowRight, Sun, Moon, LayoutDashboard, LogIn } from "lucide-react";
+import { Menu, X, ArrowRight, Sun, Moon, LayoutDashboard } from "lucide-react";
 import { Button } from "./ui/button";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -98,14 +98,14 @@ export const Header = () => {
             <>
               <button
                 onClick={() => navigate("/login")}
-                className="flex items-center gap-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-coral hover:text-coral dark:hover:text-coral font-semibold px-5 py-2.5 rounded-full transition-all duration-300"
+                className="flex items-center gap-2 bg-coral hover:bg-coral-dark text-white font-semibold px-5 py-2.5 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-coral/25 hover:-translate-y-0.5"
               >
-                <LogIn className="h-4 w-4" />
-                Login
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
               </button>
               <Button
                 onClick={() => scrollTo("#contact")}
-                className="flex items-center gap-2 bg-coral hover:bg-coral-dark text-white font-semibold px-6 py-2.5 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-coral/25 hover:-translate-y-0.5"
+                className="flex items-center gap-2 bg-navy hover:bg-navy/90 dark:bg-white/10 dark:hover:bg-white/20 text-white font-semibold px-6 py-2.5 rounded-full transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
               >
                 Get a Quote
                 <ArrowRight className="h-4 w-4" />
@@ -162,10 +162,10 @@ export const Header = () => {
           ) : (
             <button
               onClick={() => { setMobileOpen(false); navigate("/login"); }}
-              className="w-full mt-2 flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-semibold py-2.5 rounded-full transition-all duration-300 hover:border-coral hover:text-coral"
+              className="w-full mt-2 flex items-center justify-center gap-2 bg-coral text-white font-semibold py-2.5 rounded-full transition-all duration-300 hover:bg-coral-dark"
             >
-              <LogIn className="h-4 w-4" />
-              Login
+              <LayoutDashboard className="h-4 w-4" />
+              Dashboard
             </button>
           )}
         </div>

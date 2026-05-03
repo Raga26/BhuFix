@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 
 // Mobile bottom tab items (max 4 per role)
 const MOBILE_TABS = {
-  owner:    [
+  owner: [
     { to: '/dashboard', icon: '⚡', label: 'Home', exact: true },
     { to: '/dashboard/clients', icon: '👥', label: 'Clients' },
     { to: '/dashboard/calendar', icon: '📅', label: 'Calendar' },
@@ -18,8 +18,10 @@ const MOBILE_TABS = {
     { to: '/dashboard/chat', icon: '💬', label: 'Chat' },
   ],
   client: [
-    { to: '/dashboard/calendar', icon: '📅', label: 'Calendar' },
+    { to: '/dashboard', icon: '⚡', label: 'Home', exact: true },
+    { to: '/dashboard/calendar', icon: '📅', label: 'Schedule' },
     { to: '/dashboard/messages', icon: '💬', label: 'Messages' },
+    { to: '/dashboard/kpis', icon: '📈', label: 'Reports' },
   ],
 };
 
@@ -55,6 +57,13 @@ function BottomTabBar() {
 
 export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div className="flex min-h-screen bg-[#07080F]">
@@ -93,7 +102,22 @@ export default function DashboardPage() {
             </div>
             <span className="text-white font-bold text-sm">BhuFix</span>
           </div>
-          <div className="w-8" />
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => navigate('/')}
+              title="Back to website"
+              className="text-white/40 hover:text-white/80 text-lg p-1.5 rounded-lg hover:bg-white/[0.06] transition-all"
+            >
+              🌐
+            </button>
+            <button
+              onClick={handleLogout}
+              title="Sign out"
+              className="text-white/40 hover:text-red-400 text-lg p-1.5 rounded-lg hover:bg-red-400/10 transition-all"
+            >
+              🚪
+            </button>
+          </div>
         </div>
 
         {/* Page content */}

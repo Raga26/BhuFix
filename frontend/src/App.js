@@ -144,7 +144,7 @@ function App() {
                     </ProtectedRoute>
                   } />
                   <Route path="drive" element={
-                    <ProtectedRoute roles={['owner','employee']}>
+                    <ProtectedRoute roles={['owner','employee','client']}>
                       <DriveView />
                     </ProtectedRoute>
                   } />
@@ -159,7 +159,7 @@ function App() {
                     </ProtectedRoute>
                   } />
                   <Route path="kpis" element={
-                    <ProtectedRoute roles={['owner','employee']}>
+                    <ProtectedRoute roles={['owner','employee','client']}>
                       <KPIView />
                     </ProtectedRoute>
                   } />
