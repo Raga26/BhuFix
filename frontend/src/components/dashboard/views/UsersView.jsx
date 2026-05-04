@@ -16,7 +16,7 @@ function CreateUserModal({ clients, onClose, onSave }) {
   const [saving, setSaving] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors";
+  const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors [&:-webkit-autofill]:shadow-[0_0_0_1000px_#0D0E1A_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]";
 
   const handleSave = async () => {
     if (!form.name || !form.email || !form.password) {
@@ -64,16 +64,17 @@ function CreateUserModal({ clients, onClose, onSave }) {
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Password</label>
             <div className="relative">
               <input
-                className={inputCls + ' pr-12'}
+                className={inputCls + ' pr-14'}
                 type={showPw ? 'text' : 'password'}
                 value={form.password}
                 onChange={(e) => set('password', e.target.value)}
                 placeholder="Min 6 characters"
+                autoComplete="new-password"
               />
               <button
                 type="button"
                 onClick={() => setShowPw((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 text-xs transition-colors px-1"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#E8734A] hover:text-[#E8734A]/80 text-xs font-semibold transition-colors px-1 select-none"
               >
                 {showPw ? 'Hide' : 'Show'}
               </button>
@@ -115,7 +116,7 @@ function EditUserModal({ editUser, clients, onClose, onSave }) {
   const [saving, setSaving] = useState(false);
   const [resettingPw, setResettingPw] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors";
+  const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors [&:-webkit-autofill]:shadow-[0_0_0_1000px_#0D0E1A_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]";
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Name is required'); return; }
@@ -195,16 +196,17 @@ function EditUserModal({ editUser, clients, onClose, onSave }) {
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input
-                className={inputCls + ' pr-12'}
+                className={inputCls + ' pr-14'}
                 type={showPw ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="New password"
+                autoComplete="new-password"
               />
               <button
                 type="button"
                 onClick={() => setShowPw((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 text-xs transition-colors px-1"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#E8734A] hover:text-[#E8734A]/80 text-xs font-semibold transition-colors px-1 select-none"
               >
                 {showPw ? 'Hide' : 'Show'}
               </button>

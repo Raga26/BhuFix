@@ -3,9 +3,8 @@
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
     <!-- Homepage - Main entry point -->
     <url>
-        <loc>https://www.bhufix.com</loc>
         <loc>https://www.bhufix.com/</loc>
-        <lastmod>2026-03-30</lastmod>
+        <lastmod>2026-05-04</lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>

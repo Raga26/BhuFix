@@ -1,5 +1,6 @@
 import { navLinks, contactInfo } from "../data/mock";
 import { ArrowRight, Heart } from "lucide-react";
+import BhufixLogo from "./BhufixLogo";
 
 const socialLinks = [
   { label: "Fb", href: "#" },
@@ -41,8 +42,11 @@ export const Footer = () => {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           {/* Brand */}
           <div className="lg:col-span-1">
-            <a href="#home" className="text-2xl font-extrabold">
-              Bhu<span className="text-coral">fix</span>
+            <a href="#home" className="flex items-center gap-2.5">
+              <BhufixLogo size={36} />
+              <span className="text-2xl font-extrabold">
+                Bhu<span className="text-coral">Fix</span>
+              </span>
             </a>
             <p className="text-white/50 text-sm leading-relaxed mt-4 max-w-xs">
               Your growth partner in digital marketing. We craft strategies that

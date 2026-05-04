@@ -35,17 +35,6 @@ export default function LoginPage() {
       <div className="absolute bottom-[-100px] right-[-100px] w-[400px] h-[400px] bg-[#4DD9FF] rounded-full opacity-8 blur-[100px] pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-md">
-        {/* Back to home */}
-        <div className="mb-6">
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-white/40 hover:text-white/80 text-sm font-medium transition-colors group"
-          >
-            <span className="text-lg group-hover:-translate-x-0.5 transition-transform">←</span>
-            Back to BhuFix.com
-          </button>
-        </div>
-
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-3 group">
@@ -105,18 +94,28 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white font-bold py-3 rounded-xl shadow-[0_4px_20px_rgba(232,115,74,0.35)] hover:shadow-[0_8px_32px_rgba(232,115,74,0.5)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed mt-2"
-            >
-              {loading ? (
-                <span className="inline-flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Signing in…
-                </span>
-              ) : 'Sign In'}
-            </button>
+            <div className="flex gap-3 mt-2">
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="flex-1 flex items-center justify-center gap-2 bg-white/[0.06] border border-white/10 text-white/60 hover:text-white hover:bg-white/[0.1] hover:border-white/20 font-semibold py-3 rounded-xl transition-all"
+              >
+                <span>🏠</span>
+                Home
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-[2] bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white font-bold py-3 rounded-xl shadow-[0_4px_20px_rgba(232,115,74,0.35)] hover:shadow-[0_8px_32px_rgba(232,115,74,0.5)] hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Signing in…
+                  </span>
+                ) : 'Sign In'}
+              </button>
+            </div>
           </form>
         </div>
 

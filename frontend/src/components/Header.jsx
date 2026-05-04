@@ -5,6 +5,7 @@ import { Menu, X, ArrowRight, Sun, Moon, LayoutDashboard } from "lucide-react";
 import { Button } from "./ui/button";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
+import BhufixLogo from "./BhufixLogo";
 
 const ThemeToggle = ({ theme, toggleTheme }) => (
   <button
@@ -61,10 +62,11 @@ export const Header = () => {
         <a
           href="#home"
           onClick={(e) => { e.preventDefault(); scrollTo("#home"); }}
-          className="flex items-center gap-1 group"
+          className="flex items-center gap-2.5 group"
         >
+          <BhufixLogo size={36} />
           <span className="text-2xl font-extrabold tracking-tight text-navy dark:text-white">
-            Bhu<span className="text-coral">fix</span>
+            Bhu<span className="text-coral">Fix</span>
           </span>
         </a>
 

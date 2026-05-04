@@ -81,11 +81,6 @@ export function Sidebar({ mobile = false, onClose }) {
     navigate('/login');
   };
 
-  const handleBackToSite = () => {
-    if (mobile) onClose?.();
-    navigate('/');
-  };
-
   const linkClass = ({ isActive }) =>
     `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
       isActive
@@ -110,7 +105,7 @@ export function Sidebar({ mobile = false, onClose }) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4 [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-[#E8734A]/40">
         {groups.map((group) => (
           <div key={group.section}>
             <p className="text-white/20 text-[9px] uppercase tracking-[2.5px] px-3 mb-2">{group.section}</p>
@@ -133,15 +128,7 @@ export function Sidebar({ mobile = false, onClose }) {
 
       {/* Footer actions */}
       <div className="px-3 pb-4 pt-2 border-t border-white/[0.08] space-y-2">
-        {/* Back to website */}
-        <button
-          onClick={handleBackToSite}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/40 hover:bg-white/[0.04] hover:text-white/70 border border-transparent transition-all"
-        >
-          Back to BhuFix.com
-        </button>
-
-        {/* User chip + logout */}
+        {/* User chip */}
         <div className="flex items-center gap-3 px-3 py-2.5 bg-white/[0.04] rounded-xl border border-white/[0.08]">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#E8734A] to-[#A78BFA] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
             {user?.name?.[0]?.toUpperCase() || 'U'}
@@ -152,17 +139,9 @@ export function Sidebar({ mobile = false, onClose }) {
               {badge.label}
             </span>
           </div>
-          <button
-            onClick={handleLogout}
-            title="Logout"
-            className="flex items-center gap-1 text-white/30 hover:text-red-400 text-xs font-medium transition-colors px-2 py-1 rounded-lg hover:bg-red-400/10"
-          >
-            <span className="text-sm">↩</span>
-            <span className="hidden sm:inline">Out</span>
-          </button>
         </div>
 
-        {/* Logout button (full width, explicit) */}
+        {/* Sign out */}
         <button
           onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-red-400/70 hover:text-red-400 hover:bg-red-400/10 border border-transparent hover:border-red-400/20 transition-all"
