@@ -3,11 +3,11 @@ import apiClient from '../../../utils/axiosConfig';
 import { useAuth } from '../../../context/AuthContext';
 
 const PILLARS = [
-  { emoji: '🎬', title: 'The Reveal', desc: 'Empty → magical transformation. Highest save rate. Must post 4× weekly.', freq: '4× per week', color: '#E8734A' },
-  { emoji: '🎥', title: 'Behind The Scenes', desc: 'Team, chaos, effort. Builds trust and emotional connection with audience.', freq: '3× per week', color: '#4DD9FF' },
-  { emoji: '💬', title: 'Testimonials', desc: 'Real client reactions. Most shareable emotional content. Goes viral organically.', freq: '1× per week', color: '#A78BFA' },
-  { emoji: '📚', title: 'Education', desc: 'Tips, mistakes to avoid, planning guides. Heavy saves & shares = algorithm boost.', freq: '2× per week', color: '#34D399' },
-  { emoji: '🤝', title: 'Collabs', desc: 'Tag vendors, feature couples, collab with photographers. Reaches new audiences.', freq: '1× per week', color: '#F472B6' },
+  { title: 'The Reveal', desc: 'Empty → magical transformation. Highest save rate. Must post 4× weekly.', freq: '4× per week', color: '#E8734A' },
+  { title: 'Behind The Scenes', desc: 'Team, chaos, effort. Builds trust and emotional connection with audience.', freq: '3× per week', color: '#4DD9FF' },
+  { title: 'Testimonials', desc: 'Real client reactions. Most shareable emotional content. Goes viral organically.', freq: '1× per week', color: '#A78BFA' },
+  { title: 'Education', desc: 'Tips, mistakes to avoid, planning guides. Heavy saves & shares = algorithm boost.', freq: '2× per week', color: '#34D399' },
+  { title: 'Collabs', desc: 'Tag vendors, feature couples, collab with photographers. Reaches new audiences.', freq: '1× per week', color: '#F472B6' },
 ];
 
 function HookList() {
@@ -135,7 +135,6 @@ export default function StrategyView() {
           {PILLARS.map((p) => (
             <div key={p.title} className="bg-white/[0.04] rounded-2xl p-5 hover:-translate-y-1 transition-transform"
               style={{ border: `1px solid ${p.color}40` }}>
-              <div className="text-3xl mb-3">{p.emoji}</div>
               <div className="text-white font-bold text-base mb-2">{p.title}</div>
               <div className="text-white/50 text-sm leading-relaxed mb-3">{p.desc}</div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: `${p.color}15`, color: p.color }}>{p.freq}</span>

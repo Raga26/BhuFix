@@ -6,14 +6,21 @@ import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 
 const TYPE_STYLE = {
-  reel:  { bg: 'rgba(244,114,182,0.2)', color: '#F472B6', label: 'Reel' },
-  post:  { bg: 'rgba(77,217,255,0.15)', color: '#4DD9FF', label: 'Post' },
-  story: { bg: 'rgba(232,115,74,0.15)', color: '#E8734A', label: 'Story' },
-  ad:    { bg: 'rgba(167,139,250,0.2)', color: '#A78BFA', label: 'Ad' },
+  reel:    { bg: 'rgba(244,114,182,0.2)',  color: '#F472B6', label: 'Reel' },
+  post:    { bg: 'rgba(77,217,255,0.15)',  color: '#4DD9FF', label: 'Post' },
+  ad:      { bg: 'rgba(167,139,250,0.2)',  color: '#A78BFA', label: 'Ad' },
+  content: { bg: 'rgba(52,211,153,0.18)', color: '#34D399', label: 'Content' },
+  shoot:   { bg: 'rgba(251,191,36,0.18)', color: '#FBBF24', label: 'Shoot' },
+};
+
+const STATUS_STYLE = {
+  not_started: { label: 'Not Started', color: '#6B7280', bg: 'rgba(107,114,128,0.15)' },
+  in_progress: { label: 'In Progress', color: '#FBBF24', bg: 'rgba(251,191,36,0.15)' },
+  completed:   { label: 'Completed',   color: '#34D399', bg: 'rgba(52,211,153,0.15)' },
 };
 
 function EventModal({ event, clients, onClose, onSave, isEdit }) {
-  const [form, setForm] = useState(event || { client_id: clients[0]?.id || '', title: '', type: 'reel', date: '', status: 'scheduled' });
+  const [form, setForm] = useState(event || { client_id: clients[0]?.id || '', title: '', type: 'reel', date: '', status: 'not_started' });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors";
@@ -54,7 +61,7 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-bold">{isEdit ? '✏️ Edit Post' : '📅 Add Post'}</h2>
+          <h2 className="text-white font-bold">{isEdit ? 'Edit Post' : 'Add Post'}</h2>
           <button onClick={onClose} className="text-white/30 hover:text-white">✕</button>
         </div>
         <div className="space-y-3">
@@ -78,6 +85,27 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Date</label>
               <input className={inputCls} type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Status</label>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(STATUS_STYLE).map(([k, s]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => set('status', k)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all"
+                  style={{
+                    background: form.status === k ? s.bg : 'rgba(255,255,255,0.04)',
+                    color: form.status === k ? s.color : 'rgba(255,255,255,0.35)',
+                    borderColor: form.status === k ? s.color + '60' : 'rgba(255,255,255,0.08)',
+                  }}
+                >
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
+                  <span style={k === 'completed' ? { textDecoration: 'line-through' } : {}}>{s.label}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -139,9 +167,18 @@ function EventDetailModal({ event, clients, onClose, onEdit, onDelete, canMutate
             <span className="text-white/40">Date</span>
             <span className="text-white">{new Date(event.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
           </div>
-          <div className="flex justify-between text-sm">
+          <div className="flex justify-between text-sm items-center">
             <span className="text-white/40">Status</span>
-            <span className="text-white capitalize">{event.status}</span>
+            {(() => {
+              const ss = STATUS_STYLE[event.status] || STATUS_STYLE.not_started;
+              return (
+                <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
+                  style={{ background: ss.bg, color: ss.color }}>
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: ss.color }} />
+                  <span style={event.status === 'completed' ? { textDecoration: 'line-through' } : {}}>{ss.label}</span>
+                </span>
+              );
+            })()}
           </div>
         </div>
 
@@ -264,14 +301,17 @@ export default function CalendarView() {
                 <div className="space-y-0.5">
                   {dayEvents.slice(0, 2).map((ev) => {
                     const ts = TYPE_STYLE[ev.type] || TYPE_STYLE.post;
+                    const ss = STATUS_STYLE[ev.status] || STATUS_STYLE.not_started;
+                    const isCompleted = ev.status === 'completed';
                     return (
                       <div
                         key={ev.id}
                         onClick={(e) => { e.stopPropagation(); setDetailModal(ev); }}
-                        className="text-[9px] px-1 py-0.5 rounded truncate leading-tight cursor-pointer hover:opacity-80 transition-opacity"
-                        style={{ background: ts.bg, color: ts.color }}
-                        title={`${ev.title} — ${clientName(ev.client_id)}`}>
-                        {ev.title}
+                        className="text-[9px] px-1 py-0.5 rounded truncate leading-tight cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-0.5"
+                        style={{ background: ts.bg, color: isCompleted ? 'rgba(156,163,175,0.6)' : ts.color }}
+                        title={`${ev.title} — ${clientName(ev.client_id)} · ${ss.label}`}>
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ss.color }} />
+                        <span style={isCompleted ? { textDecoration: 'line-through' } : {}} className="truncate">{ev.title}</span>
                       </div>
                     );
                   })}
@@ -285,18 +325,29 @@ export default function CalendarView() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 mt-4">
-        {Object.entries(TYPE_STYLE).map(([k, v]) => (
-          <div key={k} className="flex items-center gap-1.5 text-xs text-white/40">
-            <span className="w-2 h-2 rounded-sm" style={{ background: v.color }} />
-            {v.label}
-          </div>
-        ))}
+      <div className="flex flex-wrap gap-4 mt-4">
+        <div className="flex flex-wrap gap-3">
+          {Object.entries(TYPE_STYLE).map(([k, v]) => (
+            <div key={k} className="flex items-center gap-1.5 text-xs text-white/40">
+              <span className="w-2 h-2 rounded-sm" style={{ background: v.color }} />
+              {v.label}
+            </div>
+          ))}
+        </div>
+        <div className="w-px bg-white/10 hidden sm:block" />
+        <div className="flex flex-wrap gap-3">
+          {Object.entries(STATUS_STYLE).map(([k, s]) => (
+            <div key={k} className="flex items-center gap-1.5 text-xs text-white/40">
+              <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />
+              <span style={k === 'completed' ? { textDecoration: 'line-through' } : {}}>{s.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {modal && isOwner && (
         <EventModal
-          event={modal.create ? { client_id: clients[0]?.id || '', title: '', type: 'reel', date: prefillDate, status: 'scheduled' } : modal}
+          event={modal.create ? { client_id: clients[0]?.id || '', title: '', type: 'reel', date: prefillDate, status: 'not_started' } : modal}
           clients={clients}
           onClose={() => setModal(null)}
           onSave={load}

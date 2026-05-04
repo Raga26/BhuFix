@@ -54,7 +54,7 @@ function AddKPIModal({ clients, onClose, onSave, kpi, isEdit }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-bold">{isEdit ? '✏️ Edit KPI Entry' : '📈 Add KPI Entry'}</h2>
+          <h2 className="text-white font-bold">{isEdit ? 'Edit KPI Entry' : 'Add KPI Entry'}</h2>
           <button onClick={onClose} className="text-white/30 hover:text-white">✕</button>
         </div>
         <div className="space-y-3">
@@ -261,15 +261,15 @@ export default function KPIView() {
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => setModal(kpi)}
-                      className="w-6 h-6 rounded-md bg-blue-600/20 hover:bg-blue-600/40 text-xs flex items-center justify-center transition-colors"
+                      className="h-6 px-2 rounded-md bg-blue-600/20 hover:bg-blue-600/40 text-[10px] text-blue-300 transition-colors"
                       title="Edit KPI">
-                      ✏️
+                      Edit
                     </button>
                     <button
                       onClick={() => setDeleteConfirm(kpi)}
-                      className="w-6 h-6 rounded-md bg-red-600/20 hover:bg-red-600/40 text-xs flex items-center justify-center transition-colors"
+                      className="h-6 px-2 rounded-md bg-red-600/20 hover:bg-red-600/40 text-[10px] text-red-300 transition-colors"
                       title="Delete KPI">
-                      🗑️
+                      Delete
                     </button>
                   </div>
                 )}

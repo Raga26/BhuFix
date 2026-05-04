@@ -6,22 +6,22 @@ import { useAuth } from '../context/AuthContext';
 // Mobile bottom tab items (max 4 per role)
 const MOBILE_TABS = {
   owner: [
-    { to: '/dashboard', icon: '⚡', label: 'Home', exact: true },
-    { to: '/dashboard/clients', icon: '👥', label: 'Clients' },
-    { to: '/dashboard/calendar', icon: '📅', label: 'Calendar' },
-    { to: '/dashboard/chat', icon: '💬', label: 'Chat' },
+    { to: '/dashboard', label: 'Home', exact: true },
+    { to: '/dashboard/clients', label: 'Clients' },
+    { to: '/dashboard/calendar', label: 'Calendar' },
+    { to: '/dashboard/chat', label: 'Chat' },
   ],
   employee: [
-    { to: '/dashboard', icon: '⚡', label: 'Home', exact: true },
-    { to: '/dashboard/clients', icon: '👥', label: 'Clients' },
-    { to: '/dashboard/calendar', icon: '📅', label: 'Calendar' },
-    { to: '/dashboard/chat', icon: '💬', label: 'Chat' },
+    { to: '/dashboard', label: 'Home', exact: true },
+    { to: '/dashboard/clients', label: 'Clients' },
+    { to: '/dashboard/calendar', label: 'Calendar' },
+    { to: '/dashboard/chat', label: 'Chat' },
   ],
   client: [
-    { to: '/dashboard', icon: '⚡', label: 'Home', exact: true },
-    { to: '/dashboard/calendar', icon: '📅', label: 'Schedule' },
-    { to: '/dashboard/messages', icon: '💬', label: 'Messages' },
-    { to: '/dashboard/kpis', icon: '📈', label: 'Reports' },
+    { to: '/dashboard', label: 'Home', exact: true },
+    { to: '/dashboard/calendar', label: 'Schedule' },
+    { to: '/dashboard/messages', label: 'Messages' },
+    { to: '/dashboard/kpis', label: 'Reports' },
   ],
 };
 
@@ -39,7 +39,6 @@ function BottomTabBar() {
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#07080F]/95 backdrop-blur-xl border-t border-white/[0.08] flex items-center safe-area-bottom">
       {tabs.map((t) => (
         <NavLink key={t.to} to={t.to} end={t.exact} className={tabClass}>
-          <span className="text-xl">{t.icon}</span>
           <span className="text-[10px] font-medium">{t.label}</span>
         </NavLink>
       ))}
@@ -108,14 +107,14 @@ export default function DashboardPage() {
               title="Back to website"
               className="text-white/40 hover:text-white/80 text-lg p-1.5 rounded-lg hover:bg-white/[0.06] transition-all"
             >
-              🌐
+              ←
             </button>
             <button
               onClick={handleLogout}
               title="Sign out"
-              className="text-white/40 hover:text-red-400 text-lg p-1.5 rounded-lg hover:bg-red-400/10 transition-all"
+              className="text-white/40 hover:text-red-400 text-xs p-1.5 rounded-lg hover:bg-red-400/10 transition-all font-semibold"
             >
-              🚪
+              Out
             </button>
           </div>
         </div>

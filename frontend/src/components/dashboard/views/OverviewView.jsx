@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react';
 import apiClient from '../../../utils/axiosConfig';
 import { useAuth } from '../../../context/AuthContext';
 
-function StatCard({ icon, value, label, color, delta }) {
+function StatCard({ value, label, color, delta }) {
   return (
     <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 relative overflow-hidden hover:-translate-y-1 transition-transform">
       <div className="absolute top-[-10px] right-[-10px] w-16 h-16 rounded-full blur-2xl opacity-20" style={{ background: color }} />
-      <div className="text-xl mb-3">{icon}</div>
       <div className="text-2xl font-extrabold mb-1" style={{ color }}>{value}</div>
       <div className="text-white/40 text-xs">{label}</div>
       {delta && <span className="absolute top-4 right-4 text-[10px] font-semibold px-2 py-1 rounded-full bg-green-500/10 text-green-400">{delta}</span>}
@@ -55,7 +54,7 @@ export default function OverviewView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
           <h1 className="text-white font-extrabold text-2xl md:text-3xl">
-            {greeting}, {user?.name?.split(' ')[0]} ☀️
+            {greeting}, {user?.name?.split(' ')[0]}
           </h1>
           <p className="text-white/40 text-sm mt-1">
             {now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -71,10 +70,10 @@ export default function OverviewView() {
       {/* Stats — owner/employee only */}
       {user?.role !== 'client' && stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <StatCard icon="👥" value={stats.total_clients} label="Active Clients" color="#E8734A" />
-          <StatCard icon="🎬" value={stats.total_reels} label="Reels Delivered" color="#4DD9FF" />
-          <StatCard icon="💰" value={fmt(stats.total_ad_spent)} label="Ad Spend (All)" color="#A78BFA" />
-          <StatCard icon="💬" value={stats.total_dm_inquiries || 0} label="DM Inquiries" color="#34D399" />
+          <StatCard icon="" value={stats.total_clients} label="Active Clients" color="#E8734A" />
+          <StatCard icon="" value={stats.total_reels} label="Reels Delivered" color="#4DD9FF" />
+          <StatCard icon="" value={fmt(stats.total_ad_spent)} label="Ad Spend (All)" color="#A78BFA" />
+          <StatCard icon="" value={stats.total_dm_inquiries || 0} label="DM Inquiries" color="#34D399" />
         </div>
       )}
 
@@ -90,7 +89,7 @@ export default function OverviewView() {
           </div>
 
           <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5">
-            <div className="text-white font-bold text-sm mb-4">⏰ Best Posting Times (IST)</div>
+            <div className="text-white font-bold text-sm mb-4">Best Posting Times (IST)</div>
             {[
               { time: '7:00 AM', label: 'Morning peak', score: 5, color: '#4DD9FF', best: true },
               { time: '12:30 PM', label: 'Lunch break', score: 4, color: '#E8734A' },
@@ -105,7 +104,7 @@ export default function OverviewView() {
                     <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: i < slot.score ? slot.color : 'rgba(255,255,255,0.1)' }} />
                   ))}
                 </div>
-                {slot.best && <span className="text-[10px] bg-[#E8734A]/10 text-[#E8734A] px-2 py-0.5 rounded-full">🔥</span>}
+                {slot.best && <span className="text-[10px] bg-[#E8734A]/10 text-[#E8734A] px-2 py-0.5 rounded-full font-bold">Best</span>}
               </div>
             ))}
           </div>
@@ -116,7 +115,9 @@ export default function OverviewView() {
       {user?.role === 'client' && (
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6 text-center">
-            <div className="text-4xl mb-3">📅</div>
+            <div className="w-12 h-12 rounded-2xl bg-[#E8734A]/15 border border-[#E8734A]/20 mx-auto mb-4 flex items-center justify-center">
+              <div className="w-5 h-5 rounded-sm bg-[#E8734A]/60" />
+            </div>
             <div className="text-white font-bold mb-2">Your Content Calendar</div>
             <div className="text-white/40 text-sm mb-4">View your scheduled posts and upcoming content</div>
             <a href="/dashboard/calendar" className="inline-flex items-center gap-2 bg-[#E8734A]/15 border border-[#E8734A]/30 text-[#E8734A] text-sm font-semibold px-4 py-2 rounded-full hover:bg-[#E8734A]/25 transition-colors">
@@ -124,7 +125,9 @@ export default function OverviewView() {
             </a>
           </div>
           <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-6 text-center">
-            <div className="text-4xl mb-3">💬</div>
+            <div className="w-12 h-12 rounded-2xl bg-[#A78BFA]/15 border border-[#A78BFA]/20 mx-auto mb-4 flex items-center justify-center">
+              <div className="w-5 h-5 rounded-full bg-[#A78BFA]/60" />
+            </div>
             <div className="text-white font-bold mb-2">Messages</div>
             <div className="text-white/40 text-sm mb-4">Chat directly with the BhuFix team</div>
             <a href="/dashboard/messages" className="inline-flex items-center gap-2 bg-[#E8734A]/15 border border-[#E8734A]/30 text-[#E8734A] text-sm font-semibold px-4 py-2 rounded-full hover:bg-[#E8734A]/25 transition-colors">

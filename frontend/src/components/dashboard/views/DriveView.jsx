@@ -35,7 +35,7 @@ export default function DriveView() {
           clients.map((c) => (
             <a key={c.id} href={c.drive_link} target="_blank" rel="noreferrer"
               className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] mb-2 last:mb-0 hover:border-[#4DD9FF]/30 hover:bg-[#4DD9FF]/[0.04] transition-all group">
-              <span className="text-2xl">📁</span>
+              <span className="w-8 h-8 rounded-lg bg-white/[0.06] flex items-center justify-center text-white/40 text-xs font-bold flex-shrink-0">F</span>
               <div className="flex-1 min-w-0">
                 <div className="text-white text-sm font-semibold">{c.logo_emoji} {c.name}</div>
                 <div className="text-white/40 text-xs">{c.industry} · Started {c.start_date} · {c.ig_handle}</div>

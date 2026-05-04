@@ -99,7 +99,7 @@ export default function ChatView({ clientThread = false }) {
   const handleKey = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
   const clientName = (id) => clients.find((c) => c.id === id)?.name || id;
 
-  const title = isClient ? '💬 Chat with BhuFix' : clientThread ? '💬 Client Messages' : '💬 Team Chat';
+  const title = isClient ? 'Chat with BhuFix' : clientThread ? 'Client Messages' : 'Team Chat';
 
   return (
     <div>

@@ -401,10 +401,15 @@ class UserCreate(BaseModel):
     role: str = "employee"  # owner, employee, client
     client_id: Optional[str] = None
 
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    client_id: Optional[str] = None
+
 class ClientCreate(BaseModel):
     name: str
     industry: str = ""
-    level: str = "Silver"  # Gold, Platinum, Silver
+    level: str = "Silver"  # Silver, Gold, Diamond, Customised
     logo_emoji: str = ""
     color: str = "#E8734A"
     ig_handle: str = ""
@@ -444,9 +449,9 @@ class ClientUpdate(BaseModel):
 class CalendarEventCreate(BaseModel):
     client_id: str
     title: str
-    type: str = "post"  # reel, post, story, ad
-    date: str           # ISO date string e.g. "2026-04-15"
-    status: str = "scheduled"
+    type: str = "reel"   # reel, post, ad, content, shoot
+    date: str            # ISO date string e.g. "2026-04-15"
+    status: str = "not_started"  # not_started, in_progress, done, completed
 
 class AdsCampaignCreate(BaseModel):
     client_id: str
@@ -756,6 +761,17 @@ async def deactivate_user(user_id: str, current_user: dict = Depends(require_own
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "User deactivated"}
+
+@api_router.put("/users/{user_id}")
+async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depends(require_owner)):
+    update_data = {k: v for k, v in data.dict().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No data to update")
+    result = await db.users.update_one({"id": user_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    return updated
 
 @api_router.put("/users/{user_id}/reset-password")
 async def reset_user_password(user_id: str, data: dict, current_user: dict = Depends(require_owner)):

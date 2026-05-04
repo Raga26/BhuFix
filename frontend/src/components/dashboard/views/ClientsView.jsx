@@ -6,9 +6,10 @@ import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 
 const LEVEL_STYLE = {
-  Gold: { bg: 'rgba(232,115,74,0.12)', color: '#E8734A', border: 'rgba(232,115,74,0.3)', gradient: 'linear-gradient(135deg,#E8734A,#D4633D)' },
-  Platinum: { bg: 'rgba(77,217,255,0.1)', color: '#4DD9FF', border: 'rgba(77,217,255,0.25)', gradient: 'linear-gradient(135deg,#4DD9FF,#A78BFA)' },
-  Silver: { bg: 'rgba(156,163,175,0.12)', color: '#9CA3AF', border: 'rgba(156,163,175,0.25)', gradient: 'linear-gradient(135deg,#9CA3AF,#D1D5DB)' },
+  Silver:     { bg: 'rgba(156,163,175,0.12)', color: '#9CA3AF', border: 'rgba(156,163,175,0.25)', gradient: 'linear-gradient(135deg,#9CA3AF,#D1D5DB)' },
+  Gold:       { bg: 'rgba(232,115,74,0.12)',  color: '#E8734A', border: 'rgba(232,115,74,0.3)',   gradient: 'linear-gradient(135deg,#E8734A,#D4633D)' },
+  Diamond:    { bg: 'rgba(77,217,255,0.1)',   color: '#4DD9FF', border: 'rgba(77,217,255,0.25)',  gradient: 'linear-gradient(135deg,#4DD9FF,#A78BFA)' },
+  Customised: { bg: 'rgba(167,139,250,0.12)', color: '#A78BFA', border: 'rgba(167,139,250,0.3)', gradient: 'linear-gradient(135deg,#A78BFA,#7C3AED)' },
 };
 
 function ClientCard({ client, onEdit, onDelete, canMutate }) {
@@ -52,25 +53,25 @@ function ClientCard({ client, onEdit, onDelete, canMutate }) {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-white/30 text-xs">📅 {client.start_date || 'New'}</span>
+        <span className="text-white/30 text-xs">{client.start_date || 'New'}</span>
         <div className="flex gap-1.5">
           {client.drive_link && (
             <a href={client.drive_link} target="_blank" rel="noreferrer"
-              className="w-7 h-7 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-xs hover:bg-[#E8734A]/15 hover:border-[#E8734A]/30 transition-all">
-              📁
+              className="h-7 px-2.5 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center text-[10px] text-white/40 hover:bg-[#E8734A]/15 hover:border-[#E8734A]/30 hover:text-[#E8734A] transition-all">
+              Drive
             </a>
           )}
           {canMutate && (
             <>
               <button onClick={() => onEdit(client)}
-                className="w-7 h-7 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-xs hover:bg-[#E8734A]/15 hover:border-[#E8734A]/30 transition-all"
+                className="h-7 px-2.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-[10px] text-white/40 hover:bg-[#E8734A]/15 hover:border-[#E8734A]/30 hover:text-[#E8734A] transition-all"
                 title="Edit client">
-                ✏️
+                Edit
               </button>
               <button onClick={() => onDelete(client)}
-                className="w-7 h-7 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center justify-center text-xs hover:bg-red-600/15 hover:border-red-600/30 transition-all"
+                className="h-7 px-2.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-[10px] text-white/40 hover:bg-red-600/15 hover:border-red-600/30 hover:text-red-400 transition-all"
                 title="Delete client">
-                🗑️
+                Delete
               </button>
             </>
           )}
@@ -137,7 +138,7 @@ function ClientModal({ client, clients, onClose, onSave }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-white font-bold text-lg">{isEdit ? '✏️ Edit Client' : '➕ Add New Client'}</h2>
+          <h2 className="text-white font-bold text-lg">{isEdit ? 'Edit Client' : 'Add New Client'}</h2>
           <button onClick={onClose} className="text-white/30 hover:text-white text-xl">✕</button>
         </div>
         <div className="grid grid-cols-2 gap-3 mb-3">
@@ -154,14 +155,15 @@ function ClientModal({ client, clients, onClose, onSave }) {
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Level</label>
             <select className={inputCls} value={form.level} onChange={(e) => set('level', e.target.value)}>
-              <option value="Gold">Gold</option>
-              <option value="Platinum">Platinum</option>
               <option value="Silver">Silver</option>
+              <option value="Gold">Gold</option>
+              <option value="Diamond">Diamond</option>
+              <option value="Customised">Customised</option>
             </select>
           </div>
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Start Date</label>
-            <input className={inputCls} value={form.start_date} onChange={(e) => set('start_date', e.target.value)} placeholder="Apr 2026" />
+            <input className={inputCls} type="date" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 mb-3">
@@ -258,7 +260,7 @@ export default function ClientsView() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="🔍 Search clients…"
+            placeholder="Search clients…"
             className="bg-white/[0.06] border border-white/[0.08] rounded-xl px-4 py-2.5 text-white placeholder-white/30 text-sm outline-none focus:border-[#E8734A]/40 transition-colors w-48"
           />
           {user?.role === 'owner' && (

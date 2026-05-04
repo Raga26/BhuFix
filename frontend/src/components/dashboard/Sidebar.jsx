@@ -7,25 +7,25 @@ const NAV_CONFIG = {
     {
       section: 'Main',
       items: [
-        { to: '/dashboard', label: 'Overview', icon: '⚡', exact: true },
-        { to: '/dashboard/clients', label: 'Clients', icon: '👥' },
-        { to: '/dashboard/calendar', label: 'Calendar', icon: '📅' },
+        { to: '/dashboard', label: 'Overview', exact: true },
+        { to: '/dashboard/clients', label: 'Clients' },
+        { to: '/dashboard/calendar', label: 'Calendar' },
       ],
     },
     {
       section: 'Work',
       items: [
-        { to: '/dashboard/ads', label: 'Meta Ads', icon: '📊' },
-        { to: '/dashboard/strategy', label: 'Strategy Hub', icon: '🎯' },
-        { to: '/dashboard/drive', label: 'Drive Links', icon: '📁' },
-        { to: '/dashboard/chat', label: 'Team Chat', icon: '💬' },
-        { to: '/dashboard/kpis', label: 'KPI Tracker', icon: '📈' },
+        { to: '/dashboard/ads', label: 'Meta Ads' },
+        { to: '/dashboard/strategy', label: 'Strategy Hub' },
+        { to: '/dashboard/drive', label: 'Drive Links' },
+        { to: '/dashboard/chat', label: 'Team Chat' },
+        { to: '/dashboard/kpis', label: 'KPI Tracker' },
       ],
     },
     {
       section: 'Admin',
       items: [
-        { to: '/dashboard/users', label: 'Team & Users', icon: '🔐' },
+        { to: '/dashboard/users', label: 'Team & Users' },
       ],
     },
   ],
@@ -33,19 +33,19 @@ const NAV_CONFIG = {
     {
       section: 'Main',
       items: [
-        { to: '/dashboard', label: 'Overview', icon: '⚡', exact: true },
-        { to: '/dashboard/clients', label: 'Clients', icon: '👥' },
-        { to: '/dashboard/calendar', label: 'Calendar', icon: '📅' },
+        { to: '/dashboard', label: 'Overview', exact: true },
+        { to: '/dashboard/clients', label: 'Clients' },
+        { to: '/dashboard/calendar', label: 'Calendar' },
       ],
     },
     {
       section: 'Work',
       items: [
-        { to: '/dashboard/ads', label: 'Meta Ads', icon: '📊' },
-        { to: '/dashboard/strategy', label: 'Strategy Hub', icon: '🎯' },
-        { to: '/dashboard/drive', label: 'Drive Links', icon: '📁' },
-        { to: '/dashboard/chat', label: 'Team Chat', icon: '💬' },
-        { to: '/dashboard/kpis', label: 'KPI Tracker', icon: '📈' },
+        { to: '/dashboard/ads', label: 'Meta Ads' },
+        { to: '/dashboard/strategy', label: 'Strategy Hub' },
+        { to: '/dashboard/drive', label: 'Drive Links' },
+        { to: '/dashboard/chat', label: 'Team Chat' },
+        { to: '/dashboard/kpis', label: 'KPI Tracker' },
       ],
     },
   ],
@@ -53,11 +53,11 @@ const NAV_CONFIG = {
     {
       section: 'My Portal',
       items: [
-        { to: '/dashboard', label: 'Overview', icon: '⚡', exact: true },
-        { to: '/dashboard/calendar', label: 'Schedule', icon: '📅' },
-        { to: '/dashboard/drive', label: 'My Files', icon: '📁' },
-        { to: '/dashboard/messages', label: 'Messages', icon: '💬' },
-        { to: '/dashboard/kpis', label: 'My Reports', icon: '📈' },
+        { to: '/dashboard', label: 'Overview', exact: true },
+        { to: '/dashboard/calendar', label: 'Schedule' },
+        { to: '/dashboard/drive', label: 'My Files' },
+        { to: '/dashboard/messages', label: 'Messages' },
+        { to: '/dashboard/kpis', label: 'My Reports' },
       ],
     },
   ],
@@ -123,7 +123,6 @@ export function Sidebar({ mobile = false, onClose }) {
                   className={linkClass}
                   onClick={mobile ? onClose : undefined}
                 >
-                  <span className="text-base w-5 text-center">{item.icon}</span>
                   {item.label}
                 </NavLink>
               ))}
@@ -139,7 +138,6 @@ export function Sidebar({ mobile = false, onClose }) {
           onClick={handleBackToSite}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/40 hover:bg-white/[0.04] hover:text-white/70 border border-transparent transition-all"
         >
-          <span className="text-base w-5 text-center">🌐</span>
           Back to BhuFix.com
         </button>
 
@@ -169,7 +167,6 @@ export function Sidebar({ mobile = false, onClose }) {
           onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-red-400/70 hover:text-red-400 hover:bg-red-400/10 border border-transparent hover:border-red-400/20 transition-all"
         >
-          <span className="text-base">🚪</span>
           Sign Out
         </button>
       </div>
