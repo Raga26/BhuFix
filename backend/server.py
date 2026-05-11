@@ -399,11 +399,13 @@ class UserCreate(BaseModel):
     name: str
     password: str
     role: str = "employee"  # owner, employee, client
+    sub_role: Optional[str] = None  # editor, videographer, management
     client_id: Optional[str] = None
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     role: Optional[str] = None
+    sub_role: Optional[str] = None  # editor, videographer, management
     client_id: Optional[str] = None
 
 class ClientCreate(BaseModel):
@@ -744,6 +746,7 @@ async def create_user(data: UserCreate, current_user: dict = Depends(require_own
         "name": sanitize_input(data.name),
         "password_hash": get_password_hash(data.password),
         "role": data.role,
+        "sub_role": data.sub_role,
         "client_id": data.client_id,
         "is_active": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -764,7 +767,8 @@ async def deactivate_user(user_id: str, current_user: dict = Depends(require_own
 
 @api_router.put("/users/{user_id}")
 async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depends(require_owner)):
-    update_data = {k: v for k, v in data.dict().items() if v is not None}
+    # Include sub_role even when None so it can be explicitly cleared
+    update_data = {k: v for k, v in data.dict().items() if v is not None or k == "sub_role"}
     if not update_data:
         raise HTTPException(status_code=400, detail="No data to update")
     result = await db.users.update_one({"id": user_id}, {"$set": update_data})

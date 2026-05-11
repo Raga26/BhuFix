@@ -5,34 +5,74 @@ import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 
+// Map sub_role → display label + colour
+const SUB_ROLE_META = {
+  editor:       { label: 'Editor',          color: '#34D399' }, // green
+  videographer: { label: 'Videographer',    color: '#60A5FA' }, // blue
+  management:   { label: 'Management Team', color: '#F59E0B' }, // amber
+};
+
 const ROLE_COLOR = {
   owner: '#E8734A',
   employee: '#A78BFA',
   client: '#4DD9FF',
 };
 
+function getRoleDisplay(u) {
+  if (u.sub_role && SUB_ROLE_META[u.sub_role]) return SUB_ROLE_META[u.sub_role];
+  if (u.role === 'owner')    return { label: 'Owner',    color: ROLE_COLOR.owner };
+  if (u.role === 'client')   return { label: 'Client',   color: ROLE_COLOR.client };
+  return { label: 'Employee', color: ROLE_COLOR.employee };
+}
+
+// Combined role options for the modal selector
+// management internally maps to role:"owner" + sub_role:"management"
+const ROLE_OPTIONS = [
+  { value: 'editor',        label: 'Editor',          role: 'employee', sub_role: 'editor' },
+  { value: 'videographer',  label: 'Videographer',    role: 'employee', sub_role: 'videographer' },
+  { value: 'management',    label: 'Management Team', role: 'owner',    sub_role: 'management' },
+  { value: 'client',        label: 'Client',          role: 'client',   sub_role: null },
+];
+
+function getRoleOption(user) {
+  if (user.sub_role && ROLE_OPTIONS.find((o) => o.value === user.sub_role)) return user.sub_role;
+  if (user.role === 'client') return 'client';
+  return 'editor'; // default fallback for legacy employees
+}
+
 function CreateUserModal({ clients, onClose, onSave }) {
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'employee', client_id: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', roleOption: 'editor', client_id: '' });
   const [saving, setSaving] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors [&:-webkit-autofill]:shadow-[0_0_0_1000px_#0D0E1A_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]";
+
+  const selectedOpt = ROLE_OPTIONS.find((o) => o.value === form.roleOption) || ROLE_OPTIONS[0];
+  const optStyle = { background: '#0D0E1A', color: '#fff' };
 
   const handleSave = async () => {
     if (!form.name || !form.email || !form.password) {
       toast.error('Please fill in all required fields');
       return;
     }
-    if (form.role === 'client' && !form.client_id) {
+    if (selectedOpt.role === 'client' && !form.client_id) {
       toast.error('Please select a client profile for this user');
       return;
     }
     setSaving(true);
     try {
-      logger.formSubmit('UsersView', 'create_user', { name: form.name, email: form.email, role: form.role });
-      await apiClient.post('/users', form.role === 'client' ? form : { ...form, client_id: null });
+      const payload = {
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        role: selectedOpt.role,
+        sub_role: selectedOpt.sub_role,
+        client_id: selectedOpt.role === 'client' ? form.client_id : null,
+      };
+      logger.formSubmit('UsersView', 'create_user', { name: form.name, email: form.email, role: selectedOpt.role, sub_role: selectedOpt.sub_role });
+      await apiClient.post('/users', payload);
       toast.success(`User "${form.name}" created successfully`);
-      logger.success('New user created', { email: form.email, role: form.role });
+      logger.success('New user created', { email: form.email, role: selectedOpt.role, sub_role: selectedOpt.sub_role });
       onSave();
       onClose();
     } catch (e) {
@@ -81,18 +121,27 @@ function CreateUserModal({ clients, onClose, onSave }) {
             </div>
           </div>
           <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Role</label>
-            <select className={inputCls} value={form.role} onChange={(e) => set('role', e.target.value)}>
-              <option value="employee">Employee</option>
-              <option value="client">Client</option>
+            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Role / Type</label>
+            <select className={inputCls} value={form.roleOption} onChange={(e) => set('roleOption', e.target.value)}>
+              <optgroup label="Team" style={optStyle}>
+                <option value="editor" style={optStyle}>Editor</option>
+                <option value="videographer" style={optStyle}>Videographer</option>
+                <option value="management" style={optStyle}>Management Team</option>
+              </optgroup>
+              <optgroup label="Other" style={optStyle}>
+                <option value="client" style={optStyle}>Client</option>
+              </optgroup>
             </select>
+            {form.roleOption === 'management' && (
+              <p className="text-amber-400/70 text-[10px] mt-1.5">Management Team gets full admin access.</p>
+            )}
           </div>
-          {form.role === 'client' && (
+          {selectedOpt.role === 'client' && (
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Link to Client Profile</label>
               <select className={inputCls} value={form.client_id} onChange={(e) => set('client_id', e.target.value)}>
-                <option value="">— Select client —</option>
-                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value="" style={optStyle}>— Select client —</option>
+                {clients.map((c) => <option key={c.id} value={c.id} style={optStyle}>{c.name}</option>)}
               </select>
             </div>
           )}
@@ -110,7 +159,11 @@ function CreateUserModal({ clients, onClose, onSave }) {
 }
 
 function EditUserModal({ editUser, clients, onClose, onSave }) {
-  const [form, setForm] = useState({ name: editUser.name, role: editUser.role, client_id: editUser.client_id || '' });
+  const [form, setForm] = useState({
+    name: editUser.name,
+    roleOption: getRoleOption(editUser),
+    client_id: editUser.client_id || '',
+  });
   const [newPassword, setNewPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -118,11 +171,19 @@ function EditUserModal({ editUser, clients, onClose, onSave }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors [&:-webkit-autofill]:shadow-[0_0_0_1000px_#0D0E1A_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]";
 
+  const selectedOpt = ROLE_OPTIONS.find((o) => o.value === form.roleOption) || ROLE_OPTIONS[0];
+  const optStyle = { background: '#0D0E1A', color: '#fff' };
+
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Name is required'); return; }
     setSaving(true);
     try {
-      const payload = { name: form.name, role: form.role, client_id: form.role === 'client' ? form.client_id || null : null };
+      const payload = {
+        name: form.name,
+        role: selectedOpt.role,
+        sub_role: selectedOpt.sub_role,
+        client_id: selectedOpt.role === 'client' ? form.client_id || null : null,
+      };
       await apiClient.put(`/users/${editUser.id}`, payload);
       toast.success('User updated successfully');
       onSave();
@@ -166,18 +227,27 @@ function EditUserModal({ editUser, clients, onClose, onSave }) {
             <input className={inputCls + ' opacity-40 cursor-not-allowed'} value={editUser.email} readOnly />
           </div>
           <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Role</label>
-            <select className={inputCls} value={form.role} onChange={(e) => set('role', e.target.value)}>
-              <option value="employee">Employee</option>
-              <option value="client">Client</option>
+            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Role / Type</label>
+            <select className={inputCls} value={form.roleOption} onChange={(e) => set('roleOption', e.target.value)}>
+              <optgroup label="Team" style={optStyle}>
+                <option value="editor" style={optStyle}>Editor</option>
+                <option value="videographer" style={optStyle}>Videographer</option>
+                <option value="management" style={optStyle}>Management Team</option>
+              </optgroup>
+              <optgroup label="Other" style={optStyle}>
+                <option value="client" style={optStyle}>Client</option>
+              </optgroup>
             </select>
+            {form.roleOption === 'management' && (
+              <p className="text-amber-400/70 text-[10px] mt-1.5">Management Team gets full admin access.</p>
+            )}
           </div>
-          {form.role === 'client' && (
+          {selectedOpt.role === 'client' && (
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Linked Client Profile</label>
               <select className={inputCls} value={form.client_id} onChange={(e) => set('client_id', e.target.value)}>
-                <option value="">— Select client —</option>
-                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value="" style={optStyle}>— Select client —</option>
+                {clients.map((c) => <option key={c.id} value={c.id} style={optStyle}>{c.name}</option>)}
               </select>
             </div>
           )}
@@ -298,10 +368,12 @@ export default function UsersView() {
           {users.map((u) => (
             <div key={u.id} className="flex flex-wrap md:grid md:grid-cols-[1fr_180px_120px_100px_120px] gap-4 items-center px-5 py-4 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                  style={{ background: `linear-gradient(135deg, ${ROLE_COLOR[u.role]}, ${ROLE_COLOR[u.role]}99)` }}>
-                  {u.name?.[0]?.toUpperCase()}
-                </div>
+                {(() => { const rd = getRoleDisplay(u); return (
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                    style={{ background: `linear-gradient(135deg, ${rd.color}, ${rd.color}99)` }}>
+                    {u.name?.[0]?.toUpperCase()}
+                  </div>
+                ); })()}
                 <div className="min-w-0">
                   <div className="text-white text-sm font-semibold truncate">{u.name}</div>
                   <div className="text-white/30 text-xs truncate">{u.email}</div>
@@ -309,10 +381,12 @@ export default function UsersView() {
               </div>
               <div className="text-white/50 text-sm truncate">{clientName(u.client_id)}</div>
               <div>
-                <span className="text-[10px] uppercase font-bold px-2.5 py-1 rounded-full capitalize"
-                  style={{ background: `${ROLE_COLOR[u.role]}15`, color: ROLE_COLOR[u.role], border: `1px solid ${ROLE_COLOR[u.role]}40` }}>
-                  {u.role}
-                </span>
+                {(() => { const rd = getRoleDisplay(u); return (
+                  <span className="text-[10px] uppercase font-bold px-2.5 py-1 rounded-full"
+                    style={{ background: `${rd.color}15`, color: rd.color, border: `1px solid ${rd.color}40` }}>
+                    {rd.label}
+                  </span>
+                ); })()}
               </div>
               <div>
                 <span className={`text-[10px] uppercase font-semibold px-2 py-1 rounded-full ${u.is_active ? 'bg-green-500/10 text-green-400' : 'bg-white/[0.06] text-white/30'}`}>

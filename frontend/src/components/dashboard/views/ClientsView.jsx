@@ -5,6 +5,31 @@ import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 
+function parseIgHandle(raw) {
+  if (!raw) return null;
+  // Strip full URL patterns
+  let handle = raw.trim();
+  try {
+    const url = new URL(handle.startsWith('http') ? handle : `https://${handle}`);
+    if (url.hostname.includes('instagram.com')) {
+      handle = url.pathname.replace(/\//g, '').split('?')[0];
+    }
+  } catch (_) {
+    // not a URL, fall through
+  }
+  // Strip leading @
+  handle = handle.replace(/^@/, '');
+  return handle || null;
+}
+
+const InstagramIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
+    <rect x="2" y="2" width="20" height="20" rx="6" stroke="currentColor" strokeWidth="2"/>
+    <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2"/>
+    <circle cx="17.5" cy="6.5" r="1" fill="currentColor"/>
+  </svg>
+);
+
 const LEVEL_STYLE = {
   Silver:     { bg: 'rgba(156,163,175,0.12)', color: '#9CA3AF', border: 'rgba(156,163,175,0.25)', gradient: 'linear-gradient(135deg,#9CA3AF,#D1D5DB)' },
   Gold:       { bg: 'rgba(232,115,74,0.12)',  color: '#E8734A', border: 'rgba(232,115,74,0.3)',   gradient: 'linear-gradient(135deg,#E8734A,#D4633D)' },
@@ -24,7 +49,25 @@ function ClientCard({ client, onEdit, onDelete, canMutate }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-white font-bold text-sm truncate">{client.name}</div>
-          <div className="text-white/40 text-xs">{client.industry} · {client.ig_handle}</div>
+          <div className="text-white/40 text-xs flex items-center gap-1.5 flex-wrap">
+            <span>{client.industry}</span>
+            {parseIgHandle(client.ig_handle) && (
+              <>
+                <span>·</span>
+                <a
+                  href={`https://www.instagram.com/${parseIgHandle(client.ig_handle)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1 text-white/40 hover:text-[#E1306C] transition-colors"
+                  title={`@${parseIgHandle(client.ig_handle)} on Instagram`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <InstagramIcon />
+                  <span className="truncate max-w-[100px]">@{parseIgHandle(client.ig_handle)}</span>
+                </a>
+              </>
+            )}
+          </div>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full flex-shrink-0"
           style={{ background: ls.bg, color: ls.color, border: `1px solid ${ls.border}` }}>
@@ -133,6 +176,7 @@ function ClientModal({ client, clients, onClose, onSave }) {
   };
 
   const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors";
+  const optStyle = { background: '#0D0E1A', color: '#fff' };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -155,10 +199,10 @@ function ClientModal({ client, clients, onClose, onSave }) {
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Level</label>
             <select className={inputCls} value={form.level} onChange={(e) => set('level', e.target.value)}>
-              <option value="Silver">Silver</option>
-              <option value="Gold">Gold</option>
-              <option value="Diamond">Diamond</option>
-              <option value="Customised">Customised</option>
+              <option value="Silver" style={optStyle}>Silver</option>
+              <option value="Gold" style={optStyle}>Gold</option>
+              <option value="Diamond" style={optStyle}>Diamond</option>
+              <option value="Customised" style={optStyle}>Customised</option>
             </select>
           </div>
           <div>
