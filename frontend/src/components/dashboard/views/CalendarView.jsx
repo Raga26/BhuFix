@@ -121,6 +121,104 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
   );
 }
 
+function DayEventsModal({ date, dayEvents, clients, canMutate, onClose, onAddPost, onEditEvent, onRefresh }) {
+  const [deletingId, setDeletingId] = useState(null);
+
+  const displayDate = new Date(date + 'T00:00:00').toLocaleDateString('en-IN', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+
+  const handleDelete = async (ev) => {
+    setDeletingId(ev.id);
+    try {
+      logger.userAction('CalendarView', 'delete_event', { eventId: ev.id, title: ev.title });
+      await apiClient.delete(`/calendar/${ev.id}`);
+      toast.success('Event deleted successfully');
+      logger.success('Event deleted', { eventId: ev.id });
+      onRefresh();
+    } catch (e) {
+      const errorMsg = e.response?.data?.detail || 'Failed to delete event';
+      toast.error(errorMsg);
+      logger.error('Failed to delete event', { eventId: ev.id, error: e.message });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl w-full max-w-md flex flex-col" style={{ maxHeight: '80vh' }}>
+        <div className="flex items-center justify-between p-6 pb-4 border-b border-white/[0.06] flex-shrink-0">
+          <div>
+            <h2 className="text-white font-bold text-base">{displayDate}</h2>
+            <p className="text-white/40 text-xs mt-0.5">{dayEvents.length} event{dayEvents.length !== 1 ? 's' : ''}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {canMutate && (
+              <button
+                onClick={onAddPost}
+                className="bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] hover:-translate-y-0.5 transition-all"
+              >
+                + Add Post
+              </button>
+            )}
+            <button onClick={onClose} className="text-white/30 hover:text-white text-xl leading-none">✕</button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {dayEvents.length === 0 ? (
+            <div className="text-center py-10 text-white/30 text-sm">No events for this day</div>
+          ) : (
+            dayEvents.map((ev) => {
+              const ts = TYPE_STYLE[ev.type] || TYPE_STYLE.post;
+              const ss = STATUS_STYLE[ev.status] || STATUS_STYLE.not_started;
+              const clientLabel = clients.find((c) => c.id === ev.client_id)?.name || ev.client_id;
+              const isCompleted = ev.status === 'completed';
+              return (
+                <div
+                  key={ev.id}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.1] transition-all"
+                >
+                  <div className="w-1 self-stretch rounded-full flex-shrink-0 min-h-[2.5rem]" style={{ background: ts.color }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ts.bg, color: ts.color }}>{ts.label}</span>
+                      <span className="text-[10px] flex items-center gap-1 font-semibold px-1.5 py-0.5 rounded-full" style={{ background: ss.bg, color: ss.color }}>
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ss.color }} />
+                        {ss.label}
+                      </span>
+                    </div>
+                    <p className={`text-sm font-semibold text-white truncate ${isCompleted ? 'line-through opacity-50' : ''}`}>{ev.title}</p>
+                    <p className="text-xs text-white/40 truncate">{clientLabel}</p>
+                  </div>
+                  {canMutate && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => onEditEvent(ev)}
+                        className="text-white/30 hover:text-blue-400 text-xs px-2.5 py-1.5 rounded-lg hover:bg-blue-400/10 transition-all font-semibold"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(ev)}
+                        disabled={deletingId === ev.id}
+                        className="text-white/30 hover:text-red-400 text-xs px-2.5 py-1.5 rounded-lg hover:bg-red-400/10 transition-all font-semibold disabled:opacity-40"
+                      >
+                        {deletingId === ev.id ? '…' : 'Del'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EventDetailModal({ event, clients, onClose, onEdit, onDelete, canMutate }) {
   const clientName = clients.find(c => c.id === event.client_id)?.name || event.client_id;
   const ts = TYPE_STYLE[event.type] || TYPE_STYLE.post;
@@ -198,28 +296,142 @@ function EventDetailModal({ event, clients, onClose, onEdit, onDelete, canMutate
   );
 }
 
+function getWeekStart(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function WeekView({ weekDays, events, clients, onDayClick }) {
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const eventsForDate = (dateStr) => events.filter((e) => e.date === dateStr);
+  const clientName = (cid) => clients.find((c) => c.id === cid)?.name || '';
+
+  return (
+    <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className="grid grid-cols-7 min-w-[560px]">
+        {weekDays.map((day) => {
+          const dateStr = day.toISOString().split('T')[0];
+          const isToday = dateStr === todayStr;
+          const dayName = day.toLocaleDateString('en-IN', { weekday: 'short' });
+          const dayNum = day.getDate();
+          const dayEvents = eventsForDate(dateStr);
+
+          return (
+            <div key={dateStr} className="border-r border-white/[0.04] last:border-r-0 flex flex-col">
+              <div
+                className={`p-2 sm:p-3 text-center border-b border-white/[0.04] flex-shrink-0 ${isToday ? 'bg-[#E8734A]/[0.08]' : ''}`}
+              >
+                <div className="text-white/40 text-[10px] uppercase tracking-widest">{dayName}</div>
+                <div
+                  className={`text-lg sm:text-2xl font-extrabold mt-0.5 leading-none ${isToday ? 'text-[#E8734A]' : 'text-white/80'}`}
+                >
+                  {dayNum}
+                </div>
+                {dayEvents.length > 0 && (
+                  <div className="mt-1 flex justify-center">
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-white/[0.08] text-white/40">
+                      {dayEvents.length}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div
+                onClick={() => onDayClick(dateStr)}
+                className="flex-1 p-1.5 sm:p-2 min-h-[140px] cursor-pointer hover:bg-white/[0.02] transition-colors space-y-1.5"
+              >
+                {dayEvents.map((ev) => {
+                  const ts = TYPE_STYLE[ev.type] || TYPE_STYLE.post;
+                  const ss = STATUS_STYLE[ev.status] || STATUS_STYLE.not_started;
+                  const isCompleted = ev.status === 'completed';
+                  return (
+                    <div
+                      key={ev.id}
+                      onClick={(e) => { e.stopPropagation(); onDayClick(dateStr); }}
+                      className="rounded-lg p-1.5 sm:p-2 cursor-pointer hover:opacity-90 transition-opacity"
+                      style={{ background: ts.bg, borderLeft: `3px solid ${ts.color}` }}
+                    >
+                      <div className="flex items-center gap-1 mb-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ss.color }} />
+                        <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: ts.color }}>{ts.label}</span>
+                      </div>
+                      <p
+                        className="text-xs font-semibold text-white leading-tight line-clamp-2"
+                        style={isCompleted ? { textDecoration: 'line-through', opacity: 0.5 } : {}}
+                      >
+                        {ev.title}
+                      </p>
+                      <p className="text-[10px] text-white/40 mt-0.5 truncate">{clientName(ev.client_id)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function CalendarView() {
   const { user } = useAuth();
   const [events, setEvents] = useState([]);
   const [clients, setClients] = useState([]);
   const [modal, setModal] = useState(null);
   const [detailModal, setDetailModal] = useState(null);
+  const [dayModal, setDayModal] = useState(null);
   const [prefillDate, setPrefillDate] = useState('');
+  const [calView, setCalView] = useState('month');
 
   const today = new Date();
   const [viewDate, setViewDate] = useState({ month: today.getMonth() + 1, year: today.getFullYear() });
+  const [weekStart, setWeekStart] = useState(() => getWeekStart(today));
+
   const isStaff = user?.role !== 'client';
   const isOwner = user?.role === 'owner';
 
   const load = useCallback(() => {
-    apiClient.get('/calendar', { params: { month: viewDate.month, year: viewDate.year } }).then((r) => {
-      setEvents(r.data || []);
-      logger.info('Calendar events loaded', { count: r.data?.length || 0, month: viewDate.month });
-    }).catch((e) => logger.error('Failed to load calendar', { error: e.message }));
+    const fetchMonth = (m, y) =>
+      apiClient.get('/calendar', { params: { month: m, year: y } }).then((r) => r.data || []);
+
+    if (calView === 'week') {
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      const sm = weekStart.getMonth() + 1;
+      const sy = weekStart.getFullYear();
+      const em = weekEnd.getMonth() + 1;
+      const ey = weekEnd.getFullYear();
+
+      const fetches = (sm === em && sy === ey)
+        ? [fetchMonth(sm, sy)]
+        : [fetchMonth(sm, sy), fetchMonth(em, ey)];
+
+      Promise.all(fetches)
+        .then((results) => {
+          const merged = results.flat();
+          setEvents(merged);
+          logger.info('Week events loaded', { count: merged.length });
+        })
+        .catch((e) => logger.error('Failed to load week events', { error: e.message }));
+    } else {
+      fetchMonth(viewDate.month, viewDate.year)
+        .then((data) => {
+          setEvents(data);
+          logger.info('Calendar events loaded', { count: data.length, month: viewDate.month });
+        })
+        .catch((e) => logger.error('Failed to load calendar', { error: e.message }));
+    }
+
     if (isStaff) {
       apiClient.get('/clients').then((r) => setClients(r.data || [])).catch((e) => logger.error('Failed to load clients', { error: e.message }));
     }
-  }, [viewDate, isStaff]);
+  }, [calView, viewDate, weekStart, isStaff]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -246,6 +458,18 @@ export default function CalendarView() {
     return { month: m, year: y };
   });
 
+  const prevWeek = () => setWeekStart((d) => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; });
+  const nextWeek = () => setWeekStart((d) => { const n = new Date(d); n.setDate(n.getDate() + 7); return n; });
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  const weekEnd = weekDays[6];
+  const weekLabel = `${weekStart.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${weekEnd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
   const isToday = (day) => {
     const d = new Date();
     return d.getDate() === day && d.getMonth() + 1 === viewDate.month && d.getFullYear() === viewDate.year;
@@ -253,16 +477,37 @@ export default function CalendarView() {
 
   const clientName = (cid) => clients.find((c) => c.id === cid)?.name || '';
 
+  const periodLabel = calView === 'week' ? weekLabel : monthName;
+  const onPrev = calView === 'week' ? prevWeek : prevMonth;
+  const onNext = calView === 'week' ? nextWeek : nextMonth;
+
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-white font-extrabold text-2xl">Content Calendar</h1>
-          <p className="text-white/40 text-sm mt-1">{monthName} · Plan and track all content</p>
+          <p className="text-white/40 text-sm mt-1">{periodLabel} · Plan and track all content</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="bg-white/[0.06] border border-white/[0.08] text-white/60 hover:text-white text-sm px-3 py-2 rounded-xl transition-colors">← Prev</button>
-          <button onClick={nextMonth} className="bg-white/[0.06] border border-white/[0.08] text-white/60 hover:text-white text-sm px-3 py-2 rounded-xl transition-colors">Next →</button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* View toggle */}
+          <div className="flex bg-white/[0.06] border border-white/[0.08] rounded-xl p-0.5">
+            <button
+              onClick={() => setCalView('month')}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${calView === 'month' ? 'bg-white/[0.12] text-white' : 'text-white/40 hover:text-white/70'}`}
+            >
+              Month
+            </button>
+            <button
+              onClick={() => setCalView('week')}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${calView === 'week' ? 'bg-white/[0.12] text-white' : 'text-white/40 hover:text-white/70'}`}
+            >
+              Week
+            </button>
+          </div>
+
+          <button onClick={onPrev} className="bg-white/[0.06] border border-white/[0.08] text-white/60 hover:text-white text-sm px-3 py-2 rounded-xl transition-colors">← Prev</button>
+          <button onClick={onNext} className="bg-white/[0.06] border border-white/[0.08] text-white/60 hover:text-white text-sm px-3 py-2 rounded-xl transition-colors">Next →</button>
+
           {isOwner && (
             <button onClick={() => { setPrefillDate(''); setModal({ create: true }); }}
               className="bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold px-4 py-2 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] hover:-translate-y-0.5 transition-all">
@@ -272,58 +517,76 @@ export default function CalendarView() {
         </div>
       </div>
 
-      <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-4 overflow-x-auto">
-        <div className="grid grid-cols-7 gap-1 mb-1">
-          {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d) => (
-            <div key={d} className="text-center text-white/20 text-[10px] uppercase tracking-widest py-2">{d}</div>
-          ))}
+      {calView === 'week' ? (
+        <div className="overflow-x-auto">
+          <WeekView
+            weekDays={weekDays}
+            events={events}
+            clients={clients}
+            onDayClick={(dateStr) => setDayModal({ date: dateStr })}
+          />
         </div>
+      ) : (
+        <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-4 overflow-x-auto">
+          <div className="grid grid-cols-7 gap-1 mb-1 min-w-[420px]">
+            {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d) => (
+              <div key={d} className="text-center text-white/30 text-xs font-semibold uppercase tracking-widest py-2">{d}</div>
+            ))}
+          </div>
 
-        <div className="grid grid-cols-7 gap-1">
-          {Array.from({ length: offset }, (_, i) => <div key={`e${i}`} />)}
+          <div className="grid grid-cols-7 gap-1 min-w-[420px]">
+            {Array.from({ length: offset }, (_, i) => <div key={`e${i}`} />)}
 
-          {Array.from({ length: daysInMonth }, (_, i) => {
-            const day = i + 1;
-            const dayEvents = eventsForDay(day);
-            const today_ = isToday(day);
-            const dateStr = `${viewDate.year}-${String(viewDate.month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-            return (
-              <div
-                key={day}
-                onClick={() => { if (isOwner) { setPrefillDate(dateStr); setModal({ create: true }); } }}
-                className={`min-h-[70px] sm:min-h-[80px] rounded-xl p-1.5 border transition-all ${isOwner ? 'cursor-pointer' : ''} ${
-                  today_
-                    ? 'border-[#E8734A]/40 bg-[#E8734A]/[0.06]'
-                    : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04]'
-                }`}
-              >
-                <div className={`text-xs font-semibold mb-1 ${today_ ? 'text-[#E8734A]' : 'text-white/30'}`}>{day}</div>
-                <div className="space-y-0.5">
-                  {dayEvents.slice(0, 2).map((ev) => {
-                    const ts = TYPE_STYLE[ev.type] || TYPE_STYLE.post;
-                    const ss = STATUS_STYLE[ev.status] || STATUS_STYLE.not_started;
-                    const isCompleted = ev.status === 'completed';
-                    return (
-                      <div
-                        key={ev.id}
-                        onClick={(e) => { e.stopPropagation(); setDetailModal(ev); }}
-                        className="text-[9px] px-1 py-0.5 rounded truncate leading-tight cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-0.5"
-                        style={{ background: ts.bg, color: isCompleted ? 'rgba(156,163,175,0.6)' : ts.color }}
-                        title={`${ev.title} — ${clientName(ev.client_id)} · ${ss.label}`}>
-                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ss.color }} />
-                        <span style={isCompleted ? { textDecoration: 'line-through' } : {}} className="truncate">{ev.title}</span>
-                      </div>
-                    );
-                  })}
-                  {dayEvents.length > 2 && (
-                    <div className="text-[9px] text-white/30 px-1">+{dayEvents.length - 2} more</div>
-                  )}
+            {Array.from({ length: daysInMonth }, (_, i) => {
+              const day = i + 1;
+              const dayEvents = eventsForDay(day);
+              const today_ = isToday(day);
+              const dateStr = `${viewDate.year}-${String(viewDate.month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+              const openDay = () => setDayModal({ date: dateStr });
+              return (
+                <div
+                  key={day}
+                  onClick={openDay}
+                  className={`min-h-[80px] sm:min-h-[100px] rounded-xl p-2 border transition-all cursor-pointer ${
+                    today_
+                      ? 'border-[#E8734A]/40 bg-[#E8734A]/[0.06]'
+                      : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <div className={`text-sm font-bold mb-1.5 ${today_ ? 'text-[#E8734A]' : 'text-white/50'}`}>{day}</div>
+                  <div className="space-y-0.5">
+                    {dayEvents.slice(0, 2).map((ev) => {
+                      const ts = TYPE_STYLE[ev.type] || TYPE_STYLE.post;
+                      const ss = STATUS_STYLE[ev.status] || STATUS_STYLE.not_started;
+                      const isCompleted = ev.status === 'completed';
+                      return (
+                        <div
+                          key={ev.id}
+                          onClick={(e) => { e.stopPropagation(); openDay(); }}
+                          className="text-[10px] px-1.5 py-0.5 rounded-md truncate leading-tight cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1"
+                          style={{ background: ts.bg, color: isCompleted ? 'rgba(156,163,175,0.6)' : ts.color }}
+                          title={`${ev.title} — ${clientName(ev.client_id)} · ${ss.label}`}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ss.color }} />
+                          <span style={isCompleted ? { textDecoration: 'line-through' } : {}} className="truncate">{ev.title}</span>
+                        </div>
+                      );
+                    })}
+                    {dayEvents.length > 2 && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openDay(); }}
+                        className="text-[10px] text-white/50 hover:text-white/80 px-1.5 py-0.5 rounded hover:bg-white/[0.08] transition-all w-full text-left font-medium"
+                      >
+                        +{dayEvents.length - 2} more
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex flex-wrap gap-4 mt-4">
         <div className="flex flex-wrap gap-3">
@@ -345,12 +608,28 @@ export default function CalendarView() {
         </div>
       </div>
 
+      {dayModal && (
+        <DayEventsModal
+          date={dayModal.date}
+          dayEvents={events.filter((e) => e.date === dayModal.date)}
+          clients={clients}
+          canMutate={isOwner}
+          onClose={() => setDayModal(null)}
+          onAddPost={() => {
+            setPrefillDate(dayModal.date);
+            setModal({ create: true });
+          }}
+          onEditEvent={(ev) => setModal(ev)}
+          onRefresh={load}
+        />
+      )}
+
       {modal && isOwner && (
         <EventModal
           event={modal.create ? { client_id: clients[0]?.id || '', title: '', type: 'reel', date: prefillDate, status: 'not_started' } : modal}
           clients={clients}
           onClose={() => setModal(null)}
-          onSave={load}
+          onSave={() => { load(); setModal(null); }}
           isEdit={!modal.create}
         />
       )}
