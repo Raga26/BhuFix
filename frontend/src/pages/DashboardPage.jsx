@@ -13,7 +13,6 @@ const MOBILE_TABS = {
   ],
   employee: [
     { to: '/dashboard', label: 'Home', exact: true },
-    { to: '/dashboard/clients', label: 'Clients' },
     { to: '/dashboard/calendar', label: 'Calendar' },
     { to: '/dashboard/chat', label: 'Chat' },
   ],

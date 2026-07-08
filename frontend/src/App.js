@@ -128,7 +128,7 @@ function App() {
                 >
                   <Route index element={<OverviewView />} />
                   <Route path="clients" element={
-                    <ProtectedRoute roles={['owner','employee']}>
+                    <ProtectedRoute roles={['owner']}>
                       <ClientsView />
                     </ProtectedRoute>
                   } />

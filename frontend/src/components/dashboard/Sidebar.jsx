@@ -34,7 +34,6 @@ const NAV_CONFIG = {
       section: 'Main',
       items: [
         { to: '/dashboard', label: 'Overview', exact: true },
-        { to: '/dashboard/clients', label: 'Clients' },
         { to: '/dashboard/calendar', label: 'Calendar' },
       ],
     },
