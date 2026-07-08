@@ -42,7 +42,7 @@ export default function OverviewView() {
 
   useEffect(() => {
     apiClient.get('/dashboard/stats').then((r) => setStats(r.data)).catch(() => {});
-    if (user?.role !== 'client') {
+    if (user?.role === 'owner') {
       apiClient.get('/clients').then((r) => setClients(r.data?.slice(0, 4) || [])).catch(() => {});
     }
   }, [user]);
@@ -78,7 +78,7 @@ export default function OverviewView() {
       )}
 
       {/* Recent clients */}
-      {user?.role !== 'client' && clients.length > 0 && (
+      {user?.role === 'owner' && clients.length > 0 && (
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
