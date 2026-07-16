@@ -1,10 +1,12 @@
 import { Button } from "./ui/button";
-import { ArrowRight, TrendingUp, MousePointerClick, Users } from "lucide-react";
+import { ArrowRight, TrendingUp, MousePointerClick, Users, LayoutDashboard } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
+import { useNavigate } from "react-router-dom";
 
 export const HeroSection = () => {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const navigate = useNavigate();
 
   const scrollTo = (href) => {
     const el = document.querySelector(href);
@@ -90,6 +92,13 @@ export const HeroSection = () => {
               >
                 Our Services
                 <ArrowRight className="ml-2 h-4 sm:h-5 w-4 sm:w-5" />
+              </Button>
+              <Button
+                onClick={() => navigate("/login")}
+                className="w-full xs:w-auto bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-semibold px-6 sm:px-8 py-3 sm:py-6 text-sm sm:text-base rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-slate-500/25 hover:-translate-y-1"
+              >
+                <LayoutDashboard className="mr-2 h-4 sm:h-5 w-4 sm:w-5" />
+                Dashboard
               </Button>
               <Button
                 variant="outline"

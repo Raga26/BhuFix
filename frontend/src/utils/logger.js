@@ -51,10 +51,9 @@ class Logger {
   }
 
   /**
-   * Suppress all console output to prevent dev tools spam
+   * Suppress verbose console output while keeping error/warn for debugging
    */
   suppressConsole() {
-    // Save original console methods in case needed for debugging
     this._originalConsole = {
       log: console.log,
       warn: console.warn,
@@ -62,13 +61,12 @@ class Logger {
       info: console.info,
       debug: console.debug,
     };
-    
-    // Override all console methods
+
+    // Only suppress noisy log/info/debug — keep error and warn visible
     console.log = () => {};
-    console.warn = () => {};
-    console.error = () => {};
     console.info = () => {};
     console.debug = () => {};
+    // console.error and console.warn are intentionally left active
   }
 
   /**

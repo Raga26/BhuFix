@@ -1,10 +1,13 @@
-from fastapi import FastAPI, APIRouter, Request, HTTPException
+from fastapi import FastAPI, APIRouter, Request, HTTPException, Depends, Query
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 import certifi
 import os
 import re
@@ -19,7 +22,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 import traceback
 import json
@@ -86,6 +89,17 @@ if GMAIL_USER:
     logger.info(f"Gmail configured for: {GMAIL_USER}")
 else:
     logger.warning("⚠️  Gmail not configured - email notifications will be disabled")
+
+# JWT / Auth configuration
+SECRET_KEY = os.environ.get('SECRET_KEY', 'bhufix-default-secret-change-in-prod')
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get('ACCESS_TOKEN_EXPIRE_MINUTES', '480'))
+OWNER_EMAIL = os.environ.get('OWNER_EMAIL', '')
+OWNER_PASSWORD = os.environ.get('OWNER_PASSWORD', '')
+OWNER_NAME = os.environ.get('OWNER_NAME', 'BhuFix Admin')
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 # Environment validation
 logger.info("Validating required environment variables...")
@@ -375,6 +389,170 @@ class FrontendLogsRequest(BaseModel):
     """Request containing multiple frontend logs"""
     logs: List[FrontendLog]
 
+# ── Dashboard Pydantic Models ─────────────────────────────────────
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class UserCreate(BaseModel):
+    email: str
+    name: str
+    password: str
+    role: str = "employee"  # owner, employee, client
+    sub_role: Optional[str] = None  # editor, videographer, management
+    client_id: Optional[str] = None
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    sub_role: Optional[str] = None  # editor, videographer, management
+    client_id: Optional[str] = None
+
+class ClientCreate(BaseModel):
+    name: str
+    industry: str = ""
+    level: str = "Silver"  # Silver, Gold, Diamond, Customised
+    logo_emoji: str = ""
+    color: str = "#E8734A"
+    ig_handle: str = ""
+    followers: str = "0"
+    reels_count: int = 0
+    ad_budget: int = 0
+    ad_spent: int = 0
+    monthly_progress: int = 0
+    drive_link: str = ""
+    start_date: str = ""
+
+    @field_validator('reels_count', 'ad_budget', 'ad_spent', 'monthly_progress', mode='before')
+    @classmethod
+    def coerce_empty_to_zero(cls, v):
+        if v is None or v == '':
+            return 0
+        try:
+            return int(float(str(v)))
+        except (ValueError, TypeError):
+            return 0
+
+class ClientUpdate(BaseModel):
+    name: Optional[str] = None
+    industry: Optional[str] = None
+    level: Optional[str] = None
+    logo_emoji: Optional[str] = None
+    color: Optional[str] = None
+    ig_handle: Optional[str] = None
+    followers: Optional[str] = None
+    reels_count: Optional[int] = None
+    ad_budget: Optional[int] = None
+    ad_spent: Optional[int] = None
+    monthly_progress: Optional[int] = None
+    drive_link: Optional[str] = None
+    start_date: Optional[str] = None
+
+class CalendarEventCreate(BaseModel):
+    client_id: str
+    title: str
+    type: str = "reel"   # reel, post, ad, content, shoot
+    date: str            # ISO date string e.g. "2026-04-15"
+    status: str = "not_started"  # not_started, in_progress, done, completed
+
+class AdsCampaignCreate(BaseModel):
+    client_id: str
+    platform: str = "Meta"
+    budget: int = 0
+    spent: int = 0
+    month: int
+    year: int
+
+class KPICreate(BaseModel):
+    client_id: str
+    platform: str = "Instagram"
+    reach: int = 0
+    engagement_rate: float = 0.0
+    followers_gained: int = 0
+    dm_inquiries: int = 0
+    bookings: int = 0
+    month: int
+    year: int
+
+class ChatMessageCreate(BaseModel):
+    thread: str = "team"   # "team" or "client"
+    client_id: Optional[str] = None
+    message: str
+
+class StrategyHookCreate(BaseModel):
+    title: str
+    body: str
+    example_text: str
+
+# ── Auth Helpers ──────────────────────────────────────────────────
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict) -> str:
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user = await db.users.find_one({"id": user_id, "is_active": True}, {"_id": 0})
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+async def require_owner(current_user: dict = Depends(get_current_user)) -> dict:
+    if current_user["role"] != "owner":
+        raise HTTPException(status_code=403, detail="Owner access required")
+    return current_user
+
+async def require_staff(current_user: dict = Depends(get_current_user)) -> dict:
+    if current_user["role"] not in ["owner", "employee"]:
+        raise HTTPException(status_code=403, detail="Staff access required")
+    return current_user
+
+async def seed_owner():
+    if not OWNER_EMAIL or not OWNER_PASSWORD:
+        logger.warning("OWNER_EMAIL/OWNER_PASSWORD not set — skipping owner seed")
+        return
+    new_hash = get_password_hash(OWNER_PASSWORD)
+    existing = await db.users.find_one({"email": OWNER_EMAIL.lower()})
+    if existing:
+        await db.users.update_one(
+            {"email": OWNER_EMAIL.lower()},
+            {"$set": {
+                "password_hash": new_hash,
+                "role": "owner",
+                "is_active": True,
+                "name": OWNER_NAME,
+            }}
+        )
+        logger.info(f"✓ Owner account password synced from env: {OWNER_EMAIL}")
+        return
+    owner = {
+        "id": str(uuid.uuid4()),
+        "email": OWNER_EMAIL.lower(),
+        "name": OWNER_NAME,
+        "password_hash": new_hash,
+        "role": "owner",
+        "client_id": None,
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(owner)
+    logger.info(f"✓ Owner account seeded: {OWNER_EMAIL}")
+
 # ── Routes ───────────────────────────────────────────────────────
 @api_router.get("/")
 async def root():
@@ -544,6 +722,303 @@ async def receive_frontend_logs(request: FrontendLogsRequest, client_request: Re
     logger.debug(f"✓ Received and logged {len(request.logs)} frontend logs from client {client_ip}")
     return {"status": "ok", "received": len(request.logs)}
 
+# ── Auth Endpoints ────────────────────────────────────────────────
+@api_router.post("/auth/login")
+async def login(data: LoginRequest):
+    user = await db.users.find_one({"email": data.email.lower().strip(), "is_active": True}, {"_id": 0})
+    if not user or not verify_password(data.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    token = create_access_token({"sub": user["id"], "role": user["role"]})
+    return {"token": token, "user": {k: v for k, v in user.items() if k != "password_hash"}}
+
+@api_router.get("/auth/me")
+async def get_me(current_user: dict = Depends(get_current_user)):
+    return {k: v for k, v in current_user.items() if k != "password_hash"}
+
+# ── User Management (owner only) ──────────────────────────────────
+@api_router.post("/users")
+async def create_user(data: UserCreate, current_user: dict = Depends(require_owner)):
+    if await db.users.find_one({"email": data.email.lower()}):
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    user = {
+        "id": str(uuid.uuid4()),
+        "email": data.email.lower().strip(),
+        "name": sanitize_input(data.name),
+        "password_hash": get_password_hash(data.password),
+        "role": data.role,
+        "sub_role": data.sub_role,
+        "client_id": data.client_id,
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(user)
+    return {k: v for k, v in user.items() if k not in ["_id", "password_hash"]}
+
+@api_router.get("/users")
+async def list_users(current_user: dict = Depends(require_owner)):
+    return await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(500)
+
+@api_router.delete("/users/{user_id}")
+async def deactivate_user(user_id: str, current_user: dict = Depends(require_owner)):
+    result = await db.users.update_one({"id": user_id}, {"$set": {"is_active": False}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "User deactivated"}
+
+@api_router.put("/users/{user_id}")
+async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depends(require_owner)):
+    # Include sub_role even when None so it can be explicitly cleared
+    update_data = {k: v for k, v in data.dict().items() if v is not None or k == "sub_role"}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No data to update")
+    result = await db.users.update_one({"id": user_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    return updated
+
+@api_router.put("/users/{user_id}/reset-password")
+async def reset_user_password(user_id: str, data: dict, current_user: dict = Depends(require_owner)):
+    new_password = data.get("password", "")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    result = await db.users.update_one({"id": user_id}, {"$set": {"password_hash": get_password_hash(new_password)}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "Password updated"}
+
+# ── Dashboard Stats ───────────────────────────────────────────────
+@api_router.get("/dashboard/stats")
+async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] in ["owner", "employee"]:
+        def to_int(v):
+            try:
+                return int(float(str(v))) if v not in (None, '') else 0
+            except (ValueError, TypeError):
+                return 0
+
+        total_clients = await db.clients.count_documents({})
+        clients_data = await db.clients.find({}, {"reels_count": 1}).to_list(1000)
+        total_reels = sum(to_int(c.get("reels_count", 0)) for c in clients_data)
+        ads = await db.ads_campaigns.find({}).to_list(1000)
+        total_budget = sum(to_int(a.get("budget", 0)) for a in ads)
+        total_spent = sum(to_int(a.get("spent", 0)) for a in ads)
+        kpis = await db.kpis.find({}).to_list(1000)
+        total_dm = sum(to_int(k.get("dm_inquiries", 0)) for k in kpis)
+        return {
+            "total_clients": total_clients,
+            "total_reels": total_reels,
+            "total_ad_budget": total_budget,
+            "total_ad_spent": total_spent,
+            "total_dm_inquiries": total_dm,
+        }
+    client_id = current_user.get("client_id")
+    if not client_id:
+        return {}
+    client = await db.clients.find_one({"id": client_id}, {"_id": 0})
+    return client or {}
+
+# ── Clients ───────────────────────────────────────────────────────
+@api_router.get("/clients")
+async def list_clients(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] in ["owner", "employee"]:
+        return await db.clients.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    client_id = current_user.get("client_id")
+    if not client_id:
+        return []
+    client = await db.clients.find_one({"id": client_id}, {"_id": 0})
+    return [client] if client else []
+
+@api_router.post("/clients")
+async def create_client(data: ClientCreate, current_user: dict = Depends(require_owner)):
+    client = {"id": str(uuid.uuid4()), **data.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.clients.insert_one(client)
+    client.pop("_id", None)
+    return client
+
+@api_router.put("/clients/{client_id}")
+async def update_client(client_id: str, data: ClientUpdate, current_user: dict = Depends(require_owner)):
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    result = await db.clients.update_one({"id": client_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return await db.clients.find_one({"id": client_id}, {"_id": 0})
+
+@api_router.delete("/clients/{client_id}")
+async def delete_client(client_id: str, current_user: dict = Depends(require_owner)):
+    result = await db.clients.delete_one({"id": client_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return {"message": "Client deleted"}
+
+# ── Content Calendar ──────────────────────────────────────────────
+@api_router.get("/calendar")
+async def get_calendar(
+    month: Optional[int] = Query(None),
+    year: Optional[int] = Query(None),
+    current_user: dict = Depends(get_current_user),
+):
+    query = {}
+    if month and year:
+        query["date"] = {"$regex": f"^{year}-{str(month).zfill(2)}"}
+    if current_user["role"] == "client":
+        client_id = current_user.get("client_id")
+        if not client_id:
+            return []
+        query["client_id"] = client_id
+    return await db.calendar_events.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+
+@api_router.post("/calendar")
+async def create_calendar_event(data: CalendarEventCreate, current_user: dict = Depends(require_staff)):
+    event = {
+        "id": str(uuid.uuid4()),
+        **data.model_dump(),
+        "created_by": current_user["id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.calendar_events.insert_one(event)
+    event.pop("_id", None)
+    return event
+
+@api_router.put("/calendar/{event_id}")
+async def update_calendar_event(event_id: str, data: CalendarEventCreate, current_user: dict = Depends(require_staff)):
+    result = await db.calendar_events.update_one({"id": event_id}, {"$set": data.model_dump()})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return await db.calendar_events.find_one({"id": event_id}, {"_id": 0})
+
+@api_router.delete("/calendar/{event_id}")
+async def delete_calendar_event(event_id: str, current_user: dict = Depends(require_staff)):
+    result = await db.calendar_events.delete_one({"id": event_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return {"message": "Event deleted"}
+
+# ── Ads Campaigns ─────────────────────────────────────────────────
+@api_router.get("/ads")
+async def get_ads(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] in ["owner", "employee"]:
+        return await db.ads_campaigns.find({}, {"_id": 0}).to_list(500)
+    client_id = current_user.get("client_id")
+    if not client_id:
+        return []
+    return await db.ads_campaigns.find({"client_id": client_id}, {"_id": 0}).to_list(500)
+
+@api_router.post("/ads")
+async def create_ads_campaign(data: AdsCampaignCreate, current_user: dict = Depends(require_owner)):
+    campaign = {"id": str(uuid.uuid4()), **data.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.ads_campaigns.insert_one(campaign)
+    campaign.pop("_id", None)
+    return campaign
+
+@api_router.put("/ads/{campaign_id}")
+async def update_ads_campaign(campaign_id: str, data: AdsCampaignCreate, current_user: dict = Depends(require_owner)):
+    result = await db.ads_campaigns.update_one({"id": campaign_id}, {"$set": data.model_dump()})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return await db.ads_campaigns.find_one({"id": campaign_id}, {"_id": 0})
+
+@api_router.delete("/ads/{campaign_id}")
+async def delete_ads_campaign(campaign_id: str, current_user: dict = Depends(require_owner)):
+    result = await db.ads_campaigns.delete_one({"id": campaign_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return {"message": "Campaign deleted"}
+
+# ── KPIs ──────────────────────────────────────────────────────────
+@api_router.get("/kpis")
+async def get_kpis(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] in ["owner", "employee"]:
+        return await db.kpis.find({}, {"_id": 0}).to_list(500)
+    client_id = current_user.get("client_id")
+    if not client_id:
+        return []
+    return await db.kpis.find({"client_id": client_id}, {"_id": 0}).to_list(500)
+
+@api_router.post("/kpis")
+async def create_kpi(data: KPICreate, current_user: dict = Depends(require_staff)):
+    kpi = {"id": str(uuid.uuid4()), **data.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.kpis.insert_one(kpi)
+    kpi.pop("_id", None)
+    return kpi
+
+@api_router.put("/kpis/{kpi_id}")
+async def update_kpi(kpi_id: str, data: KPICreate, current_user: dict = Depends(require_staff)):
+    result = await db.kpis.update_one({"id": kpi_id}, {"$set": data.model_dump()})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="KPI not found")
+    return await db.kpis.find_one({"id": kpi_id}, {"_id": 0})
+
+@api_router.delete("/kpis/{kpi_id}")
+async def delete_kpi(kpi_id: str, current_user: dict = Depends(require_staff)):
+    result = await db.kpis.delete_one({"id": kpi_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="KPI not found")
+    return {"message": "KPI deleted"}
+
+# ── Chat ──────────────────────────────────────────────────────────
+@api_router.get("/chat")
+async def get_chat_messages(
+    thread: str = Query("team"),
+    client_id: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user),
+):
+    if thread == "team":
+        if current_user["role"] not in ["owner", "employee"]:
+            raise HTTPException(status_code=403, detail="Staff only")
+        return await db.chat_messages.find({"thread": "team"}, {"_id": 0}).sort("created_at", 1).to_list(200)
+    if current_user["role"] == "client":
+        cid = current_user.get("client_id")
+    else:
+        cid = client_id
+    if not cid:
+        return []
+    return await db.chat_messages.find({"thread": "client", "client_id": cid}, {"_id": 0}).sort("created_at", 1).to_list(200)
+
+@api_router.post("/chat")
+async def send_chat_message(data: ChatMessageCreate, current_user: dict = Depends(get_current_user)):
+    if data.thread == "team" and current_user["role"] not in ["owner", "employee"]:
+        raise HTTPException(status_code=403, detail="Staff only")
+    if current_user["role"] == "client":
+        data.thread = "client"
+        data.client_id = current_user.get("client_id")
+        if not data.client_id:
+            raise HTTPException(status_code=403, detail="No client profile linked")
+    msg = {
+        "id": str(uuid.uuid4()),
+        "sender_id": current_user["id"],
+        "sender_name": current_user["name"],
+        "sender_role": current_user["role"],
+        "thread": data.thread,
+        "client_id": data.client_id,
+        "message": sanitize_input(data.message),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.chat_messages.insert_one(msg)
+    msg.pop("_id", None)
+    return msg
+
+# ── Strategy Hooks ────────────────────────────────────────────────
+@api_router.get("/strategy/hooks")
+async def get_hooks(current_user: dict = Depends(require_staff)):
+    return await db.strategy_hooks.find({}, {"_id": 0}).sort("created_at", 1).to_list(100)
+
+@api_router.post("/strategy/hooks")
+async def create_hook(data: StrategyHookCreate, current_user: dict = Depends(require_owner)):
+    hook = {"id": str(uuid.uuid4()), **data.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.strategy_hooks.insert_one(hook)
+    hook.pop("_id", None)
+    return hook
+
+@api_router.delete("/strategy/hooks/{hook_id}")
+async def delete_hook(hook_id: str, current_user: dict = Depends(require_owner)):
+    result = await db.strategy_hooks.delete_one({"id": hook_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Hook not found")
+    return {"message": "Hook deleted"}
+
 # ── Global Exception Handler ─────────────────────────────────────
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -673,6 +1148,7 @@ async def startup_event():
     else:
         logger.info(f"📡 Local development: http://localhost:{os.environ.get('PORT', 8000)}")
     logger.info("=" * 80)
+    await seed_owner()
 
 @app.on_event("shutdown")
 async def shutdown_event():
