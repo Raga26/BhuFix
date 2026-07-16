@@ -1,9 +1,12 @@
 import { services } from "../data/mock";
-import { Video, Monitor, Share2, PenTool, Search, Zap, ArrowRight } from "lucide-react";
+import { Video, Monitor, Share2, PenTool, Search, Zap, Clock, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-const iconMap = { Video, Monitor, Share2, PenTool, Search, Zap };
+const iconMap = { Video, Monitor, Share2, PenTool, Search, Zap, Clock };
 
 export const ServicesSection = () => {
+  const navigate = useNavigate();
+
   return (
     <section id="services" className="py-24 lg:py-32 bg-slate-50/50 dark:bg-slate-900/80 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-coral/20 to-transparent" />
@@ -30,6 +33,9 @@ export const ServicesSection = () => {
             return (
               <div
                 key={service.id}
+                onClick={() => {
+                  if (service.id === 7) navigate('/clockin');
+                }}
                 className="group relative bg-white dark:bg-slate-800 rounded-2xl p-8 border border-slate-100 dark:border-slate-700 hover:border-coral/20 dark:hover:border-coral/30 transition-all duration-500 hover:shadow-xl hover:shadow-coral/5 hover:-translate-y-2 cursor-pointer"
               >
                 {/* Icon */}

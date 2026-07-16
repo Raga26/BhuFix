@@ -51,6 +51,12 @@ export const services = [
     shortDesc: "Streamline your marketing efforts with automated email campaigns. Lead nurturing and scoring to enhance customer engagement and conversions!",
     icon: "Zap",
   },
+  {
+    id: 7,
+    title: "BhuFix ClockIN — Attendance & Salary",
+    shortDesc: "Live office QR + GPS geofence + PIN, or connect your biometric machine. Daily reports and one-click salary.",
+    icon: "Clock",
+  },
 ];
 
 export const pricingPackages = [

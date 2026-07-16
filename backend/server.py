@@ -1042,6 +1042,22 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         content={"detail": exc.detail},
     )
 
+# ── BhuFix ClockIN (separate product) ─────────────────────────────
+from clockin import create_clockin_router, mount_adms_routes
+
+api_router.include_router(
+    create_clockin_router(
+        db,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM,
+        verify_password=verify_password,
+        get_password_hash=get_password_hash,
+        create_access_token=create_access_token,
+    )
+)
+mount_adms_routes(app, db)
+logger.info("✓ ClockIN module mounted (/api/clockin + /iclock ADMS)")
+
 # ── Include Router & Middleware ───────────────────────────────────
 logger.info("Including API router and setting up middleware...")
 app.include_router(api_router)
@@ -1088,7 +1104,7 @@ if FRONTEND_BUILD_DIR.exists():
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
         """Serve SPA - return index.html for all non-API routes"""
-        if full_path.startswith("api/"):
+        if full_path.startswith("api/") or full_path.startswith("iclock"):
             logger.warning(f"API route not found: /{full_path}")
             return JSONResponse({"error": "Not found"}, status_code=404)
         
