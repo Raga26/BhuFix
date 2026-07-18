@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { navLinks } from "../data/mock";
-import { Menu, X, ArrowRight, Sun, Moon, LayoutDashboard, Clock } from "lucide-react";
+import { Menu, X, ArrowRight, Sun, Moon, LayoutDashboard } from "lucide-react";
 import { Button } from "./ui/button";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
@@ -108,14 +108,6 @@ export const Header = () => {
 
         <div className="hidden lg:flex items-center gap-3">
           <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
-          <button
-            type="button"
-            onClick={() => navigate("/clockin")}
-            className="flex items-center gap-2 bg-coral hover:bg-coral-dark text-white font-semibold px-5 py-2.5 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-coral/25 hover:-translate-y-0.5"
-          >
-            <Clock className="h-4 w-4" />
-            ClockIN
-          </button>
           {user ? (
             <button
               type="button"
@@ -180,14 +172,6 @@ export const Header = () => {
               {link.label}
             </a>
           ))}
-          <button
-            type="button"
-            onClick={() => { setMobileOpen(false); navigate("/clockin"); }}
-            className="w-full mt-4 flex items-center justify-center gap-2 bg-coral hover:bg-coral-dark text-white font-semibold py-2.5 rounded-full"
-          >
-            <Clock className="h-4 w-4" />
-            ClockIN
-          </button>
           <Button
             onClick={() => goHomeSection("#contact")}
             className="w-full mt-2 bg-coral hover:bg-coral-dark text-white font-semibold rounded-full"

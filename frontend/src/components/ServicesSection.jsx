@@ -1,11 +1,11 @@
 import { services } from "../data/mock";
-import { Video, Monitor, Share2, PenTool, Search, Zap, Clock, ArrowRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Video, Monitor, Share2, PenTool, Search, Zap, ArrowRight } from "lucide-react";
 
-const iconMap = { Video, Monitor, Share2, PenTool, Search, Zap, Clock };
+const iconMap = { Video, Monitor, Share2, PenTool, Search, Zap };
 
 export const ServicesSection = () => {
-  const navigate = useNavigate();
+  // Hide ClockIN (id 7) from public marketing while product is in private pilot
+  const publicServices = services.filter((s) => s.id !== 7);
 
   return (
     <section id="services" className="py-24 lg:py-32 bg-slate-50/50 dark:bg-slate-900/80 relative overflow-hidden">
@@ -28,15 +28,12 @@ export const ServicesSection = () => {
 
         {/* Services grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {services.map((service) => {
+          {publicServices.map((service) => {
             const Icon = iconMap[service.icon];
             return (
               <div
                 key={service.id}
-                onClick={() => {
-                  if (service.id === 7) navigate('/clockin');
-                }}
-                className="group relative bg-white dark:bg-slate-800 rounded-2xl p-8 border border-slate-100 dark:border-slate-700 hover:border-coral/20 dark:hover:border-coral/30 transition-all duration-500 hover:shadow-xl hover:shadow-coral/5 hover:-translate-y-2 cursor-pointer"
+                className="group relative bg-white dark:bg-slate-800 rounded-2xl p-8 border border-slate-100 dark:border-slate-700 hover:border-coral/20 dark:hover:border-coral/30 transition-all duration-500 hover:shadow-xl hover:shadow-coral/5 hover:-translate-y-2"
               >
                 {/* Icon */}
                 <div className="w-14 h-14 rounded-xl bg-coral/10 flex items-center justify-center mb-6 group-hover:bg-coral transition-all duration-500">
