@@ -47,8 +47,8 @@ export default function ClockInLoginPage() {
           <button disabled={loading} className="w-full py-3 rounded-xl bg-[#E8734A] text-white font-semibold disabled:opacity-50">
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
-          <p className="text-center text-white/40 text-sm">
-            New business? <Link to="/clockin/register" className="text-[#E8734A]">Register</Link>
+          <p className="text-center text-white/35 text-xs">
+            Private pilot — new owner signup is closed.
           </p>
         </form>
       </div>

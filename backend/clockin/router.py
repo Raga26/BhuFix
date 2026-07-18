@@ -174,6 +174,16 @@ def create_clockin_router(
     # ── Auth (separate from agency dashboard) ────────────────────
     @router.post("/auth/register")
     async def register(data: ClockInRegister):
+        # Closed while ClockIN is in pilot — set CLOCKIN_ALLOW_REGISTER=true to reopen.
+        if os.environ.get("CLOCKIN_ALLOW_REGISTER", "").strip().lower() not in (
+            "1",
+            "true",
+            "yes",
+        ):
+            raise HTTPException(
+                403,
+                "ClockIN registration is closed. Existing owners can log in; contact BhuFix for access.",
+            )
         email = data.email.lower().strip()
         if await db.clockin_owners.find_one({"email": email}):
             raise HTTPException(400, "Email already registered for ClockIN")

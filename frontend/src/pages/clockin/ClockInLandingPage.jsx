@@ -26,19 +26,16 @@ export default function ClockInLandingPage() {
               Employees text IN on WhatsApp → scan the live office QR → selfie matched to enrolled face.
               Or connect a biometric machine. Separate product from the BhuFix marketing dashboard.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-wrap gap-3 items-center">
               <Link
                 to="/clockin/login"
                 className="inline-flex items-center px-6 py-3 rounded-full bg-coral text-white font-semibold shadow-lg shadow-orange-500/25 hover:opacity-95 transition"
               >
                 Owner login
               </Link>
-              <Link
-                to="/clockin/register"
-                className="inline-flex items-center px-6 py-3 rounded-full border border-slate-300 dark:border-slate-700 text-navy dark:text-white font-semibold hover:border-coral transition"
-              >
-                Start free
-              </Link>
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                Private pilot — signup closed
+              </span>
             </div>
           </div>
         </section>
@@ -82,10 +79,10 @@ export default function ClockInLandingPage() {
           </div>
           <div className="text-center mt-12">
             <Link
-              to="/clockin/register"
+              to="/clockin/login"
               className="inline-flex px-8 py-3 rounded-full bg-coral font-semibold hover:opacity-95 transition"
             >
-              Create ClockIN account
+              Owner login
             </Link>
           </div>
         </section>
