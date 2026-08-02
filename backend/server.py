@@ -474,6 +474,22 @@ class KPICreate(BaseModel):
     month: int
     year: int
 
+class PostReportUpsert(BaseModel):
+    client_id: str
+    month: int
+    year: int
+    target_videos: int = 0
+    target_posters: int = 0
+    target_youtube: int = 0
+    posted_videos: int = 0
+    posted_posters: int = 0
+    posted_youtube: int = 0
+    video_dates: List[str] = []
+    poster_dates: List[str] = []
+    youtube_dates: List[str] = []
+    completed: bool = False
+    notes: str = ""
+
 class ChatMessageCreate(BaseModel):
     thread: str = "team"   # "team" or "client"
     client_id: Optional[str] = None
@@ -957,6 +973,63 @@ async def delete_kpi(kpi_id: str, current_user: dict = Depends(require_staff)):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="KPI not found")
     return {"message": "KPI deleted"}
+
+# ── Post Reports (monthly delivery tracker) ───────────────────────
+@api_router.get("/post-reports")
+async def get_post_reports(
+    client_id: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user["role"] == "client":
+        cid = current_user.get("client_id")
+        if not cid:
+            return []
+        return await db.post_reports.find({"client_id": cid}, {"_id": 0}).to_list(500)
+    if current_user["role"] not in ["owner", "employee"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    query = {"client_id": client_id} if client_id else {}
+    return await db.post_reports.find(query, {"_id": 0}).to_list(500)
+
+@api_router.put("/post-reports")
+async def upsert_post_report(data: PostReportUpsert, current_user: dict = Depends(require_staff)):
+    if data.month < 1 or data.month > 12:
+        raise HTTPException(status_code=400, detail="Month must be 1-12")
+    if data.year < 2000 or data.year > 2100:
+        raise HTTPException(status_code=400, detail="Invalid year")
+    client = await db.clients.find_one({"id": data.client_id}, {"_id": 0})
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    payload = data.model_dump()
+    payload["notes"] = sanitize_input(payload.get("notes") or "")
+    payload["video_dates"] = [d for d in (payload.get("video_dates") or []) if d]
+    payload["poster_dates"] = [d for d in (payload.get("poster_dates") or []) if d]
+    payload["youtube_dates"] = [d for d in (payload.get("youtube_dates") or []) if d]
+    payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    existing = await db.post_reports.find_one(
+        {"client_id": data.client_id, "month": data.month, "year": data.year},
+        {"_id": 0},
+    )
+    if existing:
+        await db.post_reports.update_one({"id": existing["id"]}, {"$set": payload})
+        return await db.post_reports.find_one({"id": existing["id"]}, {"_id": 0})
+
+    report = {
+        "id": str(uuid.uuid4()),
+        **payload,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.post_reports.insert_one(report)
+    report.pop("_id", None)
+    return report
+
+@api_router.delete("/post-reports/{report_id}")
+async def delete_post_report(report_id: str, current_user: dict = Depends(require_staff)):
+    result = await db.post_reports.delete_one({"id": report_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Post report not found")
+    return {"message": "Post report deleted"}
 
 # ── Chat ──────────────────────────────────────────────────────────
 @api_router.get("/chat")

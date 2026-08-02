@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
@@ -37,7 +38,7 @@ const LEVEL_STYLE = {
   Customised: { bg: 'rgba(167,139,250,0.12)', color: '#A78BFA', border: 'rgba(167,139,250,0.3)', gradient: 'linear-gradient(135deg,#A78BFA,#7C3AED)' },
 };
 
-function ClientCard({ client, onEdit, onDelete, canMutate }) {
+function ClientCard({ client, onEdit, onDelete, onPostReport, canMutate }) {
   const ls = LEVEL_STYLE[client.level] || LEVEL_STYLE.Silver;
   const pct = client.monthly_progress || 0;
   return (
@@ -97,7 +98,12 @@ function ClientCard({ client, onEdit, onDelete, canMutate }) {
 
       <div className="flex items-center justify-between">
         <span className="text-white/30 text-xs">{client.start_date || 'New'}</span>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 flex-wrap justify-end">
+          <button onClick={() => onPostReport(client)}
+            className="h-7 px-2.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-[10px] text-white/40 hover:bg-[#E8734A]/15 hover:border-[#E8734A]/30 hover:text-[#E8734A] transition-all"
+            title="Monthly post report">
+            Post Report
+          </button>
           {client.drive_link && (
             <a href={client.drive_link} target="_blank" rel="noreferrer"
               className="h-7 px-2.5 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center text-[10px] text-white/40 hover:bg-[#E8734A]/15 hover:border-[#E8734A]/30 hover:text-[#E8734A] transition-all">
@@ -248,6 +254,7 @@ function ClientModal({ client, clients, onClose, onSave }) {
 
 export default function ClientsView() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isOwner = user?.role === 'owner';
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -327,7 +334,14 @@ export default function ClientsView() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {filtered.map((c) => (
-            <ClientCard key={c.id} client={c} onEdit={(cl) => setModal(cl)} onDelete={(cl) => setDeleteConfirm(cl)} canMutate={isOwner} />
+            <ClientCard
+              key={c.id}
+              client={c}
+              onEdit={(cl) => setModal(cl)}
+              onDelete={(cl) => setDeleteConfirm(cl)}
+              onPostReport={(cl) => navigate(`/dashboard/clients/${cl.id}/post-report`)}
+              canMutate={isOwner}
+            />
           ))}
         </div>
       )}

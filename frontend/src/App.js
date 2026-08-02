@@ -24,6 +24,7 @@ import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import OverviewView from "./components/dashboard/views/OverviewView";
 import ClientsView from "./components/dashboard/views/ClientsView";
+import PostReportView from "./components/dashboard/views/PostReportView";
 import CalendarView from "./components/dashboard/views/CalendarView";
 import AdsView from "./components/dashboard/views/AdsView";
 import StrategyView from "./components/dashboard/views/StrategyView";
@@ -145,6 +146,11 @@ function App() {
                     <Route path="clients" element={
                       <ProtectedRoute roles={['owner']}>
                         <ClientsView />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="clients/:clientId/post-report" element={
+                      <ProtectedRoute roles={['owner', 'employee']}>
+                        <PostReportView />
                       </ProtectedRoute>
                     } />
                     <Route path="calendar" element={<CalendarView />} />
