@@ -17,7 +17,7 @@ export const AboutSection = () => {
   };
 
   return (
-    <section id="about" className="py-24 lg:py-32 bg-white relative overflow-hidden">
+    <section id="about" className="py-24 lg:py-32 bg-white dark:bg-slate-900 relative overflow-hidden">
       <div className="absolute -top-40 -right-40 w-80 h-80 bg-coral/5 rounded-full blur-3xl" />
 
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -27,23 +27,23 @@ export const AboutSection = () => {
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-coral">
               Who We Are
             </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-navy mt-4 mb-6 leading-tight">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-navy dark:text-white mt-4 mb-6 leading-tight">
               Your Trusted Digital Marketing Partner
             </h2>
-            <p className="text-slate-500 text-lg leading-relaxed mb-4">
+            <p className="text-slate-500 dark:text-slate-400 text-lg leading-relaxed mb-4">
               At Bhufix, we are dedicated to providing top-notch digital marketing
               solutions that help businesses thrive in the online world. Our team
               specializes in SEO, social media management, content creation, video
               production, and more — ensuring that your brand reaches its full
               potential.
             </p>
-            <p className="text-slate-500 text-lg leading-relaxed mb-4">
+            <p className="text-slate-500 dark:text-slate-400 text-lg leading-relaxed mb-4">
               Founded in 2023, Bhufix has quickly established itself as a trusted
               partner for businesses looking to enhance their digital presence. We
               pride ourselves on our innovative strategies, personalized approach,
               and commitment to delivering measurable results.
             </p>
-            <p className="text-slate-500 text-lg leading-relaxed mb-8">
+            <p className="text-slate-500 dark:text-slate-400 text-lg leading-relaxed mb-8">
               Our mission is to empower businesses of all sizes to succeed in the
               digital landscape through effective marketing strategies and
               cutting-edge technology. We believe in building long-term relationships
@@ -56,8 +56,8 @@ export const AboutSection = () => {
                   <div className="w-12 h-12 rounded-xl bg-coral/10 flex items-center justify-center mb-3 group-hover:bg-coral transition-all duration-300">
                     <item.icon className="h-5 w-5 text-coral group-hover:text-white transition-colors duration-300" />
                   </div>
-                  <div className="text-sm font-bold text-navy">{item.label}</div>
-                  <div className="text-xs text-slate-400 mt-0.5">{item.desc}</div>
+                  <div className="text-sm font-bold text-navy dark:text-white">{item.label}</div>
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{item.desc}</div>
                 </div>
               ))}
             </div>
@@ -73,7 +73,7 @@ export const AboutSection = () => {
 
           {/* Image Column */}
           <div className="relative">
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-200/50">
+            <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-200/50 dark:shadow-slate-900/50">
               <img
                 src={ABOUT_IMAGE}
                 alt="Bhufix digital marketing team"
@@ -83,9 +83,9 @@ export const AboutSection = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-navy/20 to-transparent" />
             </div>
             {/* Floating stats card */}
-            <div className="absolute -bottom-6 -left-6 bg-white rounded-xl shadow-xl shadow-slate-200/60 p-5 border border-slate-100">
+            <div className="absolute -bottom-6 -left-6 bg-white dark:bg-slate-800 rounded-xl shadow-xl shadow-slate-200/60 dark:shadow-slate-900/60 p-5 border border-slate-100 dark:border-slate-700">
               <div className="text-3xl font-extrabold text-coral">2+</div>
-              <div className="text-sm font-medium text-slate-500">
+              <div className="text-sm font-medium text-slate-500 dark:text-slate-400">
                 Years of
                 <br />
                 Excellence

@@ -1,10 +1,9 @@
 import { navLinks, contactInfo } from "../data/mock";
 import { ArrowRight, Heart } from "lucide-react";
-
 const socialLinks = [
   { label: "Fb", href: "#" },
   { label: "Tw", href: "#" },
-  { label: "Ig", href: "#" },
+  { label: "Ig", href: "https://www.instagram.com/bhufix?igsh=YTZmd3lwZm15dHJj" },
   { label: "Li", href: "#" },
   { label: "Yt", href: "#" },
 ];
@@ -27,7 +26,7 @@ export const Footer = () => {
   };
 
   return (
-    <footer className="bg-navy text-white relative overflow-hidden">
+    <footer className="bg-navy dark:bg-slate-950 text-white relative overflow-hidden">
       <div
         className="absolute inset-0 opacity-5"
         style={{
@@ -41,8 +40,10 @@ export const Footer = () => {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           {/* Brand */}
           <div className="lg:col-span-1">
-            <a href="#home" className="text-2xl font-extrabold">
-              Bhu<span className="text-coral">fix</span>
+            <a href="#home" className="flex items-center gap-2.5">
+              <span className="text-2xl font-extrabold">
+                Bhu<span className="text-coral">Fix</span>
+              </span>
             </a>
             <p className="text-white/50 text-sm leading-relaxed mt-4 max-w-xs">
               Your growth partner in digital marketing. We craft strategies that

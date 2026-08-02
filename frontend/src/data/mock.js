@@ -122,8 +122,8 @@ export const clients = [
 ];
 
 export const contactInfo = {
-  phone: "+91 93614 05438",
-  email: "Bhushanvidhya52@gmail.com",
-  address: "Gn mills,coimbatore, Tamil Nadu, India",
-  whatsapp: "+9193614 05438",
+  phone: "+91 93423 43690",
+  email: "bhufix@gmail.com",
+  address: "Udumalpet, Tamil Nadu, India",
+  whatsapp: "+919342343690",
 };
