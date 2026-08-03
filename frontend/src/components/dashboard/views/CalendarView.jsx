@@ -305,8 +305,18 @@ function getWeekStart(date) {
   return d;
 }
 
+// Calendar events are date-only values. Avoid toISOString() here because it
+// converts a local midnight into UTC, which can move the date in positive UTC
+// offsets such as India Standard Time.
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function WeekView({ weekDays, events, clients, onDayClick }) {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDate(new Date());
 
   const eventsForDate = (dateStr) => events.filter((e) => e.date === dateStr);
   const clientName = (cid) => clients.find((c) => c.id === cid)?.name || '';
@@ -315,7 +325,7 @@ function WeekView({ weekDays, events, clients, onDayClick }) {
     <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
       <div className="grid grid-cols-7 min-w-[560px]">
         {weekDays.map((day) => {
-          const dateStr = day.toISOString().split('T')[0];
+          const dateStr = formatLocalDate(day);
           const isToday = dateStr === todayStr;
           const dayName = day.toLocaleDateString('en-IN', { weekday: 'short' });
           const dayNum = day.getDate();
