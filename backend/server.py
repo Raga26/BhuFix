@@ -424,6 +424,22 @@ class UserUpdate(BaseModel):
     sub_role: Optional[str] = None  # editor, videographer, management
     client_id: Optional[str] = None
 
+
+# These are the predefined team roles. Any other non-empty sub-role is a
+# custom role and must always use the employee permission set.
+STANDARD_SUB_ROLES = {
+    "editor",
+    "videographer",
+    "management",
+    "digital_marketer",
+    "graphic_designer",
+    "content_writer",
+}
+
+
+def is_custom_role(sub_role: Optional[str]) -> bool:
+    return bool(sub_role and sub_role.strip() and sub_role.strip().lower() not in STANDARD_SUB_ROLES)
+
 class ClientCreate(BaseModel):
     name: str
     industry: str = ""
@@ -772,14 +788,18 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 async def create_user(data: UserCreate, current_user: dict = Depends(require_owner)):
     if await db.users.find_one({"email": data.email.lower()}):
         raise HTTPException(status_code=400, detail="User with this email already exists")
+    sub_role = data.sub_role.strip() if data.sub_role else None
+    # Custom titles (for example, "Social Media Manager") are employees by
+    # design. They must not inherit owner/admin or client permissions.
+    role = "employee" if is_custom_role(sub_role) else data.role
     user = {
         "id": str(uuid.uuid4()),
         "email": data.email.lower().strip(),
         "name": sanitize_input(data.name),
         "password_hash": get_password_hash(data.password),
-        "role": data.role,
-        "sub_role": data.sub_role,
-        "client_id": data.client_id,
+        "role": role,
+        "sub_role": sub_role,
+        "client_id": None if is_custom_role(sub_role) else data.client_id,
         "is_active": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -805,6 +825,17 @@ async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depen
         raise HTTPException(status_code=400, detail="No data to update")
     if "name" in update_data:
         update_data["name"] = sanitize_input(update_data["name"])
+    if "sub_role" in update_data:
+        update_data["sub_role"] = update_data["sub_role"].strip() if update_data["sub_role"] else None
+
+    existing = await db.users.find_one({"id": user_id}, {"_id": 0, "sub_role": 1})
+    if not existing:
+        raise HTTPException(status_code=404, detail="User not found")
+    effective_sub_role = update_data.get("sub_role", existing.get("sub_role"))
+    if is_custom_role(effective_sub_role):
+        update_data["role"] = "employee"
+        update_data["client_id"] = None
+
     result = await db.users.update_one({"id": user_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
