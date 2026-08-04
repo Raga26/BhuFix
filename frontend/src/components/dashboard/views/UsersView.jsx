@@ -397,13 +397,13 @@ export default function UsersView() {
         </div>
       ) : (
         <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl overflow-hidden">
-          <div className="hidden md:grid grid-cols-[1fr_180px_120px_100px_120px] gap-4 px-5 py-3 border-b border-white/[0.06]">
+          <div className="hidden md:grid grid-cols-[minmax(220px,1fr)_180px_160px_100px_120px] gap-4 px-5 py-3 border-b border-white/[0.06]">
             {['Name / Email', 'Linked Client', 'Role', 'Status', 'Actions'].map((h) => (
               <div key={h} className="text-white/30 text-[10px] uppercase tracking-widest">{h}</div>
             ))}
           </div>
           {users.map((u) => (
-            <div key={u.id} className="flex flex-wrap md:grid md:grid-cols-[1fr_180px_120px_100px_120px] gap-4 items-center px-5 py-4 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
+            <div key={u.id} className="flex flex-wrap md:grid md:grid-cols-[minmax(220px,1fr)_180px_160px_100px_120px] gap-4 items-center px-5 py-4 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
               <div className="flex items-center gap-3 min-w-0">
                 {(() => { const rd = getRoleDisplay(u); return (
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
@@ -417,9 +417,9 @@ export default function UsersView() {
                 </div>
               </div>
               <div className="text-white/50 text-sm truncate">{clientName(u.client_id)}</div>
-              <div>
+              <div className="min-w-0">
                 {(() => { const rd = getRoleDisplay(u); return (
-                  <span className="text-[10px] uppercase font-bold px-2.5 py-1 rounded-full"
+                  <span className="inline-flex max-w-full items-center justify-center whitespace-normal break-words text-center text-[10px] font-bold uppercase leading-4 px-2.5 py-1 rounded-full"
                     style={{ background: `${rd.color}15`, color: rd.color, border: `1px solid ${rd.color}40` }}>
                     {rd.label}
                   </span>
