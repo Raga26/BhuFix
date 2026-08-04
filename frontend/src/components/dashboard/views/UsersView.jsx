@@ -10,6 +10,9 @@ const SUB_ROLE_META = {
   editor:       { label: 'Editor',          color: '#34D399' }, // green
   videographer: { label: 'Videographer',    color: '#60A5FA' }, // blue
   management:   { label: 'Management Team', color: '#F59E0B' }, // amber
+  digital_marketer: { label: 'Digital Marketer', color: '#22C55E' },
+  graphic_designer: { label: 'Graphic Designer', color: '#F472B6' },
+  content_writer:   { label: 'Content Writer',   color: '#38BDF8' },
 };
 
 const ROLE_COLOR = {
@@ -20,6 +23,7 @@ const ROLE_COLOR = {
 
 function getRoleDisplay(u) {
   if (u.sub_role && SUB_ROLE_META[u.sub_role]) return SUB_ROLE_META[u.sub_role];
+  if (u.sub_role) return { label: u.sub_role, color: ROLE_COLOR.employee };
   if (u.role === 'owner')    return { label: 'Owner',    color: ROLE_COLOR.owner };
   if (u.role === 'client')   return { label: 'Client',   color: ROLE_COLOR.client };
   return { label: 'Employee', color: ROLE_COLOR.employee };
@@ -31,17 +35,29 @@ const ROLE_OPTIONS = [
   { value: 'editor',        label: 'Editor',          role: 'employee', sub_role: 'editor' },
   { value: 'videographer',  label: 'Videographer',    role: 'employee', sub_role: 'videographer' },
   { value: 'management',    label: 'Management Team', role: 'owner',    sub_role: 'management' },
+  { value: 'digital_marketer', label: 'Digital Marketer', role: 'employee', sub_role: 'digital_marketer' },
+  { value: 'graphic_designer', label: 'Graphic Designer', role: 'employee', sub_role: 'graphic_designer' },
+  { value: 'content_writer',   label: 'Content Writer',   role: 'employee', sub_role: 'content_writer' },
+  { value: 'custom',        label: 'Custom role',      role: 'employee', sub_role: null },
   { value: 'client',        label: 'Client',          role: 'client',   sub_role: null },
 ];
 
 function getRoleOption(user) {
   if (user.sub_role && ROLE_OPTIONS.find((o) => o.value === user.sub_role)) return user.sub_role;
   if (user.role === 'client') return 'client';
+  if (user.sub_role) return 'custom';
   return 'editor'; // default fallback for legacy employees
 }
 
+function getRolePayload(form, selectedOpt) {
+  return {
+    role: selectedOpt.role,
+    sub_role: form.roleOption === 'custom' ? form.customRole.trim() : selectedOpt.sub_role,
+  };
+}
+
 function CreateUserModal({ clients, onClose, onSave }) {
-  const [form, setForm] = useState({ name: '', email: '', password: '', roleOption: 'editor', client_id: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', roleOption: 'editor', customRole: '', client_id: '' });
   const [saving, setSaving] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -55,24 +71,28 @@ function CreateUserModal({ clients, onClose, onSave }) {
       toast.error('Please fill in all required fields');
       return;
     }
+    if (form.roleOption === 'custom' && !form.customRole.trim()) {
+      toast.error('Please enter a custom role');
+      return;
+    }
     if (selectedOpt.role === 'client' && !form.client_id) {
       toast.error('Please select a client profile for this user');
       return;
     }
     setSaving(true);
     try {
+      const rolePayload = getRolePayload(form, selectedOpt);
       const payload = {
         name: form.name,
         email: form.email,
         password: form.password,
-        role: selectedOpt.role,
-        sub_role: selectedOpt.sub_role,
+        ...rolePayload,
         client_id: selectedOpt.role === 'client' ? form.client_id : null,
       };
-      logger.formSubmit('UsersView', 'create_user', { name: form.name, email: form.email, role: selectedOpt.role, sub_role: selectedOpt.sub_role });
+      logger.formSubmit('UsersView', 'create_user', { name: form.name, email: form.email, ...rolePayload });
       await apiClient.post('/users', payload);
       toast.success(`User "${form.name}" created successfully`);
-      logger.success('New user created', { email: form.email, role: selectedOpt.role, sub_role: selectedOpt.sub_role });
+      logger.success('New user created', { email: form.email, ...rolePayload });
       onSave();
       onClose();
     } catch (e) {
@@ -127,6 +147,10 @@ function CreateUserModal({ clients, onClose, onSave }) {
                 <option value="editor" style={optStyle}>Editor</option>
                 <option value="videographer" style={optStyle}>Videographer</option>
                 <option value="management" style={optStyle}>Management Team</option>
+                <option value="digital_marketer" style={optStyle}>Digital Marketer</option>
+                <option value="graphic_designer" style={optStyle}>Graphic Designer</option>
+                <option value="content_writer" style={optStyle}>Content Writer</option>
+                <option value="custom" style={optStyle}>Custom role…</option>
               </optgroup>
               <optgroup label="Other" style={optStyle}>
                 <option value="client" style={optStyle}>Client</option>
@@ -134,6 +158,9 @@ function CreateUserModal({ clients, onClose, onSave }) {
             </select>
             {form.roleOption === 'management' && (
               <p className="text-amber-400/70 text-[10px] mt-1.5">Management Team gets full admin access.</p>
+            )}
+            {form.roleOption === 'custom' && (
+              <input className={inputCls + ' mt-2'} value={form.customRole} onChange={(e) => set('customRole', e.target.value)} placeholder="e.g. Cleaner" />
             )}
           </div>
           {selectedOpt.role === 'client' && (
@@ -162,6 +189,7 @@ function EditUserModal({ editUser, clients, onClose, onSave }) {
   const [form, setForm] = useState({
     name: editUser.name,
     roleOption: getRoleOption(editUser),
+    customRole: getRoleOption(editUser) === 'custom' ? editUser.sub_role || '' : '',
     client_id: editUser.client_id || '',
   });
   const [newPassword, setNewPassword] = useState('');
@@ -176,12 +204,13 @@ function EditUserModal({ editUser, clients, onClose, onSave }) {
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Name is required'); return; }
+    if (form.roleOption === 'custom' && !form.customRole.trim()) { toast.error('Please enter a custom role'); return; }
     setSaving(true);
     try {
+      const rolePayload = getRolePayload(form, selectedOpt);
       const payload = {
         name: form.name,
-        role: selectedOpt.role,
-        sub_role: selectedOpt.sub_role,
+        ...rolePayload,
         client_id: selectedOpt.role === 'client' ? form.client_id || null : null,
       };
       await apiClient.put(`/users/${editUser.id}`, payload);
@@ -233,6 +262,10 @@ function EditUserModal({ editUser, clients, onClose, onSave }) {
                 <option value="editor" style={optStyle}>Editor</option>
                 <option value="videographer" style={optStyle}>Videographer</option>
                 <option value="management" style={optStyle}>Management Team</option>
+                <option value="digital_marketer" style={optStyle}>Digital Marketer</option>
+                <option value="graphic_designer" style={optStyle}>Graphic Designer</option>
+                <option value="content_writer" style={optStyle}>Content Writer</option>
+                <option value="custom" style={optStyle}>Custom role…</option>
               </optgroup>
               <optgroup label="Other" style={optStyle}>
                 <option value="client" style={optStyle}>Client</option>
@@ -240,6 +273,9 @@ function EditUserModal({ editUser, clients, onClose, onSave }) {
             </select>
             {form.roleOption === 'management' && (
               <p className="text-amber-400/70 text-[10px] mt-1.5">Management Team gets full admin access.</p>
+            )}
+            {form.roleOption === 'custom' && (
+              <input className={inputCls + ' mt-2'} value={form.customRole} onChange={(e) => set('customRole', e.target.value)} placeholder="e.g. Cleaner" />
             )}
           </div>
           {selectedOpt.role === 'client' && (

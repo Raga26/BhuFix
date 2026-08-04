@@ -31,11 +31,13 @@ Write-Host ""
 try {
     Push-Location frontend
     Write-Status "Installing npm dependencies..." "Info"
-    npm install --legacy-peer-deps 2>&1 | Out-Null
+    npm install --legacy-peer-deps | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "npm install failed with exit code $LASTEXITCODE" }
     Write-Status "npm dependencies installed" "Success"
     
     Write-Status "Building frontend production build..." "Info"
-    npm run build 2>&1 | Out-Null
+    npm run build | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "npm run build failed with exit code $LASTEXITCODE" }
     Write-Status "Frontend build completed" "Success"
     
     if (Test-Path "build") {
