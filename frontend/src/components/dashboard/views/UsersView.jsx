@@ -45,7 +45,6 @@ const ROLE_OPTIONS = [
 function getRoleOption(user) {
   if (user.sub_role && ROLE_OPTIONS.find((o) => o.value === user.sub_role)) return user.sub_role;
   if (user.role === 'client') return 'client';
-  if (user.role === 'owner') return 'management';
   if (user.sub_role) return 'custom';
   return 'editor'; // default fallback for legacy employees
 }
