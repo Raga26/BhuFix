@@ -16,16 +16,32 @@ import logging
 import logging.handlers
 import time
 import aiosmtplib
+import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 import traceback
 import json
+
+from instagram_oauth import (
+    build_oauth_authorization_url,
+    decrypt_secret,
+    encrypt_secret,
+    generate_oauth_state,
+    get_meta_oauth_settings,
+    get_state_ttl_minutes,
+    is_meta_token_expired,
+    is_oauth_state_valid,
+    safe_error_payload,
+    validate_meta_oauth_settings,
+)
+from instagram_analytics import calculate_instagram_analytics
+from instagram_sync import build_audit_record, collect_new_snapshots, is_instagram_sync_enabled
 
 # Configure comprehensive logging
 LOG_DIR = Path(__file__).parent / "logs"
@@ -408,6 +424,22 @@ class UserUpdate(BaseModel):
     sub_role: Optional[str] = None  # editor, videographer, management
     client_id: Optional[str] = None
 
+
+# These are the predefined team roles. Any other non-empty sub-role is a
+# custom role and must always use the employee permission set.
+STANDARD_SUB_ROLES = {
+    "editor",
+    "videographer",
+    "management",
+    "digital_marketer",
+    "graphic_designer",
+    "content_writer",
+}
+
+
+def is_custom_role(sub_role: Optional[str]) -> bool:
+    return bool(sub_role and sub_role.strip() and sub_role.strip().lower() not in STANDARD_SUB_ROLES)
+
 class ClientCreate(BaseModel):
     name: str
     industry: str = ""
@@ -756,14 +788,18 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 async def create_user(data: UserCreate, current_user: dict = Depends(require_owner)):
     if await db.users.find_one({"email": data.email.lower()}):
         raise HTTPException(status_code=400, detail="User with this email already exists")
+    sub_role = data.sub_role.strip() if data.sub_role else None
+    # Custom titles (for example, "Social Media Manager") are employees by
+    # design. They must not inherit owner/admin or client permissions.
+    role = "employee" if is_custom_role(sub_role) else data.role
     user = {
         "id": str(uuid.uuid4()),
         "email": data.email.lower().strip(),
         "name": sanitize_input(data.name),
         "password_hash": get_password_hash(data.password),
-        "role": data.role,
-        "sub_role": data.sub_role,
-        "client_id": data.client_id,
+        "role": role,
+        "sub_role": sub_role,
+        "client_id": None if is_custom_role(sub_role) else data.client_id,
         "is_active": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -783,10 +819,23 @@ async def deactivate_user(user_id: str, current_user: dict = Depends(require_own
 
 @api_router.put("/users/{user_id}")
 async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depends(require_owner)):
-    # Include sub_role even when None so it can be explicitly cleared
-    update_data = {k: v for k, v in data.dict().items() if v is not None or k == "sub_role"}
+    # Only include fields explicitly provided by the request.
+    update_data = data.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No data to update")
+    if "name" in update_data:
+        update_data["name"] = sanitize_input(update_data["name"])
+    if "sub_role" in update_data:
+        update_data["sub_role"] = update_data["sub_role"].strip() if update_data["sub_role"] else None
+
+    existing = await db.users.find_one({"id": user_id}, {"_id": 0, "sub_role": 1})
+    if not existing:
+        raise HTTPException(status_code=404, detail="User not found")
+    effective_sub_role = update_data.get("sub_role", existing.get("sub_role"))
+    if is_custom_role(effective_sub_role):
+        update_data["role"] = "employee"
+        update_data["client_id"] = None
+
     result = await db.users.update_one({"id": user_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
@@ -1091,6 +1140,546 @@ async def delete_hook(hook_id: str, current_user: dict = Depends(require_owner))
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Hook not found")
     return {"message": "Hook deleted"}
+
+# ── Instagram Meta OAuth (Phase 2 only) ─────────────────────────
+async def _start_instagram_oauth_flow(current_user: dict, request: Request) -> dict:
+    settings = validate_meta_oauth_settings()
+    if not settings["ok"]:
+        missing = ", ".join(settings["missing"]) if settings.get("missing") else "required OAuth settings"
+        raise HTTPException(
+            status_code=500,
+            detail=f"Meta OAuth is not configured. Missing settings: {missing}",
+        )
+
+    state_value = generate_oauth_state()
+    state_doc = {
+        "id": str(uuid.uuid4()),
+        "state": state_value,
+        "provider": "instagram",
+        "owner_id": current_user["id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=get_state_ttl_minutes())).isoformat(),
+        "used": False,
+        "status": "pending",
+    }
+    await db.instagram_oauth_states.insert_one(state_doc)
+
+    auth_url = build_oauth_authorization_url(
+        "https://www.facebook.com/v20.0/dialog/oauth",
+        state_value,
+        settings["settings"]["redirect_uri"],
+        settings["settings"]["app_id"],
+        settings["settings"]["scope"],
+    )
+    return {
+        "ok": True,
+        "auth_url": auth_url,
+        "state": state_value,
+        "expires_in_minutes": get_state_ttl_minutes(),
+    }
+
+
+@api_router.get("/instagram/integrations/connect")
+@api_router.post("/instagram/integrations/connect")
+async def start_instagram_connection(current_user: dict = Depends(require_owner)):
+    return await _start_instagram_oauth_flow(current_user, Request)
+
+
+@api_router.get("/instagram/integrations/callback")
+async def instagram_oauth_callback(
+    request: Request,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+    error_reason: Optional[str] = None,
+):
+    if error:
+        logger.warning(f"Instagram OAuth callback error received: {error} ({error_reason or 'no reason'})")
+        return JSONResponse(status_code=400, content=safe_error_payload("Authorization was cancelled or denied."))
+
+    if not code or not state:
+        return JSONResponse(status_code=400, content=safe_error_payload("Invalid authorization response."))
+
+    state_doc = await db.instagram_oauth_states.find_one({"state": state}, {"_id": 0})
+    if not state_doc:
+        return JSONResponse(status_code=400, content=safe_error_payload("Invalid or expired authorization state."))
+
+    if state_doc.get("used"):
+        return JSONResponse(status_code=400, content=safe_error_payload("Authorization state already used."))
+
+    if not is_oauth_state_valid(state_doc):
+        await db.instagram_oauth_states.update_one(
+            {"id": state_doc["id"]},
+            {"$set": {"used": True, "status": "expired"}},
+        )
+        return JSONResponse(status_code=400, content=safe_error_payload("Authorization state expired. Please try again."))
+
+    settings = validate_meta_oauth_settings()
+    if not settings["ok"]:
+        missing = ", ".join(settings["missing"]) if settings.get("missing") else "required OAuth settings"
+        return JSONResponse(
+            status_code=500,
+            content=safe_error_payload(f"Meta OAuth is not configured. Missing settings: {missing}"),
+        )
+
+    await db.instagram_oauth_states.update_one(
+        {"id": state_doc["id"]},
+        {"$set": {"used": True, "status": "consumed"}},
+    )
+
+    token_url = "https://graph.facebook.com/v20.0/oauth/access_token"
+    try:
+        response = requests.post(
+            token_url,
+            params={
+                "client_id": settings["settings"]["app_id"],
+                "client_secret": settings["settings"]["app_secret"],
+                "redirect_uri": settings["settings"]["redirect_uri"],
+                "code": code,
+            },
+            timeout=20,
+        )
+        response.raise_for_status()
+        token_payload = response.json()
+    except Exception as exc:
+        logger.warning(f"Instagram OAuth token exchange failed: {exc}")
+        return JSONResponse(status_code=400, content=safe_error_payload("Authorization failed while exchanging the code."))
+
+    access_token = token_payload.get("access_token")
+    if not access_token:
+        return JSONResponse(status_code=400, content=safe_error_payload("Authorization failed. No access token was returned."))
+
+    encrypted_access_token = encrypt_secret(access_token)
+    connection_doc = {
+        "id": str(uuid.uuid4()),
+        "provider": "instagram",
+        "owner_id": state_doc.get("owner_id"),
+        "account_id": token_payload.get("user_id") or token_payload.get("account_id"),
+        "access_token": encrypted_access_token,
+        "connected_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "status": "connected",
+    }
+    await db.instagram_connections.insert_one(connection_doc)
+
+    return JSONResponse(content={"ok": True, "connected": True, "status": "connected"})
+
+
+@api_router.get("/instagram/integrations/status")
+async def instagram_connection_status(current_user: dict = Depends(get_current_user)):
+    connection = await db.instagram_connections.find_one(
+        {"owner_id": current_user["id"], "status": "connected"},
+        {"_id": 0, "access_token": 0},
+    )
+    if not connection:
+        return {"ok": True, "connected": False, "status": "not_connected"}
+    return {
+        "ok": True,
+        "connected": True,
+        "status": "connected",
+        "provider": "instagram",
+        "account_id": connection.get("account_id"),
+        "connected_at": connection.get("connected_at"),
+        "updated_at": connection.get("updated_at"),
+    }
+
+
+@api_router.post("/instagram/integrations/sync")
+async def sync_instagram_connection(current_user: dict = Depends(require_owner)):
+    settings = validate_meta_oauth_settings()
+    if not settings["ok"]:
+        missing = ", ".join(settings["missing"]) if settings.get("missing") else "required OAuth settings"
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "error": f"Meta OAuth is not configured. Missing settings: {missing}"},
+        )
+
+    connection = await db.instagram_connections.find_one(
+        {"owner_id": current_user["id"], "status": "connected"},
+        {"_id": 0},
+    )
+    if not connection:
+        return JSONResponse(
+            status_code=404,
+            content={"ok": False, "error": "No connected Instagram account found."},
+        )
+
+    encrypted_token = connection.get("access_token") or ""
+    if not encrypted_token:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "No stored Instagram access token is available for this connection."},
+        )
+
+    try:
+        access_token = decrypt_secret(encrypted_token)
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "The stored Instagram access token could not be decrypted."},
+        )
+
+    if not access_token:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "The stored Instagram access token is empty."},
+        )
+
+    account_id = connection.get("account_id")
+    if not account_id:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "The connected Instagram account ID is missing."},
+        )
+
+    metrics_url = f"https://graph.facebook.com/v20.0/{account_id}"
+    metrics_params = {
+        "fields": "id,username,account_type,media_count,followers_count,follows_count,profile_picture_url",
+        "access_token": access_token,
+    }
+
+    try:
+        metrics_response = requests.get(metrics_url, params=metrics_params, timeout=20)
+        metrics_response.raise_for_status()
+        account_payload = metrics_response.json()
+    except requests.HTTPError as exc:
+        error_payload = exc.response.json() if exc.response is not None else None
+        if is_meta_token_expired(error_payload):
+            return JSONResponse(
+                status_code=401,
+                content={"ok": False, "error": "The Instagram access token has expired. Please reconnect the account."},
+            )
+        return JSONResponse(
+            status_code=502,
+            content={"ok": False, "error": "Meta request failed while fetching Instagram account metrics."},
+        )
+    except Exception:
+        return JSONResponse(
+            status_code=502,
+            content={"ok": False, "error": "Meta request failed while fetching Instagram account metrics."},
+        )
+
+    if account_payload.get("error"):
+        error_payload = account_payload
+        if is_meta_token_expired(error_payload):
+            return JSONResponse(
+                status_code=401,
+                content={"ok": False, "error": "The Instagram access token has expired. Please reconnect the account."},
+            )
+        return JSONResponse(
+            status_code=502,
+            content={"ok": False, "error": "Meta request failed while fetching Instagram account metrics."},
+        )
+
+    media_url = f"https://graph.facebook.com/v20.0/{account_id}/media"
+    media_params = {
+        "fields": "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
+        "access_token": access_token,
+        "limit": 10,
+    }
+
+    try:
+        media_response = requests.get(media_url, params=media_params, timeout=20)
+        media_response.raise_for_status()
+        media_payload = media_response.json()
+    except requests.HTTPError as exc:
+        error_payload = exc.response.json() if exc.response is not None else None
+        if is_meta_token_expired(error_payload):
+            return JSONResponse(
+                status_code=401,
+                content={"ok": False, "error": "The Instagram access token has expired. Please reconnect the account."},
+            )
+        return JSONResponse(
+            status_code=502,
+            content={"ok": False, "error": "Meta request failed while fetching Instagram media items."},
+        )
+    except Exception:
+        return JSONResponse(
+            status_code=502,
+            content={"ok": False, "error": "Meta request failed while fetching Instagram media items."},
+        )
+
+    if media_payload.get("error"):
+        error_payload = media_payload
+        if is_meta_token_expired(error_payload):
+            return JSONResponse(
+                status_code=401,
+                content={"ok": False, "error": "The Instagram access token has expired. Please reconnect the account."},
+            )
+        return JSONResponse(
+            status_code=502,
+            content={"ok": False, "error": "Meta request failed while fetching Instagram media items."},
+        )
+
+    snapshot_date = datetime.now(timezone.utc).date().isoformat()
+    collected_at = datetime.now(timezone.utc).isoformat()
+    account_metrics = {
+        "username": account_payload.get("username"),
+        "account_type": account_payload.get("account_type"),
+        "media_count": account_payload.get("media_count"),
+        "followers_count": account_payload.get("followers_count"),
+        "follows_count": account_payload.get("follows_count"),
+        "profile_picture_url": account_payload.get("profile_picture_url"),
+    }
+
+    existing_account_snapshot = await db.instagram_account_snapshots.find_one(
+        {"connection_id": connection["id"], "snapshot_date": snapshot_date},
+        {"_id": 0},
+    )
+    if not existing_account_snapshot:
+        await db.instagram_account_snapshots.insert_one({
+            "id": str(uuid.uuid4()),
+            "connection_id": connection["id"],
+            "owner_id": current_user["id"],
+            "account_id": account_id,
+            "snapshot_date": snapshot_date,
+            "collected_at": collected_at,
+            "metrics": account_metrics,
+            "source": "meta_api",
+        })
+
+    media_items = media_payload.get("data") or []
+    media_snapshots_created = 0
+    for item in media_items:
+        media_id = item.get("id")
+        if not media_id:
+            continue
+        existing_media_snapshot = await db.instagram_media_snapshots.find_one(
+            {"connection_id": connection["id"], "media_id": media_id, "snapshot_date": snapshot_date},
+            {"_id": 0},
+        )
+        if existing_media_snapshot:
+            continue
+        await db.instagram_media_snapshots.insert_one({
+            "id": str(uuid.uuid4()),
+            "connection_id": connection["id"],
+            "owner_id": current_user["id"],
+            "account_id": account_id,
+            "media_id": media_id,
+            "snapshot_date": snapshot_date,
+            "collected_at": collected_at,
+            "media_type": item.get("media_type"),
+            "caption": item.get("caption"),
+            "media_url": item.get("media_url"),
+            "thumbnail_url": item.get("thumbnail_url"),
+            "permalink": item.get("permalink"),
+            "timestamp": item.get("timestamp"),
+            "like_count": item.get("like_count"),
+            "comments_count": item.get("comments_count"),
+            "source": "meta_api",
+        })
+        media_snapshots_created += 1
+
+    await db.instagram_connections.update_one(
+        {"id": connection["id"]},
+        {"$set": {"last_synced_at": collected_at}},
+    )
+
+    return {
+        "ok": True,
+        "message": "Instagram sync completed successfully.",
+        "account_snapshot_created": not bool(existing_account_snapshot),
+        "media_snapshots_created": media_snapshots_created,
+        "media_items_seen": len(media_items),
+    }
+
+
+async def _resolve_instagram_client_scope(current_user: dict, client_id: Optional[str]) -> Optional[dict]:
+    if current_user["role"] == "owner":
+        if client_id:
+            return await db.clients.find_one({"id": client_id}, {"_id": 0})
+        return None
+
+    if current_user["role"] == "employee":
+        if client_id:
+            client = await db.clients.find_one({"id": client_id}, {"_id": 0})
+            if client:
+                return client
+            return None
+        return None
+
+    if current_user["role"] == "client":
+        if client_id and client_id != current_user.get("client_id"):
+            return None
+        if not current_user.get("client_id"):
+            return None
+        return await db.clients.find_one({"id": current_user["client_id"]}, {"_id": 0})
+
+    return None
+
+
+@api_router.get("/instagram/analytics/{client_id}")
+async def get_instagram_analytics_for_client(
+    client_id: str,
+    period: str = "30d",
+    current_user: dict = Depends(get_current_user),
+):
+    client = await _resolve_instagram_client_scope(current_user, client_id)
+    if not client:
+        raise HTTPException(status_code=403, detail="You do not have access to this client’s Instagram analytics")
+
+    if current_user["role"] == "client" and current_user.get("client_id") != client_id:
+        raise HTTPException(status_code=403, detail="You do not have access to this client’s Instagram analytics")
+
+    if period not in {"7d", "30d", "90d"}:
+        raise HTTPException(status_code=400, detail="Unsupported period")
+
+    connection = await db.instagram_connections.find_one(
+        {"owner_id": current_user["id"], "status": "connected"},
+        {"_id": 0},
+    )
+    if not connection and current_user["role"] != "owner":
+        raise HTTPException(status_code=404, detail="No connected Instagram account found for this user")
+
+    if current_user["role"] == "owner":
+        owner_connection = await db.instagram_connections.find_one(
+            {"status": "connected", "owner_id": client.get("id")},
+            {"_id": 0},
+        )
+        if not owner_connection:
+            raise HTTPException(status_code=404, detail="No connected Instagram account found for this client")
+        connection = owner_connection
+    else:
+        connection = await db.instagram_connections.find_one(
+            {"owner_id": client.get("id"), "status": "connected"},
+            {"_id": 0},
+        )
+        if not connection:
+            raise HTTPException(status_code=404, detail="No connected Instagram account found for this client")
+
+    account_snapshots = await db.instagram_account_snapshots.find(
+        {"connection_id": connection["id"]},
+        {"_id": 0},
+    ).to_list(500)
+    media_snapshots = await db.instagram_media_snapshots.find(
+        {"connection_id": connection["id"]},
+        {"_id": 0},
+    ).to_list(1000)
+
+    period_days = 7 if period == "7d" else 30 if period == "30d" else 90
+    return calculate_instagram_analytics(account_snapshots, media_snapshots, period_days)
+
+
+@api_router.post("/instagram/connections/disconnect")
+async def disconnect_instagram_connection(current_user: dict = Depends(require_owner)):
+    connection = await db.instagram_connections.find_one({"owner_id": current_user["id"], "status": "connected"}, {"_id": 0})
+    if not connection:
+        return JSONResponse(status_code=404, content={"ok": False, "error": "No connected Instagram account found for this owner."})
+
+    await db.instagram_connections.update_one(
+        {"id": connection["id"]},
+        {"$set": {"status": "disconnected", "disconnected_at": datetime.now(timezone.utc).isoformat(), "access_token": "", "account_id": None}},
+    )
+    await db.instagram_audit_logs.insert_one(build_audit_record("disconnect", connection["id"], current_user["id"], "manual"))
+    return {"ok": True, "message": "Instagram connection disconnected successfully."}
+
+
+@api_router.post("/instagram/connections/reconnect")
+async def reconnect_instagram_connection(current_user: dict = Depends(require_owner)):
+    connection = await db.instagram_connections.find_one({"owner_id": current_user["id"], "status": "disconnected"}, {"_id": 0})
+    if not connection:
+        return JSONResponse(status_code=404, content={"ok": False, "error": "No disconnected Instagram connection found for this owner."})
+
+    settings = validate_meta_oauth_settings()
+    if not settings["ok"]:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "Meta OAuth settings are not ready for reconnect. Please complete deployment configuration first."})
+
+    await db.instagram_connections.update_one(
+        {"id": connection["id"]},
+        {"$set": {"status": "connected", "reconnected_at": datetime.now(timezone.utc).isoformat()}})
+    await db.instagram_audit_logs.insert_one(build_audit_record("reconnect", connection["id"], current_user["id"], "manual"))
+    return {"ok": True, "message": "Instagram connection is ready for re-authentication."}
+
+
+async def run_daily_instagram_sync(test_mode: bool = True):
+    if test_mode or not is_instagram_sync_enabled():
+        logger.info("Instagram daily sync skipped because automation is disabled")
+        return {"ok": True, "skipped": True, "message": "Daily sync is disabled until production automation is explicitly enabled."}
+
+    connections = await db.instagram_connections.find({"status": "connected"}, {"_id": 0}).to_list(200)
+    results = []
+    for connection in connections:
+        encrypted_token = connection.get("access_token") or ""
+        if not encrypted_token:
+            await db.instagram_audit_logs.insert_one(
+                build_audit_record("sync_failed", connection["id"], connection.get("owner_id"), "daily")
+            )
+            continue
+
+        try:
+            access_token = decrypt_secret(encrypted_token)
+        except Exception:
+            await db.instagram_audit_logs.insert_one(
+                build_audit_record("sync_failed", connection["id"], connection.get("owner_id"), "daily")
+            )
+            continue
+
+        if not access_token:
+            await db.instagram_audit_logs.insert_one(
+                build_audit_record("sync_failed", connection["id"], connection.get("owner_id"), "daily")
+            )
+            continue
+
+        account_id = connection.get("account_id")
+        if not account_id:
+            await db.instagram_audit_logs.insert_one(
+                build_audit_record("sync_failed", connection["id"], connection.get("owner_id"), "daily")
+            )
+            continue
+
+        try:
+            metrics_response = requests.get(
+                f"https://graph.facebook.com/v20.0/{account_id}",
+                params={"fields": "id,username,account_type,media_count,followers_count,follows_count,profile_picture_url", "access_token": access_token},
+                timeout=20,
+            )
+            metrics_response.raise_for_status()
+            account_payload = metrics_response.json()
+            media_response = requests.get(
+                f"https://graph.facebook.com/v20.0/{account_id}/media",
+                params={"fields": "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,shares_count,saves_count", "access_token": access_token, "limit": 10},
+                timeout=20,
+            )
+            media_response.raise_for_status()
+            media_payload = media_response.json()
+        except Exception:
+            await db.instagram_audit_logs.insert_one(
+                build_audit_record("sync_failed", connection["id"], connection.get("owner_id"), "daily")
+            )
+            continue
+
+        snapshot_date = datetime.now(timezone.utc).date().isoformat()
+        collected_at = datetime.now(timezone.utc).isoformat()
+        existing_account_snapshots = await db.instagram_account_snapshots.find({"connection_id": connection["id"], "snapshot_date": snapshot_date}, {"_id": 0}).to_list(100)
+        existing_media_snapshots = await db.instagram_media_snapshots.find({"connection_id": connection["id"], "snapshot_date": snapshot_date}, {"_id": 0}).to_list(1000)
+        payload = collect_new_snapshots(
+            existing_account_snapshots=existing_account_snapshots,
+            existing_media_snapshots=existing_media_snapshots,
+            connection_id=connection["id"],
+            owner_id=connection.get("owner_id"),
+            account_id=account_id,
+            snapshot_date=snapshot_date,
+            collected_at=collected_at,
+            account_metrics={
+                "username": account_payload.get("username"),
+                "account_type": account_payload.get("account_type"),
+                "media_count": account_payload.get("media_count"),
+                "followers_count": account_payload.get("followers_count"),
+                "follows_count": account_payload.get("follows_count"),
+                "profile_picture_url": account_payload.get("profile_picture_url"),
+            },
+            media_items=media_payload.get("data") or [],
+        )
+        if payload["account_snapshot"]:
+            await db.instagram_account_snapshots.insert_one(payload["account_snapshot"])
+        if payload["new_media_snapshots"]:
+            await db.instagram_media_snapshots.insert_many(payload["new_media_snapshots"])
+        await db.instagram_connections.update_one({"id": connection["id"]}, {"$set": {"last_synced_at": collected_at}})
+        await db.instagram_audit_logs.insert_one(build_audit_record("sync_completed", connection["id"], connection.get("owner_id"), "daily"))
+        results.append({"connection_id": connection["id"], "status": "ok"})
+
+    return {"ok": True, "results": results, "skipped": False}
+
 
 # ── Global Exception Handler ─────────────────────────────────────
 @app.exception_handler(Exception)
