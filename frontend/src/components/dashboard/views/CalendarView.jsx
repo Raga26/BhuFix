@@ -17,10 +17,21 @@ const STATUS_STYLE = {
   not_started: { label: 'Not Started', color: '#6B7280', bg: 'rgba(107,114,128,0.15)' },
   in_progress: { label: 'In Progress', color: '#FBBF24', bg: 'rgba(251,191,36,0.15)' },
   completed:   { label: 'Completed',   color: '#34D399', bg: 'rgba(52,211,153,0.15)' },
+  postpone:    { label: 'Postpone',    color: '#FB923C', bg: 'rgba(251,146,60,0.15)' },
 };
 
+function formatTime(time) {
+  if (!time) return '';
+  const [h, m] = time.split(':');
+  const hour = parseInt(h, 10);
+  if (Number.isNaN(hour)) return time;
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const h12 = hour % 12 || 12;
+  return `${h12}:${m || '00'} ${ampm}`;
+}
+
 function EventModal({ event, clients, onClose, onSave, isEdit }) {
-  const [form, setForm] = useState(event || { client_id: clients[0]?.id || '', title: '', type: 'reel', date: '', status: 'not_started' });
+  const [form, setForm] = useState(event || { client_id: clients[0]?.id || '', title: '', time: '', type: 'reel', date: '', status: 'not_started' });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors";
@@ -32,17 +43,19 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
     }
     setSaving(true);
     try {
+      const payload = { ...form, time: form.time || null };
       logger.formSubmit('CalendarView', isEdit ? 'update_event' : 'create_event', {
         title: form.title,
         type: form.type,
         date: form.date,
+        time: form.time,
       });
       if (isEdit) {
-        await apiClient.put(`/calendar/${form.id}`, form);
+        await apiClient.put(`/calendar/${form.id}`, payload);
         toast.success('Event updated successfully');
         logger.success('Event updated', { eventId: form.id });
       } else {
-        await apiClient.post('/calendar', form);
+        await apiClient.post('/calendar', payload);
         toast.success('Post added to calendar');
         logger.success('Event created', { title: form.title, date: form.date });
       }
@@ -71,9 +84,21 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
               {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Title</label>
-            <input className={inputCls} value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="Reveal Reel" />
+          <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+            <div>
+              <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Title</label>
+              <input className={inputCls} value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="Reveal Reel" />
+            </div>
+            <div>
+              <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Time</label>
+              <input
+                className={`${inputCls} w-[7.5rem] cursor-pointer`}
+                type="time"
+                value={form.time || ''}
+                onChange={(e) => set('time', e.target.value)}
+                title="Set time"
+              />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -189,7 +214,10 @@ function DayEventsModal({ date, dayEvents, clients, canMutate, onClose, onAddPos
                         {ss.label}
                       </span>
                     </div>
-                    <p className={`text-sm font-semibold text-white truncate ${isCompleted ? 'line-through opacity-50' : ''}`}>{ev.title}</p>
+                    <p className={`text-sm font-semibold text-white truncate ${isCompleted ? 'line-through opacity-50' : ''}`}>
+                      {ev.time ? <span className="text-white/50 font-medium mr-1.5">{formatTime(ev.time)}</span> : null}
+                      {ev.title}
+                    </p>
                     <p className="text-xs text-white/40 truncate">{clientLabel}</p>
                   </div>
                   {canMutate && (
@@ -265,6 +293,12 @@ function EventDetailModal({ event, clients, onClose, onEdit, onDelete, canMutate
             <span className="text-white/40">Date</span>
             <span className="text-white">{new Date(event.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
           </div>
+          {event.time && (
+            <div className="flex justify-between text-sm">
+              <span className="text-white/40">Time</span>
+              <span className="text-white">{formatTime(event.time)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm items-center">
             <span className="text-white/40">Status</span>
             {(() => {
@@ -374,6 +408,7 @@ function WeekView({ weekDays, events, clients, onDayClick }) {
                         className="text-xs font-semibold text-white leading-tight line-clamp-2"
                         style={isCompleted ? { textDecoration: 'line-through', opacity: 0.5 } : {}}
                       >
+                        {ev.time ? <span className="opacity-70 font-medium">{formatTime(ev.time)} · </span> : null}
                         {ev.title}
                       </p>
                       <p className="text-[10px] text-white/40 mt-0.5 truncate">{clientName(ev.client_id)}</p>
@@ -575,10 +610,12 @@ export default function CalendarView() {
                           onClick={(e) => { e.stopPropagation(); openDay(); }}
                           className="text-[10px] px-1.5 py-0.5 rounded-md truncate leading-tight cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1"
                           style={{ background: ts.bg, color: isCompleted ? 'rgba(156,163,175,0.6)' : ts.color }}
-                          title={`${ev.title} — ${clientName(ev.client_id)} · ${ss.label}`}
+                          title={`${ev.time ? formatTime(ev.time) + ' · ' : ''}${ev.title} — ${clientName(ev.client_id)} · ${ss.label}`}
                         >
                           <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ss.color }} />
-                          <span style={isCompleted ? { textDecoration: 'line-through' } : {}} className="truncate">{ev.title}</span>
+                          <span style={isCompleted ? { textDecoration: 'line-through' } : {}} className="truncate">
+                            {ev.time ? `${formatTime(ev.time)} ` : ''}{ev.title}
+                          </span>
                         </div>
                       );
                     })}
@@ -636,7 +673,7 @@ export default function CalendarView() {
 
       {modal && isOwner && (
         <EventModal
-          event={modal.create ? { client_id: clients[0]?.id || '', title: '', type: 'reel', date: prefillDate, status: 'not_started' } : modal}
+          event={modal.create ? { client_id: clients[0]?.id || '', title: '', time: '', type: 'reel', date: prefillDate, status: 'not_started' } : { ...modal, time: modal.time || '' }}
           clients={clients}
           onClose={() => setModal(null)}
           onSave={() => { load(); setModal(null); }}
