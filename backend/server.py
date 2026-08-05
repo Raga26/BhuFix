@@ -408,6 +408,19 @@ class UserUpdate(BaseModel):
     sub_role: Optional[str] = None  # editor, videographer, management
     client_id: Optional[str] = None
 
+
+def normalize_managed_user_role(role: Optional[str], sub_role: Optional[str]) -> str:
+    """Keep owner privileges out of the team/user-management flow.
+
+    Job titles, including custom titles, are employee accounts.  The only
+    exception is a client account, which is explicitly selected and has no
+    team job title.  Owner accounts are provisioned through the owner seed,
+    not through this endpoint.
+    """
+    if role == "client" and not sub_role:
+        return "client"
+    return "employee"
+
 class ClientCreate(BaseModel):
     name: str
     industry: str = ""
@@ -537,6 +550,16 @@ async def require_staff(current_user: dict = Depends(get_current_user)) -> dict:
     if current_user["role"] not in ["owner", "employee"]:
         raise HTTPException(status_code=403, detail="Staff access required")
     return current_user
+
+async def normalize_existing_team_roles():
+    """Remove legacy owner access from users created with a team job title."""
+    result = await db.users.update_many(
+        {"role": "owner", "sub_role": {"$exists": True, "$ne": None}},
+        {"$set": {"role": "employee"}},
+    )
+    if result.modified_count:
+        logger.info("Normalized %s legacy team role(s) to employee access", result.modified_count)
+
 
 async def seed_owner():
     if not OWNER_EMAIL or not OWNER_PASSWORD:
@@ -756,12 +779,13 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 async def create_user(data: UserCreate, current_user: dict = Depends(require_owner)):
     if await db.users.find_one({"email": data.email.lower()}):
         raise HTTPException(status_code=400, detail="User with this email already exists")
+    role = normalize_managed_user_role(data.role, data.sub_role)
     user = {
         "id": str(uuid.uuid4()),
         "email": data.email.lower().strip(),
         "name": sanitize_input(data.name),
         "password_hash": get_password_hash(data.password),
-        "role": data.role,
+        "role": role,
         "sub_role": data.sub_role,
         "client_id": data.client_id,
         "is_active": True,
@@ -783,10 +807,19 @@ async def deactivate_user(user_id: str, current_user: dict = Depends(require_own
 
 @api_router.put("/users/{user_id}")
 async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depends(require_owner)):
-    # Include sub_role even when None so it can be explicitly cleared
-    update_data = {k: v for k, v in data.dict().items() if v is not None or k == "sub_role"}
+    # Keep explicitly supplied nulls (for clearing a job/client association),
+    # but do not treat omitted fields as updates.
+    update_data = data.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No data to update")
+    if "role" in update_data or "sub_role" in update_data:
+        existing = await db.users.find_one({"id": user_id}, {"_id": 0, "role": 1, "sub_role": 1})
+        if not existing:
+            raise HTTPException(status_code=404, detail="User not found")
+        update_data["role"] = normalize_managed_user_role(
+            update_data.get("role", existing.get("role")),
+            update_data.get("sub_role", existing.get("sub_role")),
+        )
     result = await db.users.update_one({"id": user_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
@@ -1237,6 +1270,7 @@ async def startup_event():
     else:
         logger.info(f"📡 Local development: http://localhost:{os.environ.get('PORT', 8000)}")
     logger.info("=" * 80)
+    await normalize_existing_team_roles()
     await seed_owner()
 
 @app.on_event("shutdown")

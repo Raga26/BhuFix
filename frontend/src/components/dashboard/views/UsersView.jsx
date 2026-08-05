@@ -29,12 +29,12 @@ function getRoleDisplay(u) {
   return { label: 'Employee', color: ROLE_COLOR.employee };
 }
 
-// Combined role options for the modal selector
-// management internally maps to role:"owner" + sub_role:"management"
+// Role labels describe a team member's job.  Their dashboard access remains
+// employee access; only the configured owner account can be an owner.
 const ROLE_OPTIONS = [
   { value: 'editor',        label: 'Editor',          role: 'employee', sub_role: 'editor' },
   { value: 'videographer',  label: 'Videographer',    role: 'employee', sub_role: 'videographer' },
-  { value: 'management',    label: 'Management Team', role: 'owner',    sub_role: 'management' },
+  { value: 'management',    label: 'Management Team', role: 'employee', sub_role: 'management' },
   { value: 'digital_marketer', label: 'Digital Marketer', role: 'employee', sub_role: 'digital_marketer' },
   { value: 'graphic_designer', label: 'Graphic Designer', role: 'employee', sub_role: 'graphic_designer' },
   { value: 'content_writer',   label: 'Content Writer',   role: 'employee', sub_role: 'content_writer' },
@@ -157,7 +157,7 @@ function CreateUserModal({ clients, onClose, onSave }) {
               </optgroup>
             </select>
             {form.roleOption === 'management' && (
-              <p className="text-amber-400/70 text-[10px] mt-1.5">Management Team gets full admin access.</p>
+              <p className="text-amber-400/70 text-[10px] mt-1.5">Management Team has employee access.</p>
             )}
             {form.roleOption === 'custom' && (
               <input className={inputCls + ' mt-2'} value={form.customRole} onChange={(e) => set('customRole', e.target.value)} placeholder="e.g. Cleaner" />
@@ -272,7 +272,7 @@ function EditUserModal({ editUser, clients, onClose, onSave }) {
               </optgroup>
             </select>
             {form.roleOption === 'management' && (
-              <p className="text-amber-400/70 text-[10px] mt-1.5">Management Team gets full admin access.</p>
+              <p className="text-amber-400/70 text-[10px] mt-1.5">Management Team has employee access.</p>
             )}
             {form.roleOption === 'custom' && (
               <input className={inputCls + ' mt-2'} value={form.customRole} onChange={(e) => set('customRole', e.target.value)} placeholder="e.g. Cleaner" />
@@ -418,9 +418,9 @@ export default function UsersView() {
               <div className="text-white/50 text-sm truncate">{clientName(u.client_id)}</div>
               <div className="min-w-0">
                 {(() => { const rd = getRoleDisplay(u); return (
-                  <span className="inline-flex max-w-full items-center justify-center whitespace-normal break-words text-center text-[10px] font-bold uppercase leading-4 px-2.5 py-1 rounded-full"
+                  <span className="flex w-full min-h-7 items-center justify-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase leading-4"
                     style={{ background: `${rd.color}15`, color: rd.color, border: `1px solid ${rd.color}40` }}>
-                    {rd.label}
+                    <span className="block min-w-0 break-words text-center">{rd.label}</span>
                   </span>
                 ); })()}
               </div>
