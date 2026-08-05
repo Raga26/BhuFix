@@ -466,7 +466,8 @@ class CalendarEventCreate(BaseModel):
     title: str
     type: str = "reel"   # reel, post, ad, content, shoot
     date: str            # ISO date string e.g. "2026-04-15"
-    status: str = "not_started"  # not_started, in_progress, done, completed
+    time: Optional[str] = None  # HH:MM e.g. "14:30"
+    status: str = "not_started"  # not_started, in_progress, completed, postpone
 
 class AdsCampaignCreate(BaseModel):
     client_id: str
