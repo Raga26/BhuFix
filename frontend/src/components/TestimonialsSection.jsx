@@ -5,7 +5,7 @@ export const TestimonialsSection = () => {
   return (
     <section
       id="testimonials"
-      className="py-24 lg:py-32 bg-white dark:bg-slate-900 relative overflow-hidden"
+      className="py-24 lg:py-32 bg-white dark:bg-slate-900 relative overflow-x-clip scroll-mt-24"
     >
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-coral/20 to-transparent" />
 

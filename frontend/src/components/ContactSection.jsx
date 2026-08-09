@@ -12,36 +12,47 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { Send, Phone, Mail, MapPin, MessageCircle, Loader2 } from "lucide-react";
+import {
+  Send,
+  Phone,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Loader2,
+  Clock3,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
-
-const CONTACT_IMAGE =
-  "https://images.pexels.com/photos/3194521/pexels-photo-3194521.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
 
 const contactItems = [
   {
     icon: Phone,
     label: "Phone",
     value: contactInfo.phone,
+    hint: "Prefer a quick call?",
     href: `tel:${contactInfo.phone.replace(/\s/g, "")}`,
   },
   {
     icon: Mail,
     label: "Email",
     value: contactInfo.email,
+    hint: "We reply within 24 hrs",
     href: `mailto:${contactInfo.email}`,
   },
   {
     icon: MapPin,
     label: "Address",
     value: contactInfo.address,
+    hint: "Come say hi",
     href: null,
   },
   {
     icon: MessageCircle,
     label: "WhatsApp",
-    value: "Chat with us",
-    href: `https://wa.me/${contactInfo.whatsapp.replace(/\s+/g, '')}`,
+    value: "Chat with us now",
+    hint: "Fastest reply →",
+    href: `https://wa.me/${contactInfo.whatsapp.replace(/\D/g, "")}`,
+    featured: true,
   },
 ];
 
@@ -52,7 +63,7 @@ export const ContactSection = () => {
     phone: "",
     service: "",
     message: "",
-    honeypot: "", // Spam trap - hidden field
+    honeypot: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
@@ -106,11 +117,18 @@ export const ContactSection = () => {
 
       logger.success("Contact form submitted successfully", {
         id: response.data.id,
-        email: formData.email
+        email: formData.email,
       });
 
       toast.success("Message sent successfully! We'll get back to you soon.");
-      setFormData({ name: "", email: "", phone: "", service: "", message: "", honeypot: "" });
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        service: "",
+        message: "",
+        honeypot: "",
+      });
       setErrors({});
     } catch (err) {
       logger.error("Contact form submission failed", {
@@ -132,25 +150,62 @@ export const ContactSection = () => {
   };
 
   return (
-    <section id="contact" className="py-24 lg:py-32 bg-slate-50/50 dark:bg-slate-900/80 relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-start">
-          {/* Form */}
-          <div>
+    <section
+      id="contact"
+      className="py-24 lg:py-32 relative overflow-x-clip scroll-mt-24"
+      style={{
+        background:
+          "linear-gradient(165deg, #fff 0%, #FFF7F3 45%, #F8FAFC 100%)",
+      }}
+    >
+      <div className="absolute inset-0 dark:bg-gradient-to-br dark:from-slate-950 dark:via-slate-900 dark:to-navy-dark pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-coral/25 to-transparent" />
+      <div className="absolute -top-24 right-10 w-72 h-72 bg-coral/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
+        {/* Shared header — keeps both columns aligned */}
+        <div className="max-w-2xl mb-10 lg:mb-12">
+          <div className="flex flex-wrap items-center gap-3 mb-3">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-coral">
               Contact Us
             </span>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-navy dark:text-white mt-4 mb-6 leading-tight">
-              Get in Touch with Our Team
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-lg mb-10">
-              Ready to take your digital presence to the next level? Let us know
-              how we can help.
-            </p>
+            <span className="font-hand text-xl text-coral rotate-[-2deg] select-none">
+              star of the show ↓
+            </span>
+          </div>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-navy dark:text-white leading-tight">
+            Tell us what you need.{" "}
+            <span className="relative inline-block">
+              <span className="relative z-10 text-coral">We’ll reply.</span>
+              <span
+                className="absolute bottom-1 left-0 w-full h-3 bg-coral/15 rounded-sm -z-0"
+                aria-hidden
+              />
+            </span>
+          </h2>
+          <p className="mt-4 text-slate-500 dark:text-slate-400 text-lg max-w-xl">
+            No fluff pitch. Send a note — or WhatsApp us — and we’ll come back
+            with a clear plan, timeline, and budget.
+          </p>
+          <p className="font-hand text-xl text-coral mt-3 flex items-center gap-2">
+            <Clock3 className="h-4 w-4" />
+            usually within one business day
+          </p>
+        </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-              {/* Honeypot - hidden from users, visible to bots */}
-              <div className="absolute opacity-0 h-0 w-0 overflow-hidden" aria-hidden="true" tabIndex={-1}>
+        <div className="grid lg:grid-cols-12 gap-8 lg:gap-10 items-stretch">
+          {/* Form */}
+          <div className="lg:col-span-7 min-w-0 flex">
+            <form
+              onSubmit={handleSubmit}
+              className="relative flex flex-col gap-5 w-full h-full rounded-3xl border border-slate-200/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-800/60 p-6 sm:p-8 shadow-sm"
+              noValidate
+            >
+              <div
+                className="absolute opacity-0 h-0 w-0 overflow-hidden"
+                aria-hidden="true"
+                tabIndex={-1}
+              >
                 <input
                   name="honeypot"
                   value={formData.honeypot}
@@ -160,8 +215,8 @@ export const ContactSection = () => {
                 />
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-5">
-                <div>
+              <div className="grid sm:grid-cols-2 gap-4 sm:gap-5">
+                <div className="min-w-0">
                   <Input
                     name="name"
                     placeholder="Your Name"
@@ -171,9 +226,11 @@ export const ContactSection = () => {
                     aria-label="Your name"
                     className={`h-12 rounded-xl border-slate-200 dark:border-slate-600 focus:border-coral focus:ring-coral/20 bg-white dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 ${errors.name ? "border-red-400" : ""}`}
                   />
-                  {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                  {errors.name && (
+                    <p className="text-red-500 text-xs mt-1">{errors.name}</p>
+                  )}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <Input
                     name="email"
                     type="email"
@@ -184,10 +241,12 @@ export const ContactSection = () => {
                     aria-label="Email address"
                     className={`h-12 rounded-xl border-slate-200 dark:border-slate-600 focus:border-coral focus:ring-coral/20 bg-white dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 ${errors.email ? "border-red-400" : ""}`}
                   />
-                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                  {errors.email && (
+                    <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+                  )}
                 </div>
               </div>
-              <div className="grid sm:grid-cols-2 gap-5">
+              <div className="grid sm:grid-cols-2 gap-4 sm:gap-5">
                 <Input
                   name="phone"
                   placeholder="Phone Number"
@@ -202,7 +261,10 @@ export const ContactSection = () => {
                     setFormData({ ...formData, service: val })
                   }
                 >
-                  <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-600 focus:border-coral focus:ring-coral/20 bg-white dark:bg-slate-800 dark:text-white" aria-label="Select service">
+                  <SelectTrigger
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-600 focus:border-coral focus:ring-coral/20 bg-white dark:bg-slate-800 dark:text-white"
+                    aria-label="Select service"
+                  >
                     <SelectValue placeholder="Select Service" />
                   </SelectTrigger>
                   <SelectContent>
@@ -217,7 +279,7 @@ export const ContactSection = () => {
               <div>
                 <Textarea
                   name="message"
-                  placeholder="Your Message"
+                  placeholder="What are you trying to grow? (a line or two is enough)"
                   value={formData.message}
                   onChange={handleChange}
                   required
@@ -225,66 +287,121 @@ export const ContactSection = () => {
                   aria-label="Your message"
                   className={`rounded-xl border-slate-200 dark:border-slate-600 focus:border-coral focus:ring-coral/20 bg-white dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 resize-none ${errors.message ? "border-red-400" : ""}`}
                 />
-                {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
-              </div>
-              <Button
-                type="submit"
-                disabled={submitting}
-                className="bg-coral hover:bg-coral-dark text-white font-semibold px-10 py-5 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-coral/20 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    Send Message
-                    <Send className="ml-2 h-4 w-4" />
-                  </>
+                {errors.message && (
+                  <p className="text-red-500 text-xs mt-1">{errors.message}</p>
                 )}
-              </Button>
+              </div>
+
+              <div className="mt-auto flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-coral hover:bg-coral-dark text-white font-bold px-10 py-6 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-coral/25 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      Send my message
+                      <Send className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+                <span className="font-hand text-lg text-coral/90">
+                  no spam. just a real reply.
+                </span>
+              </div>
             </form>
           </div>
 
-          {/* Right side */}
-          <div>
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-slate-200/50 dark:shadow-slate-900/50 mb-10">
-              <img
-                src={CONTACT_IMAGE}
-                alt="Contact Bhufix team for digital marketing services"
-                className="w-full h-[300px] object-cover"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-navy/20 to-transparent" />
+          {/* Contact actions — WhatsApp pinned to same bottom line as Send */}
+          <div className="lg:col-span-5 min-w-0 flex flex-col gap-3 h-full">
+            <aside className="rounded-2xl bg-[#FFF3C4] dark:bg-amber-200/90 text-navy px-5 py-3.5 shadow-md shrink-0">
+              <p className="font-hand text-xl leading-snug">
+                “Tell us the goal. We’ll bring the plan.”
+              </p>
+              <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+                <span className="font-hand text-base text-coral-dark">
+                  — Bhufix team
+                </span>
+                <span className="font-hand text-base text-coral">
+                  WhatsApp is fastest ↓
+                </span>
+              </div>
+            </aside>
+
+            <div className="flex flex-col gap-3">
+              {contactItems
+                .filter((item) => !item.featured)
+                .map((item) => {
+                  const Tag = item.href ? "a" : "div";
+                  return (
+                    <Tag
+                      key={item.label}
+                      href={item.href || undefined}
+                      target={
+                        item.href && item.href.startsWith("http")
+                          ? "_blank"
+                          : undefined
+                      }
+                      rel={
+                        item.href && item.href.startsWith("http")
+                          ? "noopener noreferrer"
+                          : undefined
+                      }
+                      className={`group flex items-center gap-3.5 p-3.5 rounded-2xl border transition-colors duration-200 border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800/55 hover:border-coral/40 hover:bg-coral/[0.06] ${
+                        item.href ? "cursor-pointer" : ""
+                      }`}
+                    >
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-coral/10 text-coral transition-colors duration-200 group-hover:bg-coral group-hover:text-white">
+                        <item.icon className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                          {item.label}
+                        </div>
+                        <div className="font-semibold text-sm sm:text-base mt-0.5 break-words text-navy dark:text-white">
+                          {item.value}
+                        </div>
+                        <div className="font-hand text-[15px] leading-tight mt-0.5 text-coral">
+                          {item.hint}
+                        </div>
+                      </div>
+                    </Tag>
+                  );
+                })}
             </div>
 
-            <div className="space-y-4">
-              {contactItems.map((item, i) => {
-                const Tag = item.href ? "a" : "div";
-                return (
-                  <Tag
-                    key={i}
-                    href={item.href || undefined}
-                    target={item.href && item.href.startsWith("http") ? "_blank" : undefined}
-                    rel={item.href && item.href.startsWith("http") ? "noopener noreferrer" : undefined}
-                    className="flex items-start gap-4 group p-4 rounded-xl hover:bg-coral/5 dark:hover:bg-coral/10 transition-all duration-300 cursor-pointer"
-                  >
-                    <div className="w-12 h-12 rounded-xl bg-coral/10 flex items-center justify-center flex-shrink-0 group-hover:bg-coral transition-all duration-300">
-                      <item.icon className="h-5 w-5 text-coral group-hover:text-white transition-colors duration-300" />
+            {contactItems
+              .filter((item) => item.featured)
+              .map((item) => (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group mt-auto flex items-center gap-3.5 p-4 rounded-2xl border border-emerald-400/40 bg-emerald-500/10 hover:bg-emerald-500 hover:border-emerald-500 transition-colors duration-200 cursor-pointer"
+                >
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 bg-emerald-500/20 text-emerald-600 group-hover:bg-white group-hover:text-emerald-600 transition-colors duration-200">
+                    <item.icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700/80 group-hover:text-white/80">
+                      {item.label}
                     </div>
-                    <div>
-                      <div className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                        {item.label}
-                      </div>
-                      <div className="text-navy dark:text-white font-semibold mt-1">
-                        {item.value}
-                      </div>
+                    <div className="font-semibold text-sm sm:text-base mt-0.5 break-words text-emerald-900 group-hover:text-white">
+                      {item.value}
                     </div>
-                  </Tag>
-                );
-              })}
-            </div>
+                    <div className="font-hand text-[15px] leading-tight mt-0.5 text-emerald-700 group-hover:text-white/90">
+                      {item.hint}
+                    </div>
+                  </div>
+                  <Sparkles className="h-4 w-4 text-emerald-600 group-hover:text-white shrink-0" />
+                </a>
+              ))}
           </div>
         </div>
       </div>
