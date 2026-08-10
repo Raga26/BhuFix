@@ -1174,6 +1174,14 @@ if FRONTEND_BUILD_DIR.exists():
     logger.info(f"✓ Frontend build directory found at {FRONTEND_BUILD_DIR}")
     app.mount("/static", StaticFiles(directory=FRONTEND_BUILD_DIR / "static"), name="static")
     logger.info("✓ Static files mounted at /static")
+
+    # Client reels / logos from CRA public/videos → build/videos
+    videos_dir = FRONTEND_BUILD_DIR / "videos"
+    if videos_dir.is_dir():
+        app.mount("/videos", StaticFiles(directory=str(videos_dir)), name="videos")
+        logger.info(f"✓ Video assets mounted at /videos ({videos_dir})")
+    else:
+        logger.warning(f"⚠️  No videos directory at {videos_dir}")
     
     @app.get("/sitemap.xml")
     async def serve_sitemap():
@@ -1210,11 +1218,23 @@ if FRONTEND_BUILD_DIR.exists():
     
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        """Serve SPA - return index.html for all non-API routes"""
+        """Serve build assets when present; otherwise SPA index.html for client routes."""
         if full_path.startswith("api/") or full_path.startswith("iclock"):
             logger.warning(f"API route not found: /{full_path}")
             return JSONResponse({"error": "Not found"}, status_code=404)
-        
+
+        # Prevent path traversal; serve real files from the CRA build (favicon, logos, etc.)
+        build_root = FRONTEND_BUILD_DIR.resolve()
+        candidate = (FRONTEND_BUILD_DIR / full_path).resolve()
+        try:
+            candidate.relative_to(build_root)
+        except ValueError:
+            return JSONResponse({"error": "Not found"}, status_code=404)
+
+        if candidate.is_file():
+            logger.debug(f"✓ Serving build asset: /{full_path}")
+            return FileResponse(candidate)
+
         logger.debug(f"SPA route requested: /{full_path}")
         index_file = FRONTEND_BUILD_DIR / "index.html"
         if index_file.exists():

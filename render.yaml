@@ -14,7 +14,8 @@ services:
     name: bhufix-backend
     runtime: python
     pythonVersion: "3.12.9"
-    buildCommand: cd backend && pip install -r requirements.txt
+    # Build frontend into frontend/build so /videos, favicons, and SPA assets exist for uvicorn
+    buildCommand: cd frontend && npm install && npm run build && cd ../backend && pip install -r requirements.txt
     startCommand: cd backend && python server.py
     envVars:
       - key: PORT
