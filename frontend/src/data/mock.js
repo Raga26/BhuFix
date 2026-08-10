@@ -195,7 +195,12 @@ export const pricingPackages = [
  * Client showcase / reel portfolio data.
  * Reviews with isPlaceholderReview: true are DEMO copy for layout only —
  * replace review + reviewer and set isPlaceholderReview: false before publishing.
+ *
+ * ?v=2 busts browsers that cached SPA HTML under these media URLs
+ * (old deploy returned index.html for /videos/* with a 1-year immutable cache).
  */
+const media = (path) => `${path}?v=2`;
+
 export const clientStories = [
   {
     id: "krishna-jewellery",
@@ -206,13 +211,13 @@ export const clientStories = [
     description:
       "A jewellery business showcasing traditional and contemporary jewellery collections for customers looking for elegant pieces for weddings, celebrations, and everyday occasions.",
     services: ["Personal Branding", "Media Production", "Digital Marketing"],
-    video: "/videos/krish.mp4",
-    poster: "/videos/krish.jpg",
-    logo: "/videos/logos/krishna.jpg",
+    video: media("/videos/krish.mp4"),
+    poster: media("/videos/krish.jpg"),
+    logo: media("/videos/logos/krishna.jpg"),
     // Multiple reels for the same brand — first entry matches video/poster above
     videos: [
-      { src: "/videos/krish.mp4", poster: "/videos/krish.jpg", label: "Reel 1" },
-      { src: "/videos/k2.mp4", poster: "/videos/k2.jpg", label: "Reel 2" },
+      { src: media("/videos/krish.mp4"), poster: media("/videos/krish.jpg"), label: "Reel 1" },
+      { src: media("/videos/k2.mp4"), poster: media("/videos/k2.jpg"), label: "Reel 2" },
     ],
     instagramUrl:
       "https://www.instagram.com/krishnajewellery1985?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
@@ -231,9 +236,9 @@ export const clientStories = [
     description:
       "A jewellery rental brand offering statement and occasion-focused jewellery for weddings, events, celebrations, and special occasions.",
     services: ["Personal Branding", "Media Production", "Digital Marketing"],
-    video: "/videos/adhv.mp4",
-    poster: "/videos/adhv.jpg",
-    logo: "/videos/logos/adhvaya.jpg",
+    video: media("/videos/adhv.mp4"),
+    poster: media("/videos/adhv.jpg"),
+    logo: media("/videos/logos/adhvaya.jpg"),
     instagramUrl:
       "https://www.instagram.com/adhvaya.bridaljewellery?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
     // PLACEHOLDER / DEMO REVIEW — replace with client-approved copy before go-live
@@ -251,9 +256,9 @@ export const clientStories = [
     description:
       "A wedding and event planning business helping couples and families plan and execute memorable celebrations, from creative concepts to event execution.",
     services: ["Media Production", "Video Editing"],
-    video: "/videos/vai.mp4",
-    poster: "/videos/vai.jpg",
-    logo: "/videos/logos/vaibha.jpg",
+    video: media("/videos/vai.mp4"),
+    poster: media("/videos/vai.jpg"),
+    logo: media("/videos/logos/vaibha.jpg"),
     instagramUrl:
       "https://www.instagram.com/vaibha_wedding?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
     // PLACEHOLDER / DEMO REVIEW — replace with client-approved copy before go-live
@@ -271,9 +276,9 @@ export const clientStories = [
     description:
       "A fitness studio focused on helping members improve their fitness, strength, health, and overall lifestyle through structured training and coaching.",
     services: ["Media Production", "Video Editing", "Social Media Management"],
-    video: "/videos/cloud.mp4",
-    poster: "/videos/cloud.jpg",
-    logo: "/videos/logos/cloud9.jpg",
+    video: media("/videos/cloud.mp4"),
+    poster: media("/videos/cloud.jpg"),
+    logo: media("/videos/logos/cloud9.jpg"),
     instagramUrl:
       "https://www.instagram.com/cloud9fitness.studio?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
     // PLACEHOLDER / DEMO REVIEW — replace with client-approved copy before go-live
@@ -296,9 +301,9 @@ export const clientStories = [
       "Digital Marketing",
       "Social Media Management",
     ],
-    video: "/videos/naturals.mp4",
-    poster: "/videos/naturals.jpg",
-    logo: "/videos/logos/naturals.jpg",
+    video: media("/videos/naturals.mp4"),
+    poster: media("/videos/naturals.jpg"),
+    logo: media("/videos/logos/naturals.jpg"),
     instagramUrl:
       "https://www.instagram.com/naturals.tpr.udumalaipettai?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
     // PLACEHOLDER / DEMO REVIEW — replace with client-approved copy before go-live

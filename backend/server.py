@@ -226,21 +226,26 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-        
-        # Smart cache control:
-        # - HTML files (index.html): Don't cache - always fetch latest
-        # - Static assets (JS, CSS, images with hashes): Cache for 1 year
-        # - API routes: Don't cache
-        path = str(request.url)
-        if "/api/" in path:
-            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
-        elif path.endswith(".html") or path == "/":
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
-        elif any(path.endswith(ext) for ext in [".js", ".css", ".woff", ".woff2", ".png", ".jpg", ".svg"]):
+
+        # Cache by Content-Type — never by path alone.
+        # (Previously .jpg/.png paths got "immutable" even when SPA returned HTML,
+        #  which poisoned browsers for up to a year.)
+        path = request.url.path
+        content_type = (response.headers.get("content-type") or "").lower()
+
+        if path.startswith("/api/") or "text/html" in content_type:
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+        elif content_type.startswith(("image/", "video/", "audio/", "font/")) or any(
+            content_type.startswith(t)
+            for t in ("text/css", "application/javascript", "text/javascript")
+        ):
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        elif path.endswith(".html") or path in ("/", ""):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
         else:
             response.headers["Cache-Control"] = "public, max-age=3600"
-        
+
         return response
 
 # ── Input Sanitization ───────────────────────────────────────────
