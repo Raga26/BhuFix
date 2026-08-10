@@ -56,7 +56,6 @@ const StickyNote = ({
 const ReelPlayer = ({ client, isActive }) => {
   const videoRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [shouldLoad, setShouldLoad] = useState(false);
   const [reelIndex, setReelIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
 
@@ -71,7 +70,6 @@ const ReelPlayer = ({ client, isActive }) => {
   useEffect(() => {
     setReelIndex(0);
     setIsPlaying(false);
-    setShouldLoad(false);
   }, [client.id]);
 
   useEffect(() => {
@@ -83,69 +81,39 @@ const ReelPlayer = ({ client, isActive }) => {
       v.load();
     }
     setIsPlaying(false);
-    setShouldLoad(false);
   }, [isActive]);
 
   useEffect(() => {
     setIsPlaying(false);
-  }, [reelIndex]);
-
-  useEffect(() => {
-    if (!isActive || !shouldLoad) return;
     const v = videoRef.current;
-    if (!v) return;
-
-    let cancelled = false;
-
-    const onPlaying = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
-    const onEnded = () => setIsPlaying(false);
-
+    if (!v || !isActive) return;
+    // Keep muted autoplay when switching reels on the same card
     const tryPlay = async () => {
-      if (cancelled) return;
       try {
+        v.muted = isMuted;
         await v.play();
-        if (!cancelled) setIsPlaying(true);
+        setIsPlaying(true);
       } catch {
-        if (!cancelled) setIsPlaying(false);
+        setIsPlaying(false);
       }
     };
-
-    v.addEventListener("playing", onPlaying);
-    v.addEventListener("pause", onPause);
-    v.addEventListener("ended", onEnded);
-
-    // Wait until the browser can actually decode frames
-    if (v.readyState >= 2) {
+    // Only auto-continue if user already started watching this card
+    if (!v.paused || v.currentTime > 0) {
       tryPlay();
-    } else {
-      v.addEventListener("loadeddata", tryPlay, { once: true });
-      v.load();
     }
-
-    return () => {
-      cancelled = true;
-      v.removeEventListener("playing", onPlaying);
-      v.removeEventListener("pause", onPause);
-      v.removeEventListener("ended", onEnded);
-      v.removeEventListener("loadeddata", tryPlay);
-    };
-  }, [isActive, shouldLoad, activeReel.src]);
+  }, [reelIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const togglePlay = useCallback(
     async (e) => {
       e.stopPropagation();
       if (!isActive) return;
 
-      if (!shouldLoad) {
-        setShouldLoad(true);
-        return;
-      }
-
       const v = videoRef.current;
       if (!v) return;
+
       if (v.paused) {
         try {
+          v.muted = isMuted;
           await v.play();
           setIsPlaying(true);
         } catch {
@@ -156,7 +124,7 @@ const ReelPlayer = ({ client, isActive }) => {
         setIsPlaying(false);
       }
     },
-    [isActive, shouldLoad]
+    [isActive, isMuted]
   );
 
   const selectReel = useCallback(
@@ -164,7 +132,6 @@ const ReelPlayer = ({ client, isActive }) => {
       e?.stopPropagation?.();
       if (!isActive || index === reelIndex) return;
       setReelIndex(index);
-      setShouldLoad(true);
     },
     [isActive, reelIndex]
   );
@@ -197,7 +164,7 @@ const ReelPlayer = ({ client, isActive }) => {
           />
         )}
 
-        {isActive && shouldLoad && (
+        {isActive && (
           <video
             key={activeReel.src}
             ref={videoRef}
@@ -206,8 +173,11 @@ const ReelPlayer = ({ client, isActive }) => {
             className="absolute inset-0 w-full h-full object-cover"
             playsInline
             muted={isMuted}
-            preload="auto"
+            preload="metadata"
             loop
+            onPlaying={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onEnded={() => setIsPlaying(false)}
             aria-label={`${client.name} ${activeReel.label || "reel"}`}
           />
         )}
@@ -281,7 +251,7 @@ const ReelPlayer = ({ client, isActive }) => {
           </div>
         )}
 
-        {isActive && shouldLoad && (
+        {isActive && (
           <button
             type="button"
             onPointerDown={(e) => e.stopPropagation()}

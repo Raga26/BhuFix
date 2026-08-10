@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.datastructures import MutableHeaders
 from motor.motor_asyncio import AsyncIOMotorClient
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -140,59 +141,50 @@ app = FastAPI(
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# ── Request Logging Middleware ───────────────────────────────────
-class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Log incoming requests and outgoing responses"""
-    async def dispatch(self, request: Request, call_next):
-        # Log incoming request
+# ── Request Logging Middleware (pure ASGI — no response buffering) ──
+class RequestLoggingMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
         request_id = str(uuid.uuid4())[:8]
-        client_ip = request.client.host if request.client else "unknown"
-        
-        logger.info(
-            f"[{request_id}] INCOMING REQUEST | {request.method} {request.url.path} | "
-            f"IP: {client_ip} | User-Agent: {request.headers.get('user-agent', 'unknown')}"
-        )
-        
-        # Capture request body for logging (only for non-streaming requests)
-        try:
-            body = await request.body()
-            if body and request.method in ["POST", "PUT", "PATCH"]:
-                try:
-                    body_log = json.loads(body)
-                    # Mask sensitive fields
-                    if 'email' in body_log:
-                        body_log['email'] = body_log['email'][:3] + "***"
-                    if 'password' in body_log:
-                        body_log['password'] = "***"
-                    logger.debug(f"[{request_id}] Request Body: {body_log}")
-                except:
-                    logger.debug(f"[{request_id}] Request Body: {body[:100]}...")
-        except Exception as e:
-            logger.debug(f"[{request_id}] Could not log request body: {e}")
-        
-        # Record start time
+        client = scope.get("client")
+        client_ip = client[0] if client else "unknown"
+        method = scope.get("method", "?")
+        path = scope.get("path", "?")
         start_time = time.time()
-        
-        # Call the endpoint
+
+        logger.info(
+            f"[{request_id}] INCOMING REQUEST | {method} {path} | IP: {client_ip}"
+        )
+
+        status_code = 500
+
+        async def send_wrapper(message):
+            nonlocal status_code
+            if message["type"] == "http.response.start":
+                status_code = message.get("status", 500)
+                headers = MutableHeaders(scope=message)
+                headers["X-Request-ID"] = request_id
+            await send(message)
+
         try:
-            response = await call_next(request)
+            await self.app(scope, receive, send_wrapper)
             process_time = time.time() - start_time
-            
             logger.info(
-                f"[{request_id}] RESPONSE | {request.method} {request.url.path} | "
-                f"Status: {response.status_code} | Duration: {process_time:.3f}s"
+                f"[{request_id}] RESPONSE | {method} {path} | "
+                f"Status: {status_code} | Duration: {process_time:.3f}s"
             )
-            
-            # Add request ID to response headers for tracing
-            response.headers["X-Request-ID"] = request_id
-            
-            return response
         except Exception as e:
             process_time = time.time() - start_time
             logger.error(
-                f"[{request_id}] ERROR | {request.method} {request.url.path} | "
+                f"[{request_id}] ERROR | {method} {path} | "
                 f"Duration: {process_time:.3f}s | Error: {str(e)}",
-                exc_info=True
+                exc_info=True,
             )
             raise
 
@@ -217,36 +209,44 @@ def check_rate_limit(ip: str) -> bool:
     logger.debug(f"Rate limit check passed for IP {ip} | Requests: {current_count + 1}/{RATE_LIMIT_MAX}")
     return True
 
-# ── Security Headers Middleware ──────────────────────────────────
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+# ── Security Headers Middleware (pure ASGI — avoids buffering FileResponse/Range) ──
+class SecurityHeadersMiddleware:
+    def __init__(self, app):
+        self.app = app
 
-        # Cache by Content-Type — never by path alone.
-        # (Previously .jpg/.png paths got "immutable" even when SPA returned HTML,
-        #  which poisoned browsers for up to a year.)
-        path = request.url.path
-        content_type = (response.headers.get("content-type") or "").lower()
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        if path.startswith("/api/") or "text/html" in content_type:
-            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-            response.headers["Pragma"] = "no-cache"
-        elif content_type.startswith(("image/", "video/", "audio/", "font/")) or any(
-            content_type.startswith(t)
-            for t in ("text/css", "application/javascript", "text/javascript")
-        ):
-            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-        elif path.endswith(".html") or path in ("/", ""):
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
-        else:
-            response.headers["Cache-Control"] = "public, max-age=3600"
+        path = scope.get("path") or ""
 
-        return response
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers["X-Content-Type-Options"] = "nosniff"
+                headers["X-Frame-Options"] = "DENY"
+                headers["X-XSS-Protection"] = "1; mode=block"
+                headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+                headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+
+                content_type = (headers.get("content-type") or "").lower()
+                if path.startswith("/api/") or "text/html" in content_type:
+                    headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+                    headers["Pragma"] = "no-cache"
+                elif content_type.startswith(("image/", "video/", "audio/", "font/")) or any(
+                    content_type.startswith(t)
+                    for t in ("text/css", "application/javascript", "text/javascript")
+                ):
+                    headers["Cache-Control"] = "public, max-age=31536000, immutable"
+                elif path.endswith(".html") or path in ("/", ""):
+                    headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+                else:
+                    headers["Cache-Control"] = "public, max-age=3600"
+
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
 
 # ── Input Sanitization ───────────────────────────────────────────
 def sanitize_input(text: str) -> str:

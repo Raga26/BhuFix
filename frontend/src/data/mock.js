@@ -196,10 +196,10 @@ export const pricingPackages = [
  * Reviews with isPlaceholderReview: true are DEMO copy for layout only —
  * replace review + reviewer and set isPlaceholderReview: false before publishing.
  *
- * ?v=2 busts browsers that cached SPA HTML under these media URLs
+ * ?v=3 busts browsers that cached SPA HTML under these media URLs
  * (old deploy returned index.html for /videos/* with a 1-year immutable cache).
  */
-const media = (path) => `${path}?v=2`;
+const media = (path) => `${path}?v=3`;
 
 export const clientStories = [
   {
