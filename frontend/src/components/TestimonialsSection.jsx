@@ -6,6 +6,8 @@ import {
   MapPin,
   Pause,
   Play,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { clientStories } from "../data/mock";
 
@@ -56,6 +58,7 @@ const ReelPlayer = ({ client, isActive }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [shouldLoad, setShouldLoad] = useState(false);
   const [reelIndex, setReelIndex] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
 
   const reels =
     Array.isArray(client.videos) && client.videos.length > 0
@@ -202,6 +205,7 @@ const ReelPlayer = ({ client, isActive }) => {
             poster={activeReel.poster || undefined}
             className="absolute inset-0 w-full h-full object-cover"
             playsInline
+            muted={isMuted}
             preload="auto"
             loop
             aria-label={`${client.name} ${activeReel.label || "reel"}`}
@@ -275,6 +279,29 @@ const ReelPlayer = ({ client, isActive }) => {
               <Play className="h-5 w-5 ml-0.5" fill="currentColor" />
             </span>
           </div>
+        )}
+
+        {isActive && shouldLoad && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMuted((m) => {
+                const next = !m;
+                if (videoRef.current) videoRef.current.muted = next;
+                return next;
+              });
+            }}
+            className="absolute bottom-4 right-4 z-30 flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/70"
+            aria-label={isMuted ? "Unmute reel" : "Mute reel"}
+          >
+            {isMuted ? (
+              <VolumeX className="h-4 w-4" />
+            ) : (
+              <Volume2 className="h-4 w-4" />
+            )}
+          </button>
         )}
 
         {hasMultipleReels && isActive && (
