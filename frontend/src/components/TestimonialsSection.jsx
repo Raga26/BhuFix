@@ -49,7 +49,7 @@ const StickyNote = ({
 };
 
 /**
- * Lazy 9:16 reel — media mounts only after play, and only on the active slide.
+ * 9:16 reel — video mounts while the card is active so play() keeps the user gesture.
  * Switching clients pauses + unloads the previous reel.
  * Clients with `videos[]` can flip between multiple reels for the same brand.
  */

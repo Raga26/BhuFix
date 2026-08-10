@@ -4,7 +4,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.datastructures import MutableHeaders
 from motor.motor_asyncio import AsyncIOMotorClient
 from jose import JWTError, jwt
