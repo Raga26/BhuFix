@@ -41,6 +41,35 @@ export const ServicesSection = () => {
       <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-coral/25 to-transparent" />
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
+        {/* Sticky notes — beside the header on large screens */}
+        <aside
+          className="services-note pointer-events-none absolute left-4 xl:left-8 top-6 z-[5] hidden lg:block w-[148px]"
+          aria-hidden
+        >
+          <div className="relative bg-[#FFF3C4] dark:bg-amber-200/95 text-navy px-3.5 py-3 shadow-lg shadow-slate-200/70 dark:shadow-black/30">
+            <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-11 h-3 bg-white/55 rotate-1 shadow-sm" />
+            <p className="font-hand text-lg leading-tight">
+              all in-house.
+              <br />
+              <span className="text-coral-dark">no hand-offs.</span>
+            </p>
+          </div>
+        </aside>
+
+        <aside
+          className="services-note services-note--alt pointer-events-none absolute right-4 xl:right-8 top-14 z-[5] hidden lg:block w-[142px]"
+          aria-hidden
+        >
+          <div className="relative bg-[#FFE8D6] dark:bg-orange-200/95 text-navy px-3.5 py-3 shadow-lg shadow-slate-200/70 dark:shadow-black/30">
+            <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-11 h-3 bg-white/55 -rotate-1 shadow-sm" />
+            <p className="font-hand text-lg leading-tight">
+              mix &amp; match
+              <br />
+              <span className="text-coral-dark">into one plan →</span>
+            </p>
+          </div>
+        </aside>
+
         <div className="text-center max-w-2xl mx-auto mb-12 lg:mb-14">
           <div className="inline-flex items-center gap-2 mb-3">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-coral">
@@ -64,6 +93,19 @@ export const ServicesSection = () => {
             Everything below is done in-house — no outsourcing, no hand-offs.
             Pick what you need, or ask us to combine them into one plan.
           </p>
+
+          <aside
+            className="services-note mx-auto mt-6 w-[210px] lg:hidden"
+            aria-hidden
+          >
+            <div className="relative bg-[#FFF3C4] dark:bg-amber-200/95 text-navy px-4 py-3 shadow-md">
+              <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-12 h-3 bg-white/55 rotate-1 shadow-sm" />
+              <p className="font-hand text-lg leading-tight">
+                all in-house —{" "}
+                <span className="text-coral-dark">mix into one plan →</span>
+              </p>
+            </div>
+          </aside>
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 items-start">
@@ -166,6 +208,31 @@ export const ServicesSection = () => {
       </div>
 
       <style>{`
+        @keyframes servicesNoteFloat {
+          0%, 100% { transform: translateY(0) rotate(-6deg); }
+          50% { transform: translateY(-6px) rotate(-6deg); }
+        }
+        @keyframes servicesNoteFloatAlt {
+          0%, 100% { transform: translateY(0) rotate(5deg); }
+          50% { transform: translateY(-6px) rotate(5deg); }
+        }
+        .services-note {
+          animation: servicesNoteFloat 5.5s ease-in-out infinite;
+        }
+        .services-note--alt {
+          animation: servicesNoteFloatAlt 5.5s ease-in-out infinite;
+          animation-delay: 1.1s;
+        }
+        @media (max-width: 1023px) {
+          .services-note:not(.services-note--alt) {
+            animation-name: servicesNoteFloatMobile;
+          }
+          @keyframes servicesNoteFloatMobile {
+            0%, 100% { transform: translateY(0) rotate(-2deg); }
+            50% { transform: translateY(-5px) rotate(-2deg); }
+          }
+        }
+
         /* Entrance uses opacity only — never transform — so it can't fight hover */
         .service-card-shell {
           animation: serviceFadeIn 0.5s ease-out both;
@@ -248,6 +315,10 @@ export const ServicesSection = () => {
         }
 
         @media (prefers-reduced-motion: reduce) {
+          .services-note,
+          .services-note--alt {
+            animation: none !important;
+          }
           .service-card-shell,
           .service-item-in {
             animation: none !important;

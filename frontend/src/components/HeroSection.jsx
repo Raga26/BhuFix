@@ -48,6 +48,11 @@ export const HeroSection = () => {
   const trackerRef = useRef(null);
   const trackerLabelRef = useRef(null);
   const [flightDone, setFlightDone] = useState(false);
+  const [isDesktopChart, setIsDesktopChart] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(min-width: 768px)").matches
+      : false
+  );
 
   const scrollTo = (href) => {
     const el = document.querySelector(href);
@@ -55,6 +60,20 @@ export const HeroSection = () => {
   };
 
   useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => setIsDesktopChart(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    // Graph animation is desktop-only — skip on phones to avoid stretch/glitch jank.
+    if (!isDesktopChart) {
+      setFlightDone(false);
+      return;
+    }
+
     const path = linePathRef.current;
     const plane = planeRef.current;
     const wrap = chartWrapRef.current;
@@ -63,6 +82,9 @@ export const HeroSection = () => {
     const total = path.getTotalLength();
     path.style.strokeDasharray = `${total}`;
     path.style.strokeDashoffset = `${total}`;
+    plane.style.opacity = "0";
+    plane.style.transition = "";
+    setFlightDone(false);
 
     let raf;
     let start;
@@ -106,7 +128,7 @@ export const HeroSection = () => {
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [isDesktopChart]);
 
   const handleMouseMove = (e) => {
     const wrap = chartWrapRef.current;
@@ -169,8 +191,8 @@ export const HeroSection = () => {
         }}
       />
 
-      {/* ——— COPY (slightly smaller so the full-width graph has room) ——— */}
-      <div className="relative z-20 mx-auto flex h-full max-w-4xl flex-col items-center px-5 pt-20 pb-[40%] text-center sm:px-6 sm:pt-24 sm:pb-[36%] lg:px-8">
+      {/* ——— COPY ——— */}
+      <div className="relative z-20 mx-auto flex h-full max-w-4xl flex-col items-center justify-center px-5 pt-20 pb-16 text-center sm:px-6 sm:pt-24 md:justify-start md:pb-[44%] lg:pb-[42%] lg:px-8">
         <div
           className="mb-4 inline-flex items-center gap-2 rounded-full border border-coral/25 bg-coral/10 px-3.5 py-1.5 text-[13px] font-semibold text-coral sm:mb-5"
           style={{ animation: "fadeSlideUp 0.6s ease-out both" }}
@@ -236,7 +258,7 @@ export const HeroSection = () => {
         </div>
 
         <div
-          className="flex flex-col items-center gap-2 text-xs text-slate-500 dark:text-slate-400 sm:flex-row sm:gap-6 sm:text-sm"
+          className="relative z-20 flex flex-col items-center gap-2 text-xs text-slate-500 dark:text-slate-400 sm:flex-row sm:gap-6 sm:text-sm md:mb-2"
           style={{ animation: "fadeSlideUp 0.6s ease-out 0.42s both" }}
         >
           {[
@@ -252,16 +274,16 @@ export const HeroSection = () => {
         </div>
       </div>
 
-      {/* ——— GRAPH: full page width, left → right ——— */}
+      {/* ——— DESKTOP GRAPH only (hidden on phone) ——— */}
       <div
         ref={chartWrapRef}
-        className="absolute inset-x-0 bottom-0 z-10 h-[38%] select-none sm:h-[36%]"
+        className="absolute inset-x-0 bottom-0 z-10 hidden h-[32%] select-none md:block lg:h-[34%]"
         style={{ pointerEvents: flightDone ? "auto" : "none" }}
       >
         <div className="relative h-full w-full px-3 sm:px-4 pb-2">
           <div className="relative h-full w-full">
             <p
-              className="pointer-events-none absolute left-2 bottom-[54%] hidden font-hand text-lg text-slate-400 dark:text-slate-500 sm:block sm:text-xl"
+              className="pointer-events-none absolute left-2 bottom-[48%] font-hand text-lg text-slate-400 dark:text-slate-500 sm:text-xl"
               style={{ animation: "fadeSlideUp 0.5s ease-out 2.8s both" }}
             >
               your growth, plotted weekly →
@@ -364,12 +386,12 @@ export const HeroSection = () => {
               ))}
             </div>
 
-            {/* Peak badge: clearly left of the tip — no orange-on-orange merge */}
+            {/* Peak badge — kept inside the chart so it never covers the proof row */}
             <div
-              className="absolute z-30 rounded-xl bg-coral px-3.5 py-1.5 shadow-lg shadow-coral/30 ring-2 ring-slate-950/40"
+              className="absolute z-10 rounded-xl bg-coral px-3.5 py-1.5 shadow-lg shadow-coral/30 ring-2 ring-slate-950/40"
               style={{
-                right: "18%",
-                top: "4%",
+                right: "12%",
+                top: "16%",
                 animation: "fadeSlideUp 0.5s ease-out 2.9s both",
               }}
             >
@@ -380,7 +402,7 @@ export const HeroSection = () => {
 
             {/* Month labels across full path */}
             <div
-              className="pointer-events-none absolute bottom-2 left-[2%] right-[3%] hidden justify-between font-hand text-sm text-slate-400/80 dark:text-slate-500/70 sm:flex"
+              className="pointer-events-none absolute bottom-2 left-[2%] right-[3%] flex justify-between font-hand text-sm text-slate-400/80 dark:text-slate-500/70"
             >
               {["month 1", "month 2", "month 3", "month 4", "month 5", "month 6"].map((m) => (
                 <span key={m}>{m}</span>

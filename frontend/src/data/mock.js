@@ -191,34 +191,137 @@ export const pricingPackages = [
   },
 ];
 
-export const testimonials = [
+/**
+ * Client showcase / reel portfolio data.
+ * Reviews with isPlaceholderReview: true are DEMO copy for layout only —
+ * replace review + reviewer and set isPlaceholderReview: false before publishing.
+ */
+export const clientStories = [
   {
-    id: 1,
-    name: "senthil",
-    company: "Business Owner",
-    text: "Amazing service! My videos look so professional now. Bhufix really understands how to make content that stands out and attracts the right audience.",
-    rating: 5,
+    id: "krishna-jewellery",
+    name: "Krishna Jewellery",
+    industry: "Jewellery",
+    categories: ["Jewellery", "Fashion"],
+    location: "Coimbatore, India",
+    description:
+      "A jewellery business showcasing traditional and contemporary jewellery collections for customers looking for elegant pieces for weddings, celebrations, and everyday occasions.",
+    services: ["Personal Branding", "Media Production", "Digital Marketing"],
+    video: "/videos/krish.mp4",
+    poster: "/videos/krish.jpg",
+    logo: "/videos/logos/krishna.jpg",
+    // Multiple reels for the same brand — first entry matches video/poster above
+    videos: [
+      { src: "/videos/krish.mp4", poster: "/videos/krish.jpg", label: "Reel 1" },
+      { src: "/videos/k2.mp4", poster: "/videos/k2.jpg", label: "Reel 2" },
+    ],
+    instagramUrl:
+      "https://www.instagram.com/krishnajewellery1985?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
+    // PLACEHOLDER / DEMO REVIEW — replace with client-approved copy before go-live
+    review:
+      "Working with BhuFix has helped us present our brand in a much more professional way. Their content and marketing approach has made it easier for us to showcase our jewellery and connect with our audience.",
+    reviewer: "Founder, Krishna Jewellery",
+    isPlaceholderReview: true,
   },
   {
-    id: 2,
-    name: "Renu",
-    company: "Entrepreneur",
-    text: "Highly recommend! The team is very creative and responsive. They helped us build a strong social media presence that actually drives results.",
-    rating: 5,
+    id: "adhvaya-rental-jewellery",
+    name: "Adhvaya Rental Jewellery",
+    industry: "Jewellery Rental",
+    categories: ["Jewellery", "Fashion", "Events"],
+    location: "Udumalaipet, India",
+    description:
+      "A jewellery rental brand offering statement and occasion-focused jewellery for weddings, events, celebrations, and special occasions.",
+    services: ["Personal Branding", "Media Production", "Digital Marketing"],
+    video: "/videos/adhv.mp4",
+    poster: "/videos/adhv.jpg",
+    logo: "/videos/logos/adhvaya.jpg",
+    instagramUrl:
+      "https://www.instagram.com/adhvaya.bridaljewellery?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
+    // PLACEHOLDER / DEMO REVIEW — replace with client-approved copy before go-live
+    review:
+      "BhuFix understood how we wanted our jewellery brand to look online and helped us create content that feels much more premium and engaging. The entire process has been smooth and creative.",
+    reviewer: "Founder, Adhvaya Rental Jewellery",
+    isPlaceholderReview: true,
   },
   {
-    id: 3,
-    name: "yogesh",
-    company: "Business Owner",
-    text: "Excellent quality and timely delivery. Loved it! The Bhufix team goes above and beyond to make sure everything is perfect.",
-    rating: 5,
+    id: "vaibha-wedding",
+    name: "Vaibha Wedding Event Planners",
+    industry: "Wedding & Events",
+    categories: ["Events", "Fashion"],
+    location: "Coimbatore, India",
+    description:
+      "A wedding and event planning business helping couples and families plan and execute memorable celebrations, from creative concepts to event execution.",
+    services: ["Media Production", "Video Editing"],
+    video: "/videos/vai.mp4",
+    poster: "/videos/vai.jpg",
+    logo: "/videos/logos/vaibha.jpg",
+    instagramUrl:
+      "https://www.instagram.com/vaibha_wedding?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
+    // PLACEHOLDER / DEMO REVIEW — replace with client-approved copy before go-live
+    review:
+      "The team at BhuFix has helped us capture our events in a much more engaging way. Their production and editing work makes our events look professional and gives us content we can actually use to promote our brand.",
+    reviewer: "Founder, Vaibha Wedding Event Planners",
+    isPlaceholderReview: true,
+  },
+  {
+    id: "cloud-9-fitness",
+    name: "Cloud 9 Fitness Studio",
+    industry: "Fitness & Wellness",
+    categories: ["Fitness"],
+    location: "Udumalaipet, India",
+    description:
+      "A fitness studio focused on helping members improve their fitness, strength, health, and overall lifestyle through structured training and coaching.",
+    services: ["Media Production", "Video Editing", "Social Media Management"],
+    video: "/videos/cloud.mp4",
+    poster: "/videos/cloud.jpg",
+    logo: "/videos/logos/cloud9.jpg",
+    instagramUrl:
+      "https://www.instagram.com/cloud9fitness.studio?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
+    // PLACEHOLDER / DEMO REVIEW — replace with client-approved copy before go-live
+    review:
+      "BhuFix helped us turn our day-to-day fitness content into something much more professional. Their production quality and social media support have helped us maintain a much stronger presence online.",
+    reviewer: "Founder, Cloud 9 Fitness Studio",
+    isPlaceholderReview: true,
+  },
+  {
+    id: "naturals-salon",
+    name: "Naturals Salon",
+    industry: "Beauty & Salon",
+    categories: ["Beauty"],
+    location: "Udumalaipet, India",
+    description:
+      "A professional salon offering beauty, hair, grooming, and personal care services for customers looking for professional salon experiences.",
+    services: [
+      "Personal Branding",
+      "Media Production",
+      "Digital Marketing",
+      "Social Media Management",
+    ],
+    video: "/videos/naturals.mp4",
+    poster: "/videos/naturals.jpg",
+    logo: "/videos/logos/naturals.jpg",
+    instagramUrl:
+      "https://www.instagram.com/naturals.tpr.udumalaipettai?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==",
+    // PLACEHOLDER / DEMO REVIEW — replace with client-approved copy before go-live
+    review:
+      "BhuFix has helped us build a much more consistent presence on social media. From creating content to managing our digital presence, the team has made our brand look more professional and engaging.",
+    reviewer: "Salon Owner, Naturals Salon",
+    isPlaceholderReview: true,
   },
 ];
 
-export const clients = [
-  "Cloud9 Gym, Udumalpet",
-  "Milleama Organics, Udumalpet",
-];
+/** @deprecated Use clientStories — kept for any legacy imports */
+export const testimonials = clientStories.map((c, i) => ({
+  id: i + 1,
+  name: c.reviewer.split(",")[0],
+  company: c.name,
+  text: c.review,
+  rating: 5,
+  isPlaceholderReview: c.isPlaceholderReview,
+}));
+
+export const clients = clientStories.map(
+  (c) => `${c.name}, ${c.location.split(",")[0]}`
+);
 
 export const projects = [];
 

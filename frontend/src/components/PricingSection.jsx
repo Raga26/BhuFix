@@ -50,6 +50,37 @@ export const PricingSection = () => {
       <div className="absolute -bottom-40 left-0 w-80 h-80 bg-sky-100/60 dark:bg-sky-900/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
+        {/* Sticky notes — beside the header on large screens */}
+        <aside
+          className="pricing-note pointer-events-none absolute left-4 xl:left-8 top-8 z-[5] hidden lg:block w-[148px]"
+          aria-hidden
+        >
+          <div className="relative bg-[#FFF3C4] dark:bg-amber-200/95 text-navy px-3.5 py-3 shadow-lg shadow-slate-200/70 dark:shadow-black/30">
+            <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-11 h-3 bg-white/55 rotate-1 shadow-sm" />
+            <p className="font-hand text-lg leading-tight">
+              no surprise
+              <br />
+              invoices.
+              <br />
+              <span className="text-coral-dark">we scope first.</span>
+            </p>
+          </div>
+        </aside>
+
+        <aside
+          className="pricing-note pricing-note--alt pointer-events-none absolute right-4 xl:right-8 top-16 z-[5] hidden lg:block w-[140px]"
+          aria-hidden
+        >
+          <div className="relative bg-[#FFE8D6] dark:bg-orange-200/95 text-navy px-3.5 py-3 shadow-lg shadow-slate-200/70 dark:shadow-black/30">
+            <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-11 h-3 bg-white/55 -rotate-1 shadow-sm" />
+            <p className="font-hand text-lg leading-tight">
+              unsure?
+              <br />
+              <span className="text-coral-dark">talk to us first →</span>
+            </p>
+          </div>
+        </aside>
+
         <div className="text-center max-w-2xl mx-auto mb-12 lg:mb-16">
           <div className="inline-flex items-center gap-2 mb-3">
             <span className="text-xs font-bold uppercase tracking-[0.2em] text-coral">
@@ -77,6 +108,20 @@ export const PricingSection = () => {
             <Zap className="h-4 w-4" />
             Spots for new retainers are limited each month
           </p>
+
+          {/* Compact note under intro on smaller screens */}
+          <aside
+            className="pricing-note mx-auto mt-6 w-[210px] lg:hidden"
+            aria-hidden
+          >
+            <div className="relative bg-[#FFF3C4] dark:bg-amber-200/95 text-navy px-4 py-3 shadow-md">
+              <span className="absolute -top-2 left-1/2 -translate-x-1/2 w-12 h-3 bg-white/55 rotate-1 shadow-sm" />
+              <p className="font-hand text-lg leading-tight">
+                no surprise invoices —{" "}
+                <span className="text-coral-dark">we scope first.</span>
+              </p>
+            </div>
+          </aside>
         </div>
 
         <div className="grid md:grid-cols-3 gap-5 lg:gap-6 items-stretch pt-4">
@@ -220,6 +265,31 @@ export const PricingSection = () => {
       </div>
 
       <style>{`
+        @keyframes pricingNoteFloat {
+          0%, 100% { transform: translateY(0) rotate(-6deg); }
+          50% { transform: translateY(-6px) rotate(-6deg); }
+        }
+        @keyframes pricingNoteFloatAlt {
+          0%, 100% { transform: translateY(0) rotate(5deg); }
+          50% { transform: translateY(-6px) rotate(5deg); }
+        }
+        .pricing-note {
+          animation: pricingNoteFloat 5.5s ease-in-out infinite;
+        }
+        .pricing-note--alt {
+          animation: pricingNoteFloatAlt 5.5s ease-in-out infinite;
+          animation-delay: 1.1s;
+        }
+        @media (max-width: 1023px) {
+          .pricing-note:not(.pricing-note--alt) {
+            animation-name: pricingNoteFloatMobile;
+          }
+          @keyframes pricingNoteFloatMobile {
+            0%, 100% { transform: translateY(0) rotate(-2deg); }
+            50% { transform: translateY(-5px) rotate(-2deg); }
+          }
+        }
+
         .pricing-card-shell {
           animation: pricingFadeIn 0.55s ease-out both;
         }
@@ -263,6 +333,10 @@ export const PricingSection = () => {
         }
 
         @media (prefers-reduced-motion: reduce) {
+          .pricing-note,
+          .pricing-note--alt {
+            animation: none !important;
+          }
           .pricing-card-shell {
             animation: none !important;
           }
