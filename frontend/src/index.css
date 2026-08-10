@@ -39,9 +39,10 @@ code {
     scrollbar-width: none;
 }
 
-/* Smooth scroll behavior */
+/* Smooth scroll + offset for fixed header */
 html {
     scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
 }
 
 @layer base {

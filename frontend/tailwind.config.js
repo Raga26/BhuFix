@@ -7,6 +7,10 @@ module.exports = {
   ],
   theme: {
   	extend: {
+  		fontFamily: {
+  			anchor: ['Fraunces', 'Georgia', 'serif'],
+  			hand: ['Caveat', 'Segoe Script', 'cursive'],
+  		},
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
