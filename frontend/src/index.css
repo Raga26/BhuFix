@@ -121,3 +121,45 @@ select option:checked {
   background-color: #E8734A;
   color: #ffffff;
 }
+
+@layer components {
+  .dash-btn {
+    @apply inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-md text-[13px] font-medium tracking-[-0.01em] transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .dash-btn-primary {
+    @apply bg-[#E8734A] text-white hover:bg-[#D4633D];
+  }
+  .dash-btn-ghost {
+    @apply border border-white/[0.12] bg-transparent text-white/55 hover:text-white hover:bg-white/[0.04];
+  }
+  .dash-btn-danger {
+    @apply border border-red-500/25 bg-transparent text-red-400/80 hover:bg-red-500/10 hover:text-red-300;
+  }
+  .dash-btn-sm {
+    @apply h-7 px-2.5 text-[11px] rounded;
+  }
+  .dash-title {
+    @apply font-anchor italic font-medium text-[1.65rem] md:text-[1.85rem] leading-tight tracking-tight text-white;
+  }
+  .dash-sub {
+    @apply text-[13px] text-white/40 mt-1.5;
+  }
+  .dash-card {
+    @apply bg-[#162038] border border-white/[0.08] rounded-xl;
+  }
+  .dash-modal {
+    @apply bg-[#1B2A4A] border border-white/[0.1] rounded-2xl;
+  }
+  .dash-input {
+    @apply w-full bg-[#121C33] border border-white/[0.1] rounded-md px-3.5 py-2.5 text-white text-sm placeholder-white/25 outline-none focus:border-[#E8734A]/55 transition-colors;
+  }
+  .dash-label {
+    @apply block text-white/40 text-[11px] mb-1.5;
+  }
+}
+
+.login-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  mix-blend-mode: overlay;
+}

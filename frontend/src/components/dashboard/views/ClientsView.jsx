@@ -5,6 +5,8 @@ import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
+import { CloseButton } from '../CloseButton';
+import { Plus } from 'lucide-react';
 
 function parseIgHandle(raw) {
   if (!raw) return null;
@@ -42,11 +44,10 @@ function ClientCard({ client, onEdit, onDelete, onPostReport, canMutate }) {
   const ls = LEVEL_STYLE[client.level] || LEVEL_STYLE.Silver;
   const pct = client.monthly_progress || 0;
   return (
-    <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 hover:-translate-y-1 hover:border-white/[0.15] transition-all relative overflow-hidden">
-      <div className="absolute top-0 left-0 right-0 h-0.5 opacity-0 hover:opacity-100 transition-opacity" style={{ background: ls.gradient }} />
+    <div className="dash-card p-5 hover:border-white/[0.14] transition-colors relative overflow-hidden">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold flex-shrink-0" style={{ background: ls.gradient }}>
-          {client.logo_emoji || client.name?.[0]}
+        <div className="w-11 h-11 rounded-md flex items-center justify-center text-sm font-semibold flex-shrink-0 text-white bg-navy border border-white/[0.08]">
+          {client.name?.[0]}
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-white font-bold text-sm truncate">{client.name}</div>
@@ -100,25 +101,25 @@ function ClientCard({ client, onEdit, onDelete, onPostReport, canMutate }) {
         <span className="text-white/30 text-xs">{client.start_date || 'New'}</span>
         <div className="flex gap-1.5 flex-wrap justify-end">
           <button onClick={() => onPostReport(client)}
-            className="h-7 px-2.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-[10px] text-white/40 hover:bg-[#E8734A]/15 hover:border-[#E8734A]/30 hover:text-[#E8734A] transition-all"
+            className="dash-btn dash-btn-ghost dash-btn-sm"
             title="Monthly post report">
-            Post Report
+            Report
           </button>
           {client.drive_link && (
             <a href={client.drive_link} target="_blank" rel="noreferrer"
-              className="h-7 px-2.5 rounded-lg bg-white/[0.06] border border-white/[0.08] flex items-center text-[10px] text-white/40 hover:bg-[#E8734A]/15 hover:border-[#E8734A]/30 hover:text-[#E8734A] transition-all">
+              className="dash-btn dash-btn-ghost dash-btn-sm">
               Drive
             </a>
           )}
           {canMutate && (
             <>
               <button onClick={() => onEdit(client)}
-                className="h-7 px-2.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-[10px] text-white/40 hover:bg-[#E8734A]/15 hover:border-[#E8734A]/30 hover:text-[#E8734A] transition-all"
+                className="dash-btn dash-btn-ghost dash-btn-sm"
                 title="Edit client">
                 Edit
               </button>
               <button onClick={() => onDelete(client)}
-                className="h-7 px-2.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-[10px] text-white/40 hover:bg-red-600/15 hover:border-red-600/30 hover:text-red-400 transition-all"
+                className="dash-btn dash-btn-danger dash-btn-sm"
                 title="Delete client">
                 Delete
               </button>
@@ -186,10 +187,10 @@ function ClientModal({ client, clients, onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="dash-modal p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-white font-bold text-lg">{isEdit ? 'Edit Client' : 'Add New Client'}</h2>
-          <button onClick={onClose} className="text-white/30 hover:text-white text-xl">✕</button>
+          <h2 className="text-white font-medium text-lg">{isEdit ? 'Edit client' : 'New client'}</h2>
+          <CloseButton onClick={onClose} />
         </div>
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
@@ -222,8 +223,8 @@ function ClientModal({ client, clients, onClose, onSave }) {
             <input className={inputCls} value={form.ig_handle} onChange={(e) => set('ig_handle', e.target.value)} placeholder="@handle" />
           </div>
           <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Logo Emoji</label>
-            <input className={inputCls} value={form.logo_emoji} onChange={(e) => set('logo_emoji', e.target.value)} placeholder="💍 or initials" />
+            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Initials</label>
+            <input className={inputCls} value={form.logo_emoji} onChange={(e) => set('logo_emoji', e.target.value)} placeholder="e.g. VW" maxLength={3} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 mb-3">
@@ -241,10 +242,10 @@ function ClientModal({ client, clients, onClose, onSave }) {
           <input className={inputCls} value={form.drive_link} onChange={(e) => set('drive_link', e.target.value)} placeholder="https://drive.google.com/…" />
         </div>
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 bg-white/[0.06] border border-white/[0.08] text-white/60 text-sm font-semibold py-2.5 rounded-xl hover:bg-white/[0.1] transition-colors">Cancel</button>
+          <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Cancel</button>
           <button onClick={handleSave} disabled={saving || !form.name.trim()}
-            className="flex-[2] bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold py-2.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] hover:shadow-[0_8px_28px_rgba(232,115,74,0.5)] disabled:opacity-60 transition-all">
-            {saving ? 'Saving…' : isEdit ? 'Save Changes' : '✦ Add Client'}
+            className="dash-btn dash-btn-primary flex-[2] h-10">
+            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add client'}
           </button>
         </div>
       </div>
@@ -304,20 +305,20 @@ export default function ClientsView() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-white font-extrabold text-2xl">Client Profiles</h1>
-          <p className="text-white/40 text-sm mt-1">All your clients in one place</p>
+          <h1 className="dash-title">Clients</h1>
+          <p className="dash-sub">Everyone on the floor.</p>
         </div>
         <div className="flex gap-2">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search clients…"
-            className="bg-white/[0.06] border border-white/[0.08] rounded-xl px-4 py-2.5 text-white placeholder-white/30 text-sm outline-none focus:border-[#E8734A]/40 transition-colors w-48"
+            placeholder="Search…"
+            className="dash-input w-48"
           />
           {user?.role === 'owner' && (
-            <button onClick={() => setModal({})}
-              className="bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] hover:shadow-[0_8px_28px_rgba(232,115,74,0.5)] hover:-translate-y-0.5 transition-all whitespace-nowrap">
-              + Add Client
+            <button onClick={() => setModal({})} className="dash-btn dash-btn-primary whitespace-nowrap">
+              <Plus size={14} strokeWidth={2} />
+              Add client
             </button>
           )}
         </div>

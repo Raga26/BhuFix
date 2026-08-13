@@ -4,12 +4,14 @@ import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
+import { CloseButton } from '../CloseButton';
+import { Plus } from 'lucide-react';
 
 const PLATFORMS = [
-  { key: 'Instagram', icon: '📸' },
-  { key: 'TikTok', icon: '🎵' },
-  { key: 'LinkedIn', icon: '💼' },
-  { key: 'YouTube Shorts', icon: '▶️' },
+  { key: 'Instagram' },
+  { key: 'TikTok' },
+  { key: 'LinkedIn' },
+  { key: 'YouTube Shorts' },
 ];
 
 function AddKPIModal({ clients, onClose, onSave, kpi, isEdit }) {
@@ -52,10 +54,10 @@ function AddKPIModal({ clients, onClose, onSave, kpi, isEdit }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="dash-modal p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-bold">{isEdit ? 'Edit KPI Entry' : 'Add KPI Entry'}</h2>
-          <button onClick={onClose} className="text-white/30 hover:text-white">✕</button>
+          <h2 className="text-white font-medium">{isEdit ? 'Edit KPI' : 'Add KPI'}</h2>
+          <CloseButton onClick={onClose} />
         </div>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -108,10 +110,9 @@ function AddKPIModal({ clients, onClose, onSave, kpi, isEdit }) {
           </div>
         </div>
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 bg-white/[0.06] border border-white/[0.08] text-white/60 text-sm font-semibold py-2.5 rounded-xl hover:bg-white/[0.1] transition-colors">Cancel</button>
-          <button onClick={handleSave} disabled={saving}
-            className="flex-[2] bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold py-2.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] disabled:opacity-60 transition-all">
-            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add KPI'}
+          <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="dash-btn dash-btn-primary flex-[2] h-10">
+            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add KPI'}
           </button>
         </div>
       </div>
@@ -187,55 +188,52 @@ export default function KPIView() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-white font-extrabold text-2xl">KPI Tracker</h1>
-          <p className="text-white/40 text-sm mt-1">Performance metrics across all clients and platforms</p>
+          <h1 className="dash-title">KPI tracker</h1>
+          <p className="dash-sub">Reach, engagement, and what came of it.</p>
         </div>
         {isOwner && (
-          <button onClick={() => setModal({})}
-            className="bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] hover:-translate-y-0.5 transition-all self-start">
-            + Add KPI
+          <button onClick={() => setModal({})} className="dash-btn dash-btn-primary self-start">
+            <Plus size={14} strokeWidth={2} />
+            Add KPI
           </button>
         )}
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
-          { icon: '👁️', val: fmtNum(totalReach), label: 'Total Reach', color: '#4DD9FF' },
-          { icon: '❤️', val: `${avgEngagement}%`, label: 'Avg Engagement', color: '#F472B6' },
-          { icon: '💬', val: totalDM, label: 'DM Inquiries', color: '#A78BFA' },
-          { icon: '🤝', val: totalBookings, label: 'New Bookings', color: '#34D399' },
+          { val: fmtNum(totalReach), label: 'Total reach' },
+          { val: `${avgEngagement}%`, label: 'Avg engagement' },
+          { val: totalDM, label: 'DM inquiries' },
+          { val: totalBookings, label: 'New bookings' },
         ].map((s) => (
-          <div key={s.label} className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 relative overflow-hidden">
-            <div className="absolute top-[-10px] right-[-10px] w-16 h-16 rounded-full blur-2xl opacity-20" style={{ background: s.color }} />
-            <div className="text-xl mb-2">{s.icon}</div>
-            <div className="text-2xl font-extrabold mb-1" style={{ color: s.color }}>{s.val}</div>
+          <div key={s.label} className="dash-card p-5">
+            <div className="font-anchor italic text-[1.55rem] text-white mb-1">{s.val}</div>
             <div className="text-white/40 text-xs">{s.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 mb-6">
-        <div className="text-white font-bold text-sm mb-4">Platform KPIs — All-time</div>
+      <div className="dash-card p-5 mb-6">
+        <div className="text-white font-medium text-sm mb-4">Platforms</div>
         {byPlatform.length === 0 ? (
           <div className="text-center py-8 text-white/30 text-sm">No KPI data yet. Add entries to see performance.</div>
         ) : (
           byPlatform.map((p) => (
             <div key={p.key} className="flex flex-wrap items-center justify-between gap-4 py-3.5 border-b border-white/[0.05] last:border-0">
               <div className="flex items-center gap-3 min-w-[160px]">
-                <div className="text-xl w-8">{p.icon}</div>
                 <div>
-                  <div className="text-white text-sm font-semibold">{p.key}</div>
+                  <div className="text-white text-sm font-medium">{p.key}</div>
                   <div className="text-white/30 text-xs">All clients</div>
                 </div>
               </div>
               <div className="flex gap-6 flex-wrap">
                 {[
-                  { val: fmtNum(p.reach), label: 'Reach', color: '#F472B6' },
-                  { val: `${p.engagement}%`, label: 'Engagement', color: '#E8734A' },
-                  { val: `+${fmtNum(p.followers)}`, label: 'Followers', color: '#34D399' },
+                  { val: fmtNum(p.reach), label: 'Reach' },
+                  { val: `${p.engagement}%`, label: 'Engagement' },
+                  { val: `+${fmtNum(p.followers)}`, label: 'Followers' },
                 ].map((m) => (
                   <div key={m.label} className="text-right">
-                    <div className="text-base font-bold" style={{ color: m.color }}>{m.val}</div>
+                    <div className="text-base font-medium text-white">{m.val}</div>
                     <div className="text-white/30 text-[10px]">{m.label}</div>
                   </div>
                 ))}
@@ -245,8 +243,8 @@ export default function KPIView() {
         )}
       </div>
 
-      <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5">
-        <div className="text-white font-bold text-sm mb-4">All KPI Entries</div>
+      <div className="dash-card p-5">
+        <div className="text-white font-medium text-sm mb-4">Entries</div>
         {kpis.length === 0 ? (
           <div className="text-center py-8 text-white/30 text-sm">No KPI entries yet.</div>
         ) : (
@@ -261,13 +259,13 @@ export default function KPIView() {
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => setModal(kpi)}
-                      className="h-6 px-2 rounded-md bg-blue-600/20 hover:bg-blue-600/40 text-[10px] text-blue-300 transition-colors"
+                      className="dash-btn dash-btn-ghost dash-btn-sm"
                       title="Edit KPI">
                       Edit
                     </button>
                     <button
                       onClick={() => setDeleteConfirm(kpi)}
-                      className="h-6 px-2 rounded-md bg-red-600/20 hover:bg-red-600/40 text-[10px] text-red-300 transition-colors"
+                      className="dash-btn dash-btn-danger dash-btn-sm"
                       title="Delete KPI">
                       Delete
                     </button>

@@ -210,7 +210,7 @@ function MonthCard({ report, canEdit, onSave, onDelete, defaultOpen = false }) {
   };
 
   return (
-    <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl overflow-hidden">
+    <div className="dash-card overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -339,7 +339,7 @@ function MonthCard({ report, canEdit, onSave, onDelete, defaultOpen = false }) {
                   type="button"
                   onClick={handleSave}
                   disabled={saving}
-                  className="h-9 px-4 rounded-xl bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-xs font-bold shadow-[0_4px_16px_rgba(232,115,74,0.35)] disabled:opacity-60 transition-all"
+                  className="dash-btn dash-btn-primary dash-btn-sm"
                 >
                   {saving ? 'Saving…' : 'Save month'}
                 </button>
@@ -510,9 +510,9 @@ export default function PostReportView() {
           >
             ← Clients
           </button>
-          <h1 className="text-white font-extrabold text-2xl">Post Report</h1>
-          <p className="text-white/40 text-sm mt-1.5">
-            Monthly delivery tracker for <span className="text-white/70">{client.name}</span>
+          <h1 className="dash-title">Post report</h1>
+          <p className="dash-sub">
+            Monthly delivery for <span className="text-white/70">{client.name}</span>
           </p>
         </div>
         <div className="flex items-center gap-3">

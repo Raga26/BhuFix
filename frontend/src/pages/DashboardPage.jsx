@@ -1,52 +1,55 @@
 import { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
+import { Menu, LayoutDashboard, Briefcase, CalendarDays, MessageSquare, LogOut } from 'lucide-react';
 import { Sidebar } from '../components/dashboard/Sidebar';
 import { useAuth } from '../context/AuthContext';
 
-// Mobile bottom tab items (max 4 per role)
 const MOBILE_TABS = {
   owner: [
-    { to: '/dashboard', label: 'Home', exact: true },
-    { to: '/dashboard/clients', label: 'Clients' },
-    { to: '/dashboard/calendar', label: 'Calendar' },
-    { to: '/dashboard/chat', label: 'Chat' },
+    { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
+    { to: '/dashboard/clients', label: 'Clients', icon: Briefcase },
+    { to: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
   ],
   employee: [
-    { to: '/dashboard', label: 'Home', exact: true },
-    { to: '/dashboard/calendar', label: 'Calendar' },
-    { to: '/dashboard/chat', label: 'Chat' },
+    { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
+    { to: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
   ],
   client: [
-    { to: '/dashboard', label: 'Home', exact: true },
-    { to: '/dashboard/calendar', label: 'Schedule' },
-    { to: '/dashboard/messages', label: 'Messages' },
-    { to: '/dashboard/kpis', label: 'Reports' },
+    { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
+    { to: '/dashboard/calendar', label: 'Schedule', icon: CalendarDays },
+    { to: '/dashboard/messages', label: 'Messages', icon: MessageSquare },
+    { to: '/dashboard/kpis', label: 'Reports', icon: Briefcase },
   ],
 };
 
-function BottomTabBar() {
+function BottomTabBar({ onMore }) {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const tabs = MOBILE_TABS[user?.role] || MOBILE_TABS.client;
 
   const tabClass = ({ isActive }) =>
-    `flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl flex-1 transition-all ${
-      isActive ? 'text-[#E8734A]' : 'text-white/40'
+    `flex flex-col items-center gap-1 px-2 py-2.5 flex-1 transition-colors ${
+      isActive ? 'text-[#E8734A]' : 'text-white/35'
     }`;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#07080F]/95 backdrop-blur-xl border-t border-white/[0.08] flex items-center safe-area-bottom">
-      {tabs.map((t) => (
-        <NavLink key={t.to} to={t.to} end={t.exact} className={tabClass}>
-          <span className="text-[10px] font-medium">{t.label}</span>
-        </NavLink>
-      ))}
-      {/* More / Menu button */}
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-navy-dark/95 backdrop-blur-md border-t border-white/[0.07] flex items-center safe-area-bottom">
+      {tabs.map((t) => {
+        const Icon = t.icon;
+        return (
+          <NavLink key={t.to} to={t.to} end={t.exact} className={tabClass}>
+            <Icon size={18} strokeWidth={1.7} />
+            <span className="text-[10px] font-medium">{t.label}</span>
+          </NavLink>
+        );
+      })}
       <button
-        className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl flex-1 text-white/40"
-        onClick={() => navigate('/dashboard')}
+        type="button"
+        className="flex flex-col items-center gap-1 px-2 py-2.5 flex-1 text-white/35"
+        onClick={onMore}
       >
-        <span className="text-xl">☰</span>
+        <Menu size={18} strokeWidth={1.7} />
         <span className="text-[10px] font-medium">More</span>
       </button>
     </div>
@@ -57,6 +60,11 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const today = new Date().toLocaleDateString('en-IN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
 
   const handleLogout = () => {
     logout();
@@ -64,69 +72,58 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#07080F]">
-      {/* Ambient background */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-[-200px] left-[-200px] w-[600px] h-[600px] bg-[#E8734A] rounded-full opacity-[0.07] blur-[100px]" />
-        <div className="absolute top-[30%] right-[-150px] w-[500px] h-[500px] bg-[#4DD9FF] rounded-full opacity-[0.06] blur-[100px]" />
-        <div className="absolute bottom-[-100px] left-[30%] w-[400px] h-[400px] bg-[#A78BFA] rounded-full opacity-[0.05] blur-[100px]" />
-      </div>
-
-      {/* Desktop sidebar */}
+    <div className="flex min-h-screen bg-navy-dark">
       <div className="hidden md:flex w-60 fixed left-0 top-0 h-screen z-30">
         <Sidebar />
       </div>
 
-      {/* Mobile overlay sidebar */}
       {sidebarOpen && (
         <div className="md:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarOpen(false)} />
+          <div className="absolute inset-0 bg-black/70" onClick={() => setSidebarOpen(false)} />
           <div className="absolute left-0 top-0 bottom-0 w-72 z-10">
             <Sidebar mobile onClose={() => setSidebarOpen(false)} />
           </div>
         </div>
       )}
 
-      {/* Main content */}
-      <div className="flex-1 md:ml-60 relative z-10 flex flex-col">
-        {/* Mobile topbar */}
-        <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-white/[0.06] bg-[#07080F]/80 backdrop-blur sticky top-0 z-20">
-          <button onClick={() => setSidebarOpen(true)} className="text-white/60 hover:text-white text-xl p-1">
-            ☰
+      <div className="flex-1 md:ml-60 relative z-10 flex flex-col min-h-screen">
+        <div className="md:hidden flex items-center justify-between px-4 h-12 border-b border-white/[0.06] bg-navy-dark/90 backdrop-blur sticky top-0 z-20">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="text-white/50 hover:text-white p-1"
+            aria-label="Open menu"
+          >
+            <Menu size={18} strokeWidth={1.75} />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#E8734A] to-[#D4633D] flex items-center justify-center">
-              <span className="font-extrabold text-xs text-white">B</span>
-            </div>
-            <span className="text-white font-bold text-sm">BhuFix</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => navigate('/')}
-              title="Back to website"
-              className="text-white/40 hover:text-white/80 text-lg p-1.5 rounded-lg hover:bg-white/[0.06] transition-all"
-            >
-              ←
-            </button>
-            <button
-              onClick={handleLogout}
-              title="Sign out"
-              className="text-white/40 hover:text-red-400 text-xs p-1.5 rounded-lg hover:bg-red-400/10 transition-all font-semibold"
-            >
-              Out
-            </button>
-          </div>
+          <Link to="/" className="text-[15px] font-extrabold tracking-tight text-white">
+            Bhu<span className="text-coral">Fix</span>
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="text-white/40 hover:text-white p-1"
+            aria-label="Sign out"
+          >
+            <LogOut size={16} strokeWidth={1.75} />
+          </button>
         </div>
 
-        {/* Page content */}
-        <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8">
+        <header className="hidden md:flex items-center justify-between px-8 h-14 border-b border-white/[0.06]">
+          <p className="font-anchor italic text-[15px] text-white/40">{today}</p>
+          <div className="flex items-center gap-5">
+            <span className="text-[13px] text-white/40 truncate max-w-[200px]">{user?.name}</span>
+            <Link to="/" className="text-[12px] text-white/35 hover:text-white/70 transition-colors">
+              Website
+            </Link>
+          </div>
+        </header>
+
+        <main className="flex-1 p-5 md:p-8 pb-24 md:pb-10">
           <Outlet />
         </main>
       </div>
 
-      {/* Mobile bottom tabs */}
       <div className="md:hidden">
-        <BottomTabBar />
+        <BottomTabBar onMore={() => setSidebarOpen(true)} />
       </div>
     </div>
   );

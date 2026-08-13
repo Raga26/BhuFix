@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Send } from 'lucide-react';
 import apiClient from '../../../utils/axiosConfig';
 import { useAuth } from '../../../context/AuthContext';
 
 const ROLE_COLOR = {
-  owner: 'linear-gradient(135deg,#E8734A,#D4633D)',
-  employee: 'linear-gradient(135deg,#A78BFA,#F472B6)',
-  client: 'linear-gradient(135deg,#4DD9FF,#34D399)',
+  owner: '#E8734A',
+  employee: '#4A6FA5',
+  client: '#8BA3C7',
 };
 
 function Message({ msg, isMe }) {
   const t = new Date(msg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   return (
     <div className={`flex gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
-      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-white"
+      <div className="w-7 h-7 rounded-md flex items-center justify-center text-xs font-semibold flex-shrink-0 text-white"
         style={{ background: ROLE_COLOR[msg.sender_role] || ROLE_COLOR.employee }}>
         {msg.sender_name?.[0]?.toUpperCase()}
       </div>
@@ -104,13 +105,13 @@ export default function ChatView({ clientThread = false }) {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-white font-extrabold text-2xl">{isClient ? 'Messages' : clientThread ? 'Client Messages' : 'Team Chat'}</h1>
-        <p className="text-white/40 text-sm mt-1">{isClient ? 'Chat directly with your BhuFix team' : clientThread ? 'Direct message threads with each client' : 'Internal BhuFix team communication'}</p>
+        <h1 className="dash-title">{isClient ? 'Messages' : clientThread ? 'Client messages' : 'Team chat'}</h1>
+        <p className="dash-sub">{isClient ? 'Write to the BhuFix team.' : clientThread ? 'Threads with each client.' : 'Internal desk chatter.'}</p>
       </div>
 
       <div className={`grid gap-6 ${!isClient && !clientThread ? 'md:grid-cols-[1fr_280px]' : ''}`}>
         {/* Main chat area */}
-        <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl flex flex-col" style={{ height: 'min(70vh, 520px)' }}>
+        <div className="dash-card flex flex-col" style={{ height: 'min(70vh, 520px)' }}>
           {/* Chat header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06]">
             <div className="text-white font-semibold text-sm">{title}</div>
@@ -144,22 +145,23 @@ export default function ChatView({ clientThread = false }) {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKey}
               placeholder="Type a message…"
-              className="flex-1 bg-white/[0.06] border border-white/[0.08] rounded-full px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/40 transition-colors"
+              className="flex-1 bg-[#121C33] border border-white/[0.1] rounded-md px-3.5 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors"
             />
             <button
               onClick={send}
               disabled={sending || !input.trim()}
-              className="w-10 h-10 rounded-full bg-gradient-to-br from-[#E8734A] to-[#D4633D] flex items-center justify-center text-white shadow-[0_4px_16px_rgba(232,115,74,0.35)] hover:scale-110 disabled:opacity-40 transition-all"
+              className="dash-btn dash-btn-primary h-10 w-10 px-0"
+              aria-label="Send"
             >
-              ➤
+              <Send size={15} strokeWidth={1.75} />
             </button>
           </div>
         </div>
 
         {/* Team member list (staff team chat only) */}
         {!isClient && !clientThread && (
-          <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-4">
-            <div className="text-white font-semibold text-sm mb-3">👤 Team</div>
+          <div className="dash-card p-4">
+            <div className="text-white font-medium text-sm mb-3">Team</div>
             <div className="text-white/30 text-xs text-center py-6">
               Team presence will show here as members come online.
             </div>
