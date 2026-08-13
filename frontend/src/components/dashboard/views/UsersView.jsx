@@ -4,6 +4,8 @@ import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
+import { CloseButton } from '../CloseButton';
+import { Plus } from 'lucide-react';
 
 // Map sub_role → display label + colour
 const SUB_ROLE_META = {
@@ -106,10 +108,10 @@ function CreateUserModal({ clients, onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl p-6 w-full max-w-md">
+      <div className="dash-modal p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-bold">Create User</h2>
-          <button onClick={onClose} className="text-white/30 hover:text-white">✕</button>
+          <h2 className="text-white font-medium">Create user</h2>
+          <CloseButton onClick={onClose} />
         </div>
         <div className="space-y-3">
           <div>
@@ -174,10 +176,9 @@ function CreateUserModal({ clients, onClose, onSave }) {
           )}
         </div>
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 bg-white/[0.06] border border-white/[0.08] text-white/60 text-sm font-semibold py-2.5 rounded-xl hover:bg-white/[0.1] transition-colors">Cancel</button>
-          <button onClick={handleSave} disabled={saving}
-            className="flex-[2] bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold py-2.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] disabled:opacity-60 transition-all">
-            {saving ? 'Creating…' : 'Create User'}
+          <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="dash-btn dash-btn-primary flex-[2] h-10">
+            {saving ? 'Creating…' : 'Create user'}
           </button>
         </div>
       </div>
@@ -240,10 +241,10 @@ function EditUserModal({ editUser, clients, onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl p-6 w-full max-w-md">
+      <div className="dash-modal p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-bold">Edit User</h2>
-          <button onClick={onClose} className="text-white/30 hover:text-white">✕</button>
+          <h2 className="text-white font-medium">Edit user</h2>
+          <CloseButton onClick={onClose} />
         </div>
 
         <div className="space-y-3 mb-4">
@@ -290,10 +291,9 @@ function EditUserModal({ editUser, clients, onClose, onSave }) {
         </div>
 
         <div className="flex gap-3 mb-5">
-          <button onClick={onClose} className="flex-1 bg-white/[0.06] border border-white/[0.08] text-white/60 text-sm font-semibold py-2.5 rounded-xl hover:bg-white/[0.1] transition-colors">Cancel</button>
-          <button onClick={handleSave} disabled={saving}
-            className="flex-[2] bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold py-2.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] disabled:opacity-60 transition-all">
-            {saving ? 'Saving…' : 'Save Changes'}
+          <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="dash-btn dash-btn-primary flex-[2] h-10">
+            {saving ? 'Saving…' : 'Save changes'}
           </button>
         </div>
 
@@ -381,12 +381,12 @@ export default function UsersView() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-white font-extrabold text-2xl">User Management</h1>
-          <p className="text-white/40 text-sm mt-1">Control who has access and what they can see</p>
+          <h1 className="dash-title">People</h1>
+          <p className="dash-sub">Who can get in, and what they can see.</p>
         </div>
-        <button onClick={() => setModal(true)}
-          className="bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] hover:-translate-y-0.5 transition-all">
-          + Create User
+        <button onClick={() => setModal(true)} className="dash-btn dash-btn-primary">
+          <Plus size={14} strokeWidth={2} />
+          Create user
         </button>
       </div>
 
@@ -395,7 +395,7 @@ export default function UsersView() {
           <div className="w-8 h-8 border-2 border-[#E8734A] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl overflow-hidden">
+        <div className="dash-card overflow-hidden">
           <div className="hidden md:grid grid-cols-[minmax(220px,1fr)_180px_160px_100px_120px] gap-4 px-5 py-3 border-b border-white/[0.06]">
             {['Name / Email', 'Linked Client', 'Role', 'Status', 'Actions'].map((h) => (
               <div key={h} className="text-white/30 text-[10px] uppercase tracking-widest">{h}</div>
@@ -404,12 +404,9 @@ export default function UsersView() {
           {users.map((u) => (
             <div key={u.id} className="flex flex-wrap md:grid md:grid-cols-[minmax(220px,1fr)_180px_160px_100px_120px] gap-4 items-center px-5 py-4 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
               <div className="flex items-center gap-3 min-w-0">
-                {(() => { const rd = getRoleDisplay(u); return (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${rd.color}, ${rd.color}99)` }}>
-                    {u.name?.[0]?.toUpperCase()}
-                  </div>
-                ); })()}
+                <div className="w-8 h-8 rounded-md flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 bg-navy border border-white/[0.08]">
+                  {u.name?.[0]?.toUpperCase()}
+                </div>
                 <div className="min-w-0">
                   <div className="text-white text-sm font-semibold truncate">{u.name}</div>
                   <div className="text-white/30 text-xs truncate">{u.email}</div>
@@ -432,13 +429,13 @@ export default function UsersView() {
               <div className="flex gap-1.5">
                 {u.id !== user?.id && (
                   <button onClick={() => setEditModal(u)}
-                    className="text-[10px] text-white/40 hover:text-white border border-white/[0.08] hover:border-white/20 px-2.5 py-1.5 rounded-lg transition-colors">
+                    className="dash-btn dash-btn-ghost dash-btn-sm">
                     Edit
                   </button>
                 )}
                 {u.id !== user?.id && u.is_active && (
                   <button onClick={() => setDeactivateConfirm(u)}
-                    className="text-[10px] text-white/30 hover:text-red-400 border border-white/[0.06] hover:border-red-400/30 px-2.5 py-1.5 rounded-lg transition-colors">
+                    className="dash-btn dash-btn-danger dash-btn-sm">
                     Disable
                   </button>
                 )}

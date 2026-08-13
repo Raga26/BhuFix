@@ -1,24 +1,33 @@
+import { X } from 'lucide-react';
+
 export function DeleteConfirmDialog({ title, message, onConfirm, onCancel, isLoading }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl p-6 w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+      <div className="dash-modal p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-white font-bold text-lg">⚠️ {title}</h2>
-          <button onClick={onCancel} className="text-white/30 hover:text-white text-xl">✕</button>
+          <h2 className="text-white font-medium text-lg">{title}</h2>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+            className="p-1.5 rounded-md text-white/35 hover:text-white hover:bg-white/[0.06] transition-colors"
+          >
+            <X size={16} strokeWidth={1.75} />
+          </button>
         </div>
-        <p className="text-white/70 text-sm mb-6 leading-relaxed">{message}</p>
-        <div className="flex gap-3">
+        <p className="text-white/55 text-sm mb-6 leading-relaxed">{message}</p>
+        <div className="flex gap-2.5">
           <button
             onClick={onCancel}
             disabled={isLoading}
-            className="flex-1 bg-white/[0.06] border border-white/[0.08] text-white/60 text-sm font-semibold py-2.5 rounded-xl hover:bg-white/[0.1] disabled:opacity-60 transition-colors"
+            className="dash-btn dash-btn-ghost flex-1"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className="flex-1 bg-red-600/80 hover:bg-red-600 text-white text-sm font-bold py-2.5 rounded-xl shadow-[0_4px_16px_rgba(220,38,38,0.35)] disabled:opacity-60 transition-all"
+            className="dash-btn flex-1 bg-[#8B2E2E] text-white hover:bg-[#A03838]"
           >
             {isLoading ? 'Deleting…' : 'Delete'}
           </button>

@@ -4,6 +4,8 @@ import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
+import { CloseButton } from '../CloseButton';
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const TYPE_STYLE = {
   reel:    { bg: 'rgba(244,114,182,0.2)',  color: '#F472B6', label: 'Reel' },
@@ -72,10 +74,10 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl p-6 w-full max-w-md">
+      <div className="dash-modal p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-bold">{isEdit ? 'Edit Post' : 'Add Post'}</h2>
-          <button onClick={onClose} className="text-white/30 hover:text-white">✕</button>
+          <h2 className="text-white font-medium">{isEdit ? 'Edit post' : 'Add post'}</h2>
+          <CloseButton onClick={onClose} />
         </div>
         <div className="space-y-3">
           <div>
@@ -135,10 +137,9 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
           </div>
         </div>
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 bg-white/[0.06] border border-white/[0.08] text-white/60 text-sm font-semibold py-2.5 rounded-xl hover:bg-white/[0.1] transition-colors">Cancel</button>
-          <button onClick={handleSave} disabled={saving}
-            className="flex-[2] bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold py-2.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] disabled:opacity-60 transition-all">
-            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Post'}
+          <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="dash-btn dash-btn-primary flex-[2] h-10">
+            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add post'}
           </button>
         </div>
       </div>
@@ -172,22 +173,23 @@ function DayEventsModal({ date, dayEvents, clients, canMutate, onClose, onAddPos
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl w-full max-w-md flex flex-col" style={{ maxHeight: '80vh' }}>
+      <div className="dash-modal w-full max-w-md flex flex-col" style={{ maxHeight: '80vh' }}>
         <div className="flex items-center justify-between p-6 pb-4 border-b border-white/[0.06] flex-shrink-0">
           <div>
-            <h2 className="text-white font-bold text-base">{displayDate}</h2>
+            <h2 className="text-white font-medium text-base">{displayDate}</h2>
             <p className="text-white/40 text-xs mt-0.5">{dayEvents.length} event{dayEvents.length !== 1 ? 's' : ''}</p>
           </div>
           <div className="flex items-center gap-2">
             {canMutate && (
               <button
                 onClick={onAddPost}
-                className="bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] hover:-translate-y-0.5 transition-all"
+                className="dash-btn dash-btn-primary dash-btn-sm"
               >
-                + Add Post
+                <Plus size={12} strokeWidth={2} />
+                Add
               </button>
             )}
-            <button onClick={onClose} className="text-white/30 hover:text-white text-xl leading-none">✕</button>
+            <CloseButton onClick={onClose} />
           </div>
         </div>
 
@@ -224,14 +226,14 @@ function DayEventsModal({ date, dayEvents, clients, canMutate, onClose, onAddPos
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
                         onClick={() => onEditEvent(ev)}
-                        className="text-white/30 hover:text-blue-400 text-xs px-2.5 py-1.5 rounded-lg hover:bg-blue-400/10 transition-all font-semibold"
+                        className="dash-btn dash-btn-ghost dash-btn-sm"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(ev)}
                         disabled={deletingId === ev.id}
-                        className="text-white/30 hover:text-red-400 text-xs px-2.5 py-1.5 rounded-lg hover:bg-red-400/10 transition-all font-semibold disabled:opacity-40"
+                        className="dash-btn dash-btn-danger dash-btn-sm disabled:opacity-40"
                       >
                         {deletingId === ev.id ? '…' : 'Del'}
                       </button>
@@ -272,14 +274,14 @@ function EventDetailModal({ event, clients, onClose, onEdit, onDelete, canMutate
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl p-6 w-full max-w-md">
+      <div className="dash-modal p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="text-sm font-semibold px-2.5 py-1 rounded-full w-fit text-[10px]" style={{ background: ts.bg, color: ts.color }}>
               {ts.label.toUpperCase()}
             </div>
           </div>
-          <button onClick={onClose} className="text-white/30 hover:text-white text-xl">✕</button>
+          <CloseButton onClick={onClose} />
         </div>
 
         <h2 className="text-white font-bold text-lg mb-3">{event.title}</h2>
@@ -315,11 +317,11 @@ function EventDetailModal({ event, clients, onClose, onEdit, onDelete, canMutate
         </div>
 
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 bg-white/[0.06] border border-white/[0.08] text-white/60 text-sm font-semibold py-2.5 rounded-xl hover:bg-white/[0.1] transition-colors">Close</button>
+          <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Close</button>
           {canMutate && (
             <>
-              <button onClick={onEdit} className="flex-1 bg-blue-600/50 hover:bg-blue-600 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">Edit</button>
-              <button onClick={handleDelete} disabled={deleting} className="flex-1 bg-red-600/50 hover:bg-red-600 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-60 transition-colors">
+              <button onClick={onEdit} className="dash-btn dash-btn-primary flex-1">Edit</button>
+              <button onClick={handleDelete} disabled={deleting} className="dash-btn dash-btn-danger flex-1">
                 {deleting ? 'Deleting…' : 'Delete'}
               </button>
             </>
@@ -356,7 +358,7 @@ function WeekView({ weekDays, events, clients, onDayClick }) {
   const clientName = (cid) => clients.find((c) => c.id === cid)?.name || '';
 
   return (
-    <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
+    <div className="dash-card overflow-hidden">
       <div className="grid grid-cols-7 min-w-[560px]">
         {weekDays.map((day) => {
           const dateStr = formatLocalDate(day);
@@ -530,33 +532,38 @@ export default function CalendarView() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-white font-extrabold text-2xl">Content Calendar</h1>
-          <p className="text-white/40 text-sm mt-1">{periodLabel} · Plan and track all content</p>
+          <h1 className="dash-title">Calendar</h1>
+          <p className="dash-sub">{periodLabel}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* View toggle */}
-          <div className="flex bg-white/[0.06] border border-white/[0.08] rounded-xl p-0.5">
+          <div className="flex border border-white/[0.1] rounded-md p-0.5">
             <button
               onClick={() => setCalView('month')}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${calView === 'month' ? 'bg-white/[0.12] text-white' : 'text-white/40 hover:text-white/70'}`}
+              className={`text-xs font-medium px-3 py-1.5 rounded transition-colors ${calView === 'month' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70'}`}
             >
               Month
             </button>
             <button
               onClick={() => setCalView('week')}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${calView === 'week' ? 'bg-white/[0.12] text-white' : 'text-white/40 hover:text-white/70'}`}
+              className={`text-xs font-medium px-3 py-1.5 rounded transition-colors ${calView === 'week' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70'}`}
             >
               Week
             </button>
           </div>
 
-          <button onClick={onPrev} className="bg-white/[0.06] border border-white/[0.08] text-white/60 hover:text-white text-sm px-3 py-2 rounded-xl transition-colors">← Prev</button>
-          <button onClick={onNext} className="bg-white/[0.06] border border-white/[0.08] text-white/60 hover:text-white text-sm px-3 py-2 rounded-xl transition-colors">Next →</button>
+          <button onClick={onPrev} className="dash-btn dash-btn-ghost h-9 w-9 px-0" aria-label="Previous">
+            <ChevronLeft size={16} strokeWidth={1.75} />
+          </button>
+          <button onClick={onNext} className="dash-btn dash-btn-ghost h-9 w-9 px-0" aria-label="Next">
+            <ChevronRight size={16} strokeWidth={1.75} />
+          </button>
 
           {isOwner && (
             <button onClick={() => { setPrefillDate(''); setModal({ create: true }); }}
-              className="bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold px-4 py-2 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] hover:-translate-y-0.5 transition-all">
-              + Add Post
+              className="dash-btn dash-btn-primary">
+              <Plus size={14} strokeWidth={2} />
+              Add post
             </button>
           )}
         </div>
@@ -572,7 +579,7 @@ export default function CalendarView() {
           />
         </div>
       ) : (
-        <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-4 overflow-x-auto">
+        <div className="dash-card p-4 overflow-x-auto">
           <div className="grid grid-cols-7 gap-1 mb-1 min-w-[420px]">
             {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d) => (
               <div key={d} className="text-center text-white/30 text-xs font-semibold uppercase tracking-widest py-2">{d}</div>

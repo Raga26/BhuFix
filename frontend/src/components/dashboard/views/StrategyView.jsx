@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { X, Plus } from 'lucide-react';
 import apiClient from '../../../utils/axiosConfig';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -42,12 +43,12 @@ function HookList() {
   const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors";
 
   return (
-    <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5">
+    <div className="dash-card p-5">
       <div className="flex items-center justify-between mb-4">
-        <div className="text-white font-bold text-sm">🪝 Hook Template Library</div>
+        <div className="text-white font-medium text-sm">Hook library</div>
         {user?.role === 'owner' && (
           <button onClick={() => setShowAdd(!showAdd)}
-            className="text-[#E8734A] text-xs hover:underline">{showAdd ? '× Cancel' : '+ Add Hook'}</button>
+            className="text-[#E8734A] text-xs hover:text-[#F08A66]">{showAdd ? 'Cancel' : 'Add hook'}</button>
         )}
       </div>
 
@@ -57,8 +58,8 @@ function HookList() {
           <input className={inputCls} placeholder="Short description" value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} />
           <input className={inputCls} placeholder="Example text" value={form.example_text} onChange={(e) => setForm((f) => ({ ...f, example_text: e.target.value }))} />
           <button onClick={handleAdd} disabled={saving}
-            className="w-full bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold py-2 rounded-xl disabled:opacity-60">
-            {saving ? 'Saving…' : 'Add Hook'}
+            className="dash-btn dash-btn-primary w-full">
+            {saving ? 'Saving…' : 'Add hook'}
           </button>
         </div>
       )}
@@ -77,7 +78,9 @@ function HookList() {
               )}
             </div>
             {user?.role === 'owner' && (
-              <button onClick={() => handleDelete(h.id)} className="text-white/20 hover:text-red-400 text-sm flex-shrink-0 self-start mt-1">✕</button>
+              <button onClick={() => handleDelete(h.id)} className="text-white/25 hover:text-red-400 flex-shrink-0 self-start mt-1 p-1" aria-label="Delete hook">
+                <X size={14} strokeWidth={1.75} />
+              </button>
             )}
           </div>
         ))
@@ -93,8 +96,8 @@ function AdFunnel() {
     { stage: 'BOTTOM FUNNEL', title: 'Convert to Clients', desc: 'Objective: Messages / Lead Gen. Testimonial video + strong CTA. Retarget engaged users (last 60 days). Budget: ₹100–150/day.', color: '#34D399', bg: 'rgba(52,211,153,0.06)', border: 'rgba(52,211,153,0.2)' },
   ];
   return (
-    <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5">
-      <div className="text-white font-bold text-sm mb-5">📣 3-Stage Meta Ads Funnel</div>
+    <div className="dash-card p-5">
+      <div className="text-white font-medium text-sm mb-5">Three-stage Meta ads funnel</div>
       <div className="flex flex-col items-center gap-0 max-w-lg mx-auto">
         {stages.map((s, i) => (
           <div key={s.stage} className="w-full">
@@ -120,8 +123,8 @@ export default function StrategyView() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-white font-extrabold text-2xl">Strategy Hub</h1>
-        <p className="text-white/40 text-sm mt-1">Content pillars, hooks, funnels and plans</p>
+        <h1 className="dash-title">Strategy</h1>
+        <p className="dash-sub">Pillars, hooks, and the funnel.</p>
       </div>
 
       <div className="flex gap-1 bg-white/[0.04] rounded-xl p-1 mb-6 w-fit">
@@ -133,16 +136,16 @@ export default function StrategyView() {
       {tab === 'pillars' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {PILLARS.map((p) => (
-            <div key={p.title} className="bg-white/[0.04] rounded-2xl p-5 hover:-translate-y-1 transition-transform"
-              style={{ border: `1px solid ${p.color}40` }}>
+            <div key={p.title} className="dash-card p-5"
+              style={{ borderColor: `${p.color}40` }}>
               <div className="text-white font-bold text-base mb-2">{p.title}</div>
               <div className="text-white/50 text-sm leading-relaxed mb-3">{p.desc}</div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: `${p.color}15`, color: p.color }}>{p.freq}</span>
             </div>
           ))}
-          <div className="bg-white/[0.02] border border-dashed border-white/[0.1] rounded-2xl p-5 flex items-center justify-center flex-col gap-2 text-white/20 min-h-[160px] cursor-pointer hover:border-[#E8734A]/30 hover:text-white/40 transition-colors">
-            <span className="text-2xl">＋</span>
-            <span className="text-xs">Add New Pillar</span>
+          <div className="border border-dashed border-white/[0.12] rounded-xl p-5 flex items-center justify-center flex-col gap-2 text-white/25 min-h-[160px]">
+            <Plus size={18} strokeWidth={1.5} />
+            <span className="text-xs">More pillars live in the brief</span>
           </div>
         </div>
       )}

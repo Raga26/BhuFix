@@ -4,6 +4,8 @@ import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
+import { CloseButton } from '../CloseButton';
+import { Plus } from 'lucide-react';
 
 const COLORS = ['#E8734A', '#4DD9FF', '#A78BFA', '#34D399', '#F472B6', '#F59E0B'];
 
@@ -47,10 +49,10 @@ function AddCampaignModal({ clients, onClose, onSave, campaign, isEdit }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0D0E1A] border border-white/[0.08] rounded-3xl p-6 w-full max-w-md">
+      <div className="dash-modal p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-bold">{isEdit ? 'Edit Campaign' : 'Add Campaign'}</h2>
-          <button onClick={onClose} className="text-white/30 hover:text-white">✕</button>
+          <h2 className="text-white font-medium">{isEdit ? 'Edit campaign' : 'Add campaign'}</h2>
+          <CloseButton onClick={onClose} />
         </div>
         <div className="space-y-3">
           <div>
@@ -85,10 +87,9 @@ function AddCampaignModal({ clients, onClose, onSave, campaign, isEdit }) {
           </div>
         </div>
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="flex-1 bg-white/[0.06] border border-white/[0.08] text-white/60 text-sm font-semibold py-2.5 rounded-xl hover:bg-white/[0.1] transition-colors">Cancel</button>
-          <button onClick={handleSave} disabled={saving}
-            className="flex-[2] bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold py-2.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] disabled:opacity-60 transition-all">
-            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Campaign'}
+          <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="dash-btn dash-btn-primary flex-[2] h-10">
+            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add campaign'}
           </button>
         </div>
       </div>
@@ -147,32 +148,30 @@ export default function AdsView() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-white font-extrabold text-2xl">Meta Ads Tracker</h1>
-          <p className="text-white/40 text-sm mt-1">Monthly ad budget overview per client</p>
+          <h1 className="dash-title">Ads</h1>
+          <p className="dash-sub">Monthly spend against the brief.</p>
         </div>
         {user?.role === 'owner' && (
-          <button onClick={() => setModal({})}
-            className="bg-gradient-to-r from-[#E8734A] to-[#D4633D] text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_16px_rgba(232,115,74,0.35)] hover:-translate-y-0.5 transition-all self-start">
-            + Add Campaign
+          <button onClick={() => setModal({})} className="dash-btn dash-btn-primary self-start">
+            <Plus size={14} strokeWidth={2} />
+            Add campaign
           </button>
         )}
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 relative overflow-hidden">
-          <div className="absolute top-[-10px] right-[-10px] w-16 h-16 rounded-full blur-2xl opacity-20 bg-[#E8734A]" />
-          <div className="text-2xl font-extrabold text-[#E8734A] mb-1">{fmt(totalBudget)}</div>
-          <div className="text-white/40 text-xs">Total Monthly Budget</div>
+        <div className="dash-card p-5">
+          <div className="font-anchor italic text-[1.55rem] text-white mb-1">{fmt(totalBudget)}</div>
+          <div className="text-white/40 text-xs">Monthly budget</div>
         </div>
-        <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 relative overflow-hidden">
-          <div className="absolute top-[-10px] right-[-10px] w-16 h-16 rounded-full blur-2xl opacity-20 bg-[#F472B6]" />
-          <div className="text-2xl font-extrabold text-[#F472B6] mb-1">{fmt(totalSpent)}</div>
+        <div className="dash-card p-5">
+          <div className="font-anchor italic text-[1.55rem] text-white mb-1">{fmt(totalSpent)}</div>
           <div className="text-white/40 text-xs">Spent · {overallPct}% of budget</div>
         </div>
       </div>
 
-      <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5">
-        <div className="text-white font-bold text-sm mb-4">All Ad Campaigns</div>
+      <div className="dash-card p-5">
+        <div className="text-white font-medium text-sm mb-4">Campaigns</div>
         {ads.length === 0 ? (
           <div className="text-center py-8 text-white/30 text-sm">No campaigns yet.</div>
         ) : (
@@ -201,13 +200,13 @@ export default function AdsView() {
                     <div className="flex gap-1.5">
                       <button
                         onClick={() => setModal(ad)}
-                        className="h-6 px-2 rounded-md bg-blue-600/20 hover:bg-blue-600/40 text-[10px] text-blue-300 transition-colors"
+                        className="dash-btn dash-btn-ghost dash-btn-sm"
                         title="Edit campaign">
                         Edit
                       </button>
                       <button
                         onClick={() => setDeleteConfirm(ad)}
-                        className="h-6 px-2 rounded-md bg-red-600/20 hover:bg-red-600/40 text-[10px] text-red-300 transition-colors"
+                        className="dash-btn dash-btn-danger dash-btn-sm"
                         title="Delete campaign">
                         Delete
                       </button>

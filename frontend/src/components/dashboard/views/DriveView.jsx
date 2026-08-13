@@ -19,12 +19,12 @@ export default function DriveView() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-white font-extrabold text-2xl">Drive Links</h1>
-          <p className="text-white/40 text-sm mt-1">Google Drive folders — one per client</p>
+          <h1 className="dash-title">Drive</h1>
+          <p className="dash-sub">One folder per client.</p>
         </div>
       </div>
 
-      <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5">
+      <div className="dash-card p-5">
         {loading ? (
           <div className="flex items-center justify-center h-20">
             <div className="w-6 h-6 border-2 border-[#E8734A] border-t-transparent rounded-full animate-spin" />
@@ -34,13 +34,15 @@ export default function DriveView() {
         ) : (
           clients.map((c) => (
             <a key={c.id} href={c.drive_link} target="_blank" rel="noreferrer"
-              className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] mb-2 last:mb-0 hover:border-[#4DD9FF]/30 hover:bg-[#4DD9FF]/[0.04] transition-all group">
-              <span className="w-8 h-8 rounded-lg bg-white/[0.06] flex items-center justify-center text-white/40 text-xs font-bold flex-shrink-0">F</span>
+              className="flex items-center gap-3 p-3 rounded-md bg-white/[0.03] border border-white/[0.06] mb-2 last:mb-0 hover:border-white/15 transition-colors group">
+              <span className="w-8 h-8 rounded-md bg-navy border border-white/[0.08] flex items-center justify-center text-white/50 text-xs font-semibold flex-shrink-0">
+                {c.name?.[0]}
+              </span>
               <div className="flex-1 min-w-0">
-                <div className="text-white text-sm font-semibold">{c.logo_emoji} {c.name}</div>
+                <div className="text-white text-sm font-medium">{c.name}</div>
                 <div className="text-white/40 text-xs">{c.industry} · Started {c.start_date} · {c.ig_handle}</div>
               </div>
-              <span className="text-xs bg-green-500/10 text-green-400 px-2.5 py-1 rounded-full flex-shrink-0 group-hover:bg-green-500/20 transition-colors">Open →</span>
+              <span className="text-xs text-coral flex-shrink-0">Open</span>
             </a>
           ))
         )}
