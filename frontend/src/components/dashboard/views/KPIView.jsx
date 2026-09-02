@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
+import { can } from '../../../lib/access';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 import { CloseButton } from '../CloseButton';
 import { Plus } from 'lucide-react';
@@ -53,14 +54,14 @@ function AddKPIModal({ clients, onClose, onSave, kpi, isEdit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="dash-modal p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <div className="dash-overlay">
+      <div className="dash-modal p-5 sm:p-6 w-full max-w-md pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-medium">{isEdit ? 'Edit KPI' : 'Add KPI'}</h2>
           <CloseButton onClick={onClose} />
         </div>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Client</label>
               <select className={inputCls} value={form.client_id} onChange={(e) => set('client_id', e.target.value)}>
@@ -74,7 +75,7 @@ function AddKPIModal({ clients, onClose, onSave, kpi, isEdit }) {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Reach</label>
               <input className={inputCls} type="number" value={form.reach} onChange={(e) => set('reach', e.target.value ? +e.target.value : '')} placeholder="0" />
@@ -98,7 +99,7 @@ function AddKPIModal({ clients, onClose, onSave, kpi, isEdit }) {
               <input className={inputCls} type="number" value={form.bookings} onChange={(e) => set('bookings', e.target.value ? +e.target.value : '')} placeholder="0" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Month</label>
               <input className={inputCls} type="number" min="1" max="12" value={form.month} onChange={(e) => set('month', +e.target.value)} />
@@ -129,7 +130,7 @@ function fmtNum(n) {
 
 export default function KPIView() {
   const { user } = useAuth();
-  const isOwner = user?.role === 'owner';
+  const isOwner = can(user, 'kpis.write');
   const [kpis, setKpis] = useState([]);
   const [clients, setClients] = useState([]);
   const [modal, setModal] = useState(null);
@@ -141,10 +142,10 @@ export default function KPIView() {
       setKpis(r.data || []);
       logger.info('KPIs loaded', { count: r.data?.length || 0 });
     }).catch((e) => logger.error('Failed to load KPIs', { error: e.message }));
-    if (user?.role === 'owner') {
+    if (isOwner) {
       apiClient.get('/clients').then((r) => setClients(r.data || [])).catch((e) => logger.error('Failed to load clients', { error: e.message }));
     }
-  }, [user]);
+  }, [isOwner]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -188,11 +189,14 @@ export default function KPIView() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="dash-title">KPI tracker</h1>
+          <h1 className="dash-title">{user?.role === 'client' ? 'Reports' : 'KPI tracker'}</h1>
           <p className="dash-sub">Reach, engagement, and what came of it.</p>
         </div>
         {isOwner && (
-          <button onClick={() => setModal({})} className="dash-btn dash-btn-primary self-start">
+          <button type="button" onClick={() => {
+            if (!clients.length) { toast.error('No clients assigned to you yet'); return; }
+            setModal({});
+          }} className="dash-btn dash-btn-primary self-start min-h-[44px]">
             <Plus size={14} strokeWidth={2} />
             Add KPI
           </button>
@@ -223,7 +227,7 @@ export default function KPIView() {
               <div className="flex items-center gap-3 min-w-[160px]">
                 <div>
                   <div className="text-white text-sm font-medium">{p.key}</div>
-                  <div className="text-white/30 text-xs">All clients</div>
+                  <div className="text-white/30 text-xs">{user?.role === 'client' ? 'Your numbers' : 'All clients'}</div>
                 </div>
               </div>
               <div className="flex gap-6 flex-wrap">
@@ -250,22 +254,24 @@ export default function KPIView() {
         ) : (
           <div className="space-y-2">
             {kpis.map((kpi) => (
-              <div key={kpi.id} className="flex items-center gap-3 py-3 px-3 bg-white/[0.02] rounded-lg border border-white/[0.04] hover:border-white/[0.08] transition-all">
-                <div className="flex-1">
-                  <div className="text-white text-sm font-medium">{clientName(kpi.client_id)}</div>
-                  <div className="text-white/30 text-xs">{kpi.platform} · {kpi.month}/{kpi.year} · Reach: {fmtNum(kpi.reach)}, Engagement: {kpi.engagement_rate}%, DMs: {kpi.dm_inquiries}, Bookings: {kpi.bookings}</div>
+              <div key={kpi.id} className="flex flex-col sm:flex-row sm:items-center gap-3 py-3 px-3 bg-white/[0.02] rounded-lg border border-white/[0.04] hover:border-white/[0.08] transition-all">
+                <div className="flex-1 min-w-0">
+                  <div className="text-white text-sm font-medium">{user?.role === 'client' ? kpi.platform : clientName(kpi.client_id)}</div>
+                  <div className="text-white/30 text-xs break-words">{user?.role === 'client' ? '' : `${kpi.platform} · `}{kpi.month}/{kpi.year} · Reach: {fmtNum(kpi.reach)}, Engagement: {kpi.engagement_rate}%, DMs: {kpi.dm_inquiries}, Bookings: {kpi.bookings}</div>
                 </div>
                 {isOwner && (
                   <div className="flex gap-1.5">
                     <button
+                      type="button"
                       onClick={() => setModal(kpi)}
-                      className="dash-btn dash-btn-ghost dash-btn-sm"
+                      className="dash-btn dash-btn-ghost min-h-[44px]"
                       title="Edit KPI">
                       Edit
                     </button>
                     <button
+                      type="button"
                       onClick={() => setDeleteConfirm(kpi)}
-                      className="dash-btn dash-btn-danger dash-btn-sm"
+                      className="dash-btn dash-btn-danger min-h-[44px]"
                       title="Delete KPI">
                       Delete
                     </button>

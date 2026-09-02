@@ -11,96 +11,100 @@ import {
   Users,
   LogOut,
   X,
+  CheckSquare,
+  Package,
+  Receipt,
+  Clapperboard,
+  FileCheck,
+  ListOrdered,
+  Search,
+  Globe,
+  Binoculars,
+  Gauge,
+  ScrollText,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { can, jobLabel, isCreative, isLeadership } from '../../lib/access';
 
 const ICONS = {
   Overview: LayoutDashboard,
+  Home: LayoutDashboard,
+  Studio: LayoutDashboard,
+  Clip: Clapperboard,
   Clients: Briefcase,
+  Tasks: CheckSquare,
   Calendar: CalendarDays,
   Schedule: CalendarDays,
   'Meta Ads': Megaphone,
+  Campaigns: Megaphone,
   'Strategy Hub': Compass,
-  'Drive Links': FolderOpen,
+  'Your plan': Compass,
+  Assets: FolderOpen,
   'My Files': FolderOpen,
+  Files: FolderOpen,
   Chat: MessageSquare,
+  Messages: MessageSquare,
   'KPI Tracker': LineChart,
+  Reports: LineChart,
   'My Reports': LineChart,
+  Packages: Package,
+  Invoices: Receipt,
   'Team & Users': Users,
+  Approvals: FileCheck,
+  Publish: ListOrdered,
+  Content: CalendarDays,
+  SEO: Search,
+  'Your SEO': Search,
+  Web: Globe,
+  'Your site': Globe,
+  Competitors: Binoculars,
+  Performance: Gauge,
+  Insights: Sparkles,
+  Audit: ScrollText,
 };
 
-const NAV_CONFIG = {
-  owner: [
-    {
-      section: 'Main',
-      items: [
-        { to: '/dashboard', label: 'Overview', exact: true },
-        { to: '/dashboard/clients', label: 'Clients' },
-        { to: '/dashboard/calendar', label: 'Calendar' },
-      ],
-    },
-    {
-      section: 'Work',
-      items: [
-        { to: '/dashboard/ads', label: 'Meta Ads' },
-        { to: '/dashboard/strategy', label: 'Strategy Hub' },
-        { to: '/dashboard/drive', label: 'Drive Links' },
-        { to: '/dashboard/chat', label: 'Chat' },
-        { to: '/dashboard/kpis', label: 'KPI Tracker' },
-      ],
-    },
-    {
-      section: 'Admin',
-      items: [
-        { to: '/dashboard/users', label: 'Team & Users' },
-      ],
-    },
-  ],
-  employee: [
-    {
-      section: 'Main',
-      items: [
-        { to: '/dashboard', label: 'Overview', exact: true },
-        { to: '/dashboard/calendar', label: 'Calendar' },
-      ],
-    },
-    {
-      section: 'Work',
-      items: [
-        { to: '/dashboard/ads', label: 'Meta Ads' },
-        { to: '/dashboard/strategy', label: 'Strategy Hub' },
-        { to: '/dashboard/drive', label: 'Drive Links' },
-        { to: '/dashboard/chat', label: 'Chat' },
-        { to: '/dashboard/kpis', label: 'KPI Tracker' },
-      ],
-    },
-  ],
-  client: [
-    {
-      section: 'Portal',
-      items: [
-        { to: '/dashboard', label: 'Overview', exact: true },
-        { to: '/dashboard/calendar', label: 'Schedule' },
-        { to: '/dashboard/drive', label: 'My Files' },
-        { to: '/dashboard/chat', label: 'Chat' },
-        { to: '/dashboard/kpis', label: 'My Reports' },
-      ],
-    },
-  ],
-};
-
-const ROLE_BADGE = {
-  owner: { label: 'Owner', color: 'text-[#E8734A]' },
-  employee: { label: 'Team', color: 'text-sky-300' },
-  client: { label: 'Client', color: 'text-white/50' },
-};
+function navFor(user) {
+  const item = (to, label, perm, exact) => (can(user, perm) ? { to, label, exact, perm } : null);
+  const isClient = user?.role === 'client';
+  const main = [
+    { to: '/dashboard', label: isClient ? 'Home' : (isCreative(user) ? 'Studio' : 'Overview'), exact: true },
+    (!isClient && (isCreative(user) || isLeadership(user))) ? item('/dashboard/clip', 'Clip', 'clips.read') : null,
+    isClient ? null : item('/dashboard/clients', 'Clients', 'clients.read'),
+    isClient ? null : item('/dashboard/tasks', 'Tasks', 'tasks.read'),
+    item('/dashboard/calendar', isClient ? 'Content' : 'Calendar', 'calendar.read'),
+    isClient ? item('/dashboard/approvals', 'Approvals', 'approvals.read') : null,
+    !isClient ? item('/dashboard/publish', 'Publish', 'calendar.read') : null,
+  ].filter(Boolean);
+  const work = [
+    item('/dashboard/ads', isClient ? 'Campaigns' : 'Meta Ads', 'ads.read'),
+    item('/dashboard/performance', 'Performance', 'performance.read'),
+    item('/dashboard/insights', 'Insights', 'insights.read'),
+    item('/dashboard/seo', isClient ? 'Your SEO' : 'SEO', 'seo.read'),
+    item('/dashboard/web', isClient ? 'Your site' : 'Web', 'web.read'),
+    isClient ? null : item('/dashboard/competitors', 'Competitors', 'competitors.read'),
+    item('/dashboard/strategy', isClient ? 'Your plan' : 'Strategy Hub', 'strategy.read'),
+    item('/dashboard/drive', isClient ? 'Files' : 'Assets', 'assets.read'),
+    !isClient ? item('/dashboard/approvals', 'Approvals', 'approvals.read') : null,
+    item('/dashboard/chat', isClient ? 'Messages' : 'Chat', 'chat.read'),
+    item('/dashboard/kpis', isClient ? 'Reports' : 'KPI Tracker', 'kpis.read'),
+  ].filter(Boolean);
+  const admin = [
+    isClient ? null : item('/dashboard/packages', 'Packages', 'packages.read'),
+    item('/dashboard/invoices', 'Invoices', 'invoices.read'),
+    isClient ? null : item('/dashboard/users', 'Team & Users', 'users.read'),
+    isClient ? null : item('/dashboard/audit', 'Audit', 'audit.read'),
+  ].filter(Boolean);
+  const groups = [{ section: 'Main', items: main }];
+  if (work.length) groups.push({ section: 'Work', items: work });
+  if (admin.length) groups.push({ section: 'Admin', items: admin });
+  return groups;
+}
 
 export function Sidebar({ mobile = false, onClose }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-
-  const groups = NAV_CONFIG[user?.role] || NAV_CONFIG.client;
-  const badge = ROLE_BADGE[user?.role] || ROLE_BADGE.client;
+  const groups = navFor(user);
 
   const handleLogout = () => {
     logout();
@@ -166,7 +170,7 @@ export function Sidebar({ mobile = false, onClose }) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-white text-[13px] font-medium truncate">{user?.name}</div>
-            <span className={`text-[11px] ${badge.color}`}>{badge.label}</span>
+            <span className="text-[11px] text-white/45">{jobLabel(user)}</span>
           </div>
         </div>
 

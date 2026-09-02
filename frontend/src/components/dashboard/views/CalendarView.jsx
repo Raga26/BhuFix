@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
+import { can } from '../../../lib/access';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 import { CloseButton } from '../CloseButton';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -16,11 +17,19 @@ const TYPE_STYLE = {
 };
 
 const STATUS_STYLE = {
-  not_started: { label: 'Not Started', color: '#6B7280', bg: 'rgba(107,114,128,0.15)' },
-  in_progress: { label: 'In Progress', color: '#FBBF24', bg: 'rgba(251,191,36,0.15)' },
-  completed:   { label: 'Completed',   color: '#34D399', bg: 'rgba(52,211,153,0.15)' },
-  postpone:    { label: 'Postpone',    color: '#FB923C', bg: 'rgba(251,146,60,0.15)' },
+  idea:       { label: 'Idea', color: '#6B7280', bg: 'rgba(107,114,128,0.15)' },
+  writing:    { label: 'Writing', color: '#4DD9FF', bg: 'rgba(77,217,255,0.15)' },
+  editing:    { label: 'Editing', color: '#A78BFA', bg: 'rgba(167,139,250,0.18)' },
+  review:     { label: 'Review', color: '#FBBF24', bg: 'rgba(251,191,36,0.15)' },
+  approved:   { label: 'Approved', color: '#34D399', bg: 'rgba(52,211,153,0.12)' },
+  scheduled:  { label: 'Scheduled', color: '#E8734A', bg: 'rgba(232,115,74,0.15)' },
+  published:  { label: 'Published', color: '#34D399', bg: 'rgba(52,211,153,0.2)' },
+  postponed:  { label: 'Postponed', color: '#FB923C', bg: 'rgba(251,146,60,0.15)' },
 };
+
+function normStatus(s) {
+  return ({ not_started: 'idea', in_progress: 'writing', completed: 'published', postpone: 'postponed' }[s] || s || 'idea');
+}
 
 function formatTime(time) {
   if (!time) return '';
@@ -33,14 +42,19 @@ function formatTime(time) {
 }
 
 function EventModal({ event, clients, onClose, onSave, isEdit }) {
-  const [form, setForm] = useState(event || { client_id: clients[0]?.id || '', title: '', time: '', type: 'reel', date: '', status: 'not_started' });
+  const [form, setForm] = useState(() => {
+    if (event?.id || (event && isEdit)) {
+      return { ...event, status: normStatus(event.status) };
+    }
+    return { client_id: clients[0]?.id || '', title: '', time: '', type: 'reel', date: event?.date || '', status: 'idea', owner_id: '' };
+  });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors";
+  const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-base md:text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors";
 
   const handleSave = async () => {
     if (!form.client_id || !form.title || !form.date) {
-      toast.error('Please fill in all required fields');
+      toast.error(!clients.length ? 'No clients assigned to you yet' : 'Please fill in all required fields');
       return;
     }
     setSaving(true);
@@ -73,8 +87,8 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="dash-modal p-6 w-full max-w-md">
+    <div className="dash-overlay">
+      <div className="dash-modal p-5 sm:p-6 w-full max-w-md pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-medium">{isEdit ? 'Edit post' : 'Add post'}</h2>
           <CloseButton onClick={onClose} />
@@ -83,10 +97,11 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Client</label>
             <select className={inputCls} value={form.client_id} onChange={(e) => set('client_id', e.target.value)}>
+              {!clients.length && <option value="">No clients assigned</option>}
               {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Title</label>
               <input className={inputCls} value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="Reveal Reel" />
@@ -94,7 +109,7 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Time</label>
               <input
-                className={`${inputCls} w-[7.5rem] cursor-pointer`}
+                className={`${inputCls} sm:w-[7.5rem] cursor-pointer`}
                 type="time"
                 value={form.time || ''}
                 onChange={(e) => set('time', e.target.value)}
@@ -102,7 +117,7 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Type</label>
               <select className={inputCls} value={form.type} onChange={(e) => set('type', e.target.value)}>
@@ -116,13 +131,13 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
           </div>
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Status</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {Object.entries(STATUS_STYLE).map(([k, s]) => (
                 <button
                   key={k}
                   type="button"
                   onClick={() => set('status', k)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all"
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all min-h-[44px]"
                   style={{
                     background: form.status === k ? s.bg : 'rgba(255,255,255,0.04)',
                     color: form.status === k ? s.color : 'rgba(255,255,255,0.35)',
@@ -130,7 +145,7 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
                   }}
                 >
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
-                  <span style={k === 'completed' ? { textDecoration: 'line-through' } : {}}>{s.label}</span>
+                  <span style={k === 'published' ? { textDecoration: 'line-through' } : {}}>{s.label}</span>
                 </button>
               ))}
             </div>
@@ -138,7 +153,7 @@ function EventModal({ event, clients, onClose, onSave, isEdit }) {
         </div>
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Cancel</button>
-          <button onClick={handleSave} disabled={saving} className="dash-btn dash-btn-primary flex-[2] h-10">
+          <button onClick={handleSave} disabled={saving} className="dash-btn dash-btn-primary flex-[2]">
             {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add post'}
           </button>
         </div>
@@ -172,8 +187,8 @@ function DayEventsModal({ date, dayEvents, clients, canMutate, onClose, onAddPos
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="dash-modal w-full max-w-md flex flex-col" style={{ maxHeight: '80vh' }}>
+    <div className="dash-overlay">
+      <div className="dash-modal w-full max-w-md flex flex-col pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between p-6 pb-4 border-b border-white/[0.06] flex-shrink-0">
           <div>
             <h2 className="text-white font-medium text-base">{displayDate}</h2>
@@ -182,8 +197,9 @@ function DayEventsModal({ date, dayEvents, clients, canMutate, onClose, onAddPos
           <div className="flex items-center gap-2">
             {canMutate && (
               <button
+                type="button"
                 onClick={onAddPost}
-                className="dash-btn dash-btn-primary dash-btn-sm"
+                className="dash-btn dash-btn-primary min-h-[44px]"
               >
                 <Plus size={12} strokeWidth={2} />
                 Add
@@ -193,21 +209,21 @@ function DayEventsModal({ date, dayEvents, clients, canMutate, onClose, onAddPos
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
           {dayEvents.length === 0 ? (
             <div className="text-center py-10 text-white/30 text-sm">No events for this day</div>
           ) : (
             dayEvents.map((ev) => {
               const ts = TYPE_STYLE[ev.type] || TYPE_STYLE.post;
-              const ss = STATUS_STYLE[ev.status] || STATUS_STYLE.not_started;
-              const clientLabel = clients.find((c) => c.id === ev.client_id)?.name || ev.client_id;
-              const isCompleted = ev.status === 'completed';
+              const ss = STATUS_STYLE[normStatus(ev.status)] || STATUS_STYLE.idea;
+              const clientLabel = clients.find((c) => c.id === ev.client_id)?.name;
+              const isCompleted = normStatus(ev.status) === 'published';
               return (
                 <div
                   key={ev.id}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.1] transition-all"
+                  className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.1] transition-all"
                 >
-                  <div className="w-1 self-stretch rounded-full flex-shrink-0 min-h-[2.5rem]" style={{ background: ts.color }} />
+                  <div className="w-1 self-stretch rounded-full flex-shrink-0 min-h-[2.5rem] hidden sm:block" style={{ background: ts.color }} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: ts.bg, color: ts.color }}>{ts.label}</span>
@@ -220,22 +236,24 @@ function DayEventsModal({ date, dayEvents, clients, canMutate, onClose, onAddPos
                       {ev.time ? <span className="text-white/50 font-medium mr-1.5">{formatTime(ev.time)}</span> : null}
                       {ev.title}
                     </p>
-                    <p className="text-xs text-white/40 truncate">{clientLabel}</p>
+                    {clientLabel ? <p className="text-xs text-white/40 truncate">{clientLabel}</p> : null}
                   </div>
                   {canMutate && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0">
                       <button
+                        type="button"
                         onClick={() => onEditEvent(ev)}
-                        className="dash-btn dash-btn-ghost dash-btn-sm"
+                        className="dash-btn dash-btn-ghost flex-1 sm:flex-none min-h-[44px]"
                       >
                         Edit
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleDelete(ev)}
                         disabled={deletingId === ev.id}
-                        className="dash-btn dash-btn-danger dash-btn-sm disabled:opacity-40"
+                        className="dash-btn dash-btn-danger flex-1 sm:flex-none min-h-[44px] disabled:opacity-40"
                       >
-                        {deletingId === ev.id ? '…' : 'Del'}
+                        {deletingId === ev.id ? '…' : 'Delete'}
                       </button>
                     </div>
                   )}
@@ -250,7 +268,7 @@ function DayEventsModal({ date, dayEvents, clients, canMutate, onClose, onAddPos
 }
 
 function EventDetailModal({ event, clients, onClose, onEdit, onDelete, canMutate }) {
-  const clientName = clients.find(c => c.id === event.client_id)?.name || event.client_id;
+  const clientName = clients.find(c => c.id === event.client_id)?.name;
   const ts = TYPE_STYLE[event.type] || TYPE_STYLE.post;
   const [deleting, setDeleting] = useState(false);
 
@@ -273,8 +291,8 @@ function EventDetailModal({ event, clients, onClose, onEdit, onDelete, canMutate
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="dash-modal p-6 w-full max-w-md">
+    <div className="dash-overlay">
+      <div className="dash-modal p-5 sm:p-6 w-full max-w-md pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="text-sm font-semibold px-2.5 py-1 rounded-full w-fit text-[10px]" style={{ background: ts.bg, color: ts.color }}>
@@ -287,10 +305,12 @@ function EventDetailModal({ event, clients, onClose, onEdit, onDelete, canMutate
         <h2 className="text-white font-bold text-lg mb-3">{event.title}</h2>
 
         <div className="space-y-2 mb-6">
+          {clientName && (
           <div className="flex justify-between text-sm">
             <span className="text-white/40">Client</span>
             <span className="text-white">{clientName}</span>
           </div>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-white/40">Date</span>
             <span className="text-white">{new Date(event.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
@@ -304,24 +324,24 @@ function EventDetailModal({ event, clients, onClose, onEdit, onDelete, canMutate
           <div className="flex justify-between text-sm items-center">
             <span className="text-white/40">Status</span>
             {(() => {
-              const ss = STATUS_STYLE[event.status] || STATUS_STYLE.not_started;
+              const ss = STATUS_STYLE[normStatus(event.status)] || STATUS_STYLE.idea;
               return (
                 <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
                   style={{ background: ss.bg, color: ss.color }}>
                   <span className="w-1.5 h-1.5 rounded-full" style={{ background: ss.color }} />
-                  <span style={event.status === 'completed' ? { textDecoration: 'line-through' } : {}}>{ss.label}</span>
+                  <span style={normStatus(event.status) === 'published' ? { textDecoration: 'line-through' } : {}}>{ss.label}</span>
                 </span>
               );
             })()}
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Close</button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button type="button" onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Close</button>
           {canMutate && (
             <>
-              <button onClick={onEdit} className="dash-btn dash-btn-primary flex-1">Edit</button>
-              <button onClick={handleDelete} disabled={deleting} className="dash-btn dash-btn-danger flex-1">
+              <button type="button" onClick={onEdit} className="dash-btn dash-btn-primary flex-1">Edit</button>
+              <button type="button" onClick={handleDelete} disabled={deleting} className="dash-btn dash-btn-danger flex-1">
                 {deleting ? 'Deleting…' : 'Delete'}
               </button>
             </>
@@ -393,8 +413,8 @@ function WeekView({ weekDays, events, clients, onDayClick }) {
               >
                 {dayEvents.map((ev) => {
                   const ts = TYPE_STYLE[ev.type] || TYPE_STYLE.post;
-                  const ss = STATUS_STYLE[ev.status] || STATUS_STYLE.not_started;
-                  const isCompleted = ev.status === 'completed';
+                  const ss = STATUS_STYLE[normStatus(ev.status)] || STATUS_STYLE.idea;
+                  const isCompleted = normStatus(ev.status) === 'published';
                   return (
                     <div
                       key={ev.id}
@@ -413,7 +433,7 @@ function WeekView({ weekDays, events, clients, onDayClick }) {
                         {ev.time ? <span className="opacity-70 font-medium">{formatTime(ev.time)} · </span> : null}
                         {ev.title}
                       </p>
-                      <p className="text-[10px] text-white/40 mt-0.5 truncate">{clientName(ev.client_id)}</p>
+                      {clientName(ev.client_id) ? <p className="text-[10px] text-white/40 mt-0.5 truncate">{clientName(ev.client_id)}</p> : null}
                     </div>
                   );
                 })}
@@ -434,14 +454,15 @@ export default function CalendarView() {
   const [detailModal, setDetailModal] = useState(null);
   const [dayModal, setDayModal] = useState(null);
   const [prefillDate, setPrefillDate] = useState('');
-  const [calView, setCalView] = useState('month');
+  const [calView, setCalView] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 768 ? 'list' : 'month'));
+  const [tracker, setTracker] = useState(null);
 
   const today = new Date();
   const [viewDate, setViewDate] = useState({ month: today.getMonth() + 1, year: today.getFullYear() });
   const [weekStart, setWeekStart] = useState(() => getWeekStart(today));
 
   const isStaff = user?.role !== 'client';
-  const isOwner = user?.role === 'owner';
+  const canMutate = can(user, 'calendar.write');
 
   const load = useCallback(() => {
     const fetchMonth = (m, y) =>
@@ -481,6 +502,12 @@ export default function CalendarView() {
   }, [calView, viewDate, weekStart, isStaff]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    const m = calView === 'week' ? weekStart.getMonth() + 1 : viewDate.month;
+    const y = calView === 'week' ? weekStart.getFullYear() : viewDate.year;
+    apiClient.get('/tracker/month', { params: { month: m, year: y } }).then((r) => setTracker(r.data)).catch(() => {});
+  }, [calView, viewDate, weekStart]);
 
   const daysInMonth = new Date(viewDate.year, viewDate.month, 0).getDate();
   const firstDay = new Date(viewDate.year, viewDate.month - 1, 1).getDay();
@@ -532,36 +559,44 @@ export default function CalendarView() {
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="dash-title">Calendar</h1>
+          <h1 className="dash-title">{user?.role === 'client' ? 'Content' : 'Calendar'}</h1>
           <p className="dash-sub">{periodLabel}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* View toggle */}
           <div className="flex border border-white/[0.1] rounded-md p-0.5">
-            <button
-              onClick={() => setCalView('month')}
-              className={`text-xs font-medium px-3 py-1.5 rounded transition-colors ${calView === 'month' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70'}`}
-            >
-              Month
-            </button>
-            <button
-              onClick={() => setCalView('week')}
-              className={`text-xs font-medium px-3 py-1.5 rounded transition-colors ${calView === 'week' ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70'}`}
-            >
-              Week
-            </button>
+            {['month', 'week', 'list'].map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setCalView(v)}
+                className={`text-xs font-medium px-3 min-h-[44px] md:min-h-0 md:py-1.5 rounded capitalize transition-colors ${calView === v ? 'bg-white/[0.1] text-white' : 'text-white/40 hover:text-white/70'}`}
+              >
+                {v}
+              </button>
+            ))}
           </div>
 
-          <button onClick={onPrev} className="dash-btn dash-btn-ghost h-9 w-9 px-0" aria-label="Previous">
+          <button type="button" onClick={onPrev} className="dash-btn dash-btn-ghost w-11 md:w-9 px-0" aria-label="Previous">
             <ChevronLeft size={16} strokeWidth={1.75} />
           </button>
-          <button onClick={onNext} className="dash-btn dash-btn-ghost h-9 w-9 px-0" aria-label="Next">
+          <button type="button" onClick={onNext} className="dash-btn dash-btn-ghost w-11 md:w-9 px-0" aria-label="Next">
             <ChevronRight size={16} strokeWidth={1.75} />
           </button>
 
-          {isOwner && (
-            <button onClick={() => { setPrefillDate(''); setModal({ create: true }); }}
-              className="dash-btn dash-btn-primary">
+          {canMutate && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!clients.length) {
+                  toast.error('No clients assigned to you yet');
+                  return;
+                }
+                setPrefillDate('');
+                setModal({ create: true });
+              }}
+              className="dash-btn dash-btn-primary"
+            >
               <Plus size={14} strokeWidth={2} />
               Add post
             </button>
@@ -569,7 +604,50 @@ export default function CalendarView() {
         </div>
       </div>
 
-      {calView === 'week' ? (
+      {tracker?.calendar && (
+        <div className="dash-card p-4 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div><div className="text-white text-lg">{tracker.calendar.planned ?? 0}</div><div className="text-white/35 text-xs">Planned</div></div>
+            {user?.role !== 'client' && (
+              <div><div className="text-white text-lg">{tracker.calendar.in_production ?? 0}</div><div className="text-white/35 text-xs">In production</div></div>
+            )}
+            <div><div className="text-white text-lg">{tracker.calendar.published ?? 0}</div><div className="text-white/35 text-xs">Published</div></div>
+            <div><div className="text-white text-lg">{tracker.calendar.on_time_pct != null ? `${tracker.calendar.on_time_pct}%` : '—'}</div><div className="text-white/35 text-xs">On-time of published{tracker.calendar.late ? ` · ${tracker.calendar.late} late` : ''}</div></div>
+          </div>
+          {user?.role !== 'client' && (
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[11px] text-white/40">
+            {['idea', 'writing', 'editing', 'review', 'approved', 'scheduled', 'published', 'postponed'].map((k) => (
+              <span key={k}>{STATUS_STYLE[k].label} {tracker.calendar[k] ?? 0}</span>
+            ))}
+          </div>
+          )}
+        </div>
+      )}
+
+      {calView === 'list' ? (
+        <div className="dash-card divide-y divide-white/[0.04]">
+          {events.length === 0 ? (
+            <p className="text-white/35 text-sm p-5">Nothing this month.</p>
+          ) : [...events].sort((a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''))).map((ev) => {
+            const st = STATUS_STYLE[normStatus(ev.status)] || STATUS_STYLE.idea;
+            const ts = TYPE_STYLE[ev.type] || TYPE_STYLE.post;
+            return (
+              <button
+                key={ev.id}
+                type="button"
+                onClick={() => setDayModal({ date: ev.date })}
+                className="w-full text-left px-4 py-3.5 min-h-[52px]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-white text-sm truncate">{ev.title}</span>
+                  <span className="text-[10px] uppercase" style={{ color: st.color }}>{st.label}</span>
+                </div>
+                <div className="text-white/40 text-xs mt-0.5">{ev.date}{ev.time ? ` · ${formatTime(ev.time)}` : ''}{user?.role === 'client' ? '' : ` · ${clientName(ev.client_id)}`} · {ts.label}</div>
+              </button>
+            );
+          })}
+        </div>
+      ) : calView === 'week' ? (
         <div className="overflow-x-auto">
           <WeekView
             weekDays={weekDays}
@@ -609,8 +687,8 @@ export default function CalendarView() {
                   <div className="space-y-0.5">
                     {dayEvents.slice(0, 2).map((ev) => {
                       const ts = TYPE_STYLE[ev.type] || TYPE_STYLE.post;
-                      const ss = STATUS_STYLE[ev.status] || STATUS_STYLE.not_started;
-                      const isCompleted = ev.status === 'completed';
+                      const ss = STATUS_STYLE[normStatus(ev.status)] || STATUS_STYLE.idea;
+                      const isCompleted = normStatus(ev.status) === 'published';
                       return (
                         <div
                           key={ev.id}
@@ -653,10 +731,10 @@ export default function CalendarView() {
         </div>
         <div className="w-px bg-white/10 hidden sm:block" />
         <div className="flex flex-wrap gap-3">
-          {Object.entries(STATUS_STYLE).map(([k, s]) => (
+          {Object.entries(STATUS_STYLE).filter(([k]) => user?.role !== 'client' || ['approved', 'scheduled', 'published', 'postponed'].includes(k)).map(([k, s]) => (
             <div key={k} className="flex items-center gap-1.5 text-xs text-white/40">
               <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />
-              <span style={k === 'completed' ? { textDecoration: 'line-through' } : {}}>{s.label}</span>
+              <span style={k === 'published' ? { textDecoration: 'line-through' } : {}}>{s.label}</span>
             </div>
           ))}
         </div>
@@ -667,20 +745,28 @@ export default function CalendarView() {
           date={dayModal.date}
           dayEvents={events.filter((e) => e.date === dayModal.date)}
           clients={clients}
-          canMutate={isOwner}
+          canMutate={canMutate}
           onClose={() => setDayModal(null)}
           onAddPost={() => {
+            if (!clients.length) {
+              toast.error('No clients assigned to you yet');
+              return;
+            }
             setPrefillDate(dayModal.date);
+            setDayModal(null);
             setModal({ create: true });
           }}
-          onEditEvent={(ev) => setModal(ev)}
+          onEditEvent={(ev) => {
+            setDayModal(null);
+            setModal(ev);
+          }}
           onRefresh={load}
         />
       )}
 
-      {modal && isOwner && (
+      {modal && canMutate && (
         <EventModal
-          event={modal.create ? { client_id: clients[0]?.id || '', title: '', time: '', type: 'reel', date: prefillDate, status: 'not_started' } : { ...modal, time: modal.time || '' }}
+          event={modal.create ? { client_id: clients[0]?.id || '', title: '', time: '', type: 'reel', date: prefillDate, status: 'idea' } : { ...modal, time: modal.time || '' }}
           clients={clients}
           onClose={() => setModal(null)}
           onSave={() => { load(); setModal(null); }}
@@ -695,7 +781,7 @@ export default function CalendarView() {
           onClose={() => setDetailModal(null)}
           onEdit={() => { setDetailModal(null); setModal(detailModal); }}
           onDelete={load}
-          canMutate={isOwner}
+          canMutate={canMutate}
         />
       )}
     </div>

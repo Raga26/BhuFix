@@ -84,3 +84,5 @@ android-sdk/ -e
 
 # ClockIN face enrollments / punch selfies
 backend/data/clockin_faces/
+backend/data/os_assets/
+backend/logs/
