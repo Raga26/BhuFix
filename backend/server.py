@@ -509,10 +509,17 @@ class PostReportUpsert(BaseModel):
     completed: bool = False
     notes: str = ""
 
+class ConversationCreate(BaseModel):
+    type: str  # "dm" or "group"
+    user_id: Optional[str] = None
+    name: Optional[str] = None
+    member_ids: Optional[List[str]] = None
+
 class ChatMessageCreate(BaseModel):
-    thread: str = "team"   # "team" or "client"
-    client_id: Optional[str] = None
-    message: str
+    message: str = Field(..., min_length=1, max_length=2000)
+
+class ChatTypingBody(BaseModel):
+    typing: bool = True
 
 class StrategyHookCreate(BaseModel):
     title: str
@@ -802,14 +809,41 @@ async def create_user(data: UserCreate, current_user: dict = Depends(require_own
 
 @api_router.get("/users")
 async def list_users(current_user: dict = Depends(require_owner)):
+    await db.users.delete_many({"is_active": False})
     return await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(500)
 
 @api_router.delete("/users/{user_id}")
-async def deactivate_user(user_id: str, current_user: dict = Depends(require_owner)):
-    result = await db.users.update_one({"id": user_id}, {"$set": {"is_active": False}})
-    if result.matched_count == 0:
+async def delete_user(user_id: str, current_user: dict = Depends(require_owner)):
+    if user_id == current_user["id"]:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+    target = await db.users.find_one({"id": user_id}, {"_id": 0, "id": 1, "role": 1})
+    if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    return {"message": "User deactivated"}
+    if target.get("role") == "owner":
+        raise HTTPException(status_code=400, detail="The owner account cannot be deleted")
+
+    convs = await db.chat_conversations.find(
+        {"member_ids": user_id},
+        {"_id": 0, "id": 1, "type": 1, "member_ids": 1},
+    ).to_list(500)
+    to_delete = []
+    for conv in convs:
+        remaining = [i for i in (conv.get("member_ids") or []) if i != user_id]
+        if conv.get("type") == "dm" or len(remaining) < 2:
+            to_delete.append(conv["id"])
+        else:
+            await db.chat_conversations.update_one(
+                {"id": conv["id"]},
+                {"$pull": {"member_ids": user_id}},
+            )
+    if to_delete:
+        await db.chat_conversations.delete_many({"id": {"$in": to_delete}})
+        await db.chat_messages.delete_many({"conversation_id": {"$in": to_delete}})
+
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "User deleted"}
 
 @api_router.put("/users/{user_id}")
 async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depends(require_owner)):
@@ -1071,45 +1105,338 @@ async def delete_post_report(report_id: str, current_user: dict = Depends(requir
     return {"message": "Post report deleted"}
 
 # ── Chat ──────────────────────────────────────────────────────────
-@api_router.get("/chat")
-async def get_chat_messages(
-    thread: str = Query("team"),
-    client_id: Optional[str] = Query(None),
+CHAT_USER_FIELDS = {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1, "sub_role": 1, "last_seen_at": 1}
+CHAT_ONLINE_SECONDS = 25
+CHAT_TYPING_SECONDS = 5
+
+
+def _parse_iso(value: Optional[str]):
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except ValueError:
+        return None
+
+
+def _is_online(last_seen_at: Optional[str]) -> bool:
+    dt = _parse_iso(last_seen_at)
+    if not dt:
+        return False
+    return (datetime.now(timezone.utc) - dt).total_seconds() < CHAT_ONLINE_SECONDS
+
+
+def _public_chat_user(u: dict) -> dict:
+    last_seen_at = u.get("last_seen_at")
+    return {
+        "id": u.get("id"),
+        "name": u.get("name") or "Unknown",
+        "email": u.get("email"),
+        "role": u.get("role"),
+        "sub_role": u.get("sub_role"),
+        "last_seen_at": last_seen_at,
+        "is_online": _is_online(last_seen_at),
+    }
+
+
+async def _users_by_ids(ids: List[str]) -> dict:
+    unique = list({i for i in ids if i})
+    if not unique:
+        return {}
+    users = await db.users.find({"id": {"$in": unique}}, CHAT_USER_FIELDS).to_list(500)
+    return {u["id"]: u for u in users}
+
+
+def _stamp_after(mapping: dict, user_id: str, created: Optional[datetime]) -> bool:
+    if not created:
+        return False
+    dt = _parse_iso((mapping or {}).get(user_id))
+    return bool(dt and dt >= created)
+
+
+def _message_receipt(msg: dict, conv: dict, current_user_id: str) -> Optional[str]:
+    if msg.get("sender_id") != current_user_id:
+        return None
+    others = [i for i in (conv.get("member_ids") or []) if i != current_user_id]
+    if not others:
+        return "read"
+    created = _parse_iso(msg.get("created_at"))
+    delivered_map = conv.get("delivered_at") or {}
+    read_map = conv.get("read_at") or {}
+    if all(_stamp_after(read_map, oid, created) for oid in others):
+        return "read"
+    if all(_stamp_after(delivered_map, oid, created) for oid in others):
+        return "delivered"
+    return "sent"
+
+
+def _active_typers(conv: dict, current_user_id: str, users_map: dict) -> List[dict]:
+    now = datetime.now(timezone.utc)
+    out = []
+    for uid, ts in (conv.get("typing_at") or {}).items():
+        if uid == current_user_id or not ts:
+            continue
+        dt = _parse_iso(ts)
+        if not dt or (now - dt).total_seconds() > CHAT_TYPING_SECONDS:
+            continue
+        person = users_map.get(uid) or {}
+        out.append({"id": uid, "name": person.get("name") or "Someone"})
+    return out
+
+
+def _serialize_conversation(conv: dict, current_user_id: str, users_map: dict) -> dict:
+    conv.pop("_id", None)
+    members = []
+    for mid in conv.get("member_ids") or []:
+        if mid in users_map:
+            members.append(_public_chat_user(users_map[mid]))
+        else:
+            members.append({
+                "id": mid, "name": "Unknown", "email": None, "role": None,
+                "sub_role": None, "last_seen_at": None, "is_online": False,
+            })
+    if conv.get("type") == "group":
+        display_name = conv.get("name") or "Group"
+    else:
+        other = next((m for m in members if m["id"] != current_user_id), None)
+        display_name = other["name"] if other else "Chat"
+    last_receipt = None
+    if conv.get("last_sender_id") == current_user_id and conv.get("last_message"):
+        last_receipt = _message_receipt(
+            {"sender_id": current_user_id, "created_at": conv.get("last_message_at")},
+            conv,
+            current_user_id,
+        )
+    return {
+        **conv,
+        "display_name": display_name,
+        "members": members,
+        "typing": _active_typers(conv, current_user_id, users_map),
+        "last_receipt": last_receipt,
+    }
+
+
+async def _require_conversation_member(conv_id: str, current_user: dict) -> dict:
+    conv = await db.chat_conversations.find_one({"id": conv_id}, {"_id": 0})
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if current_user["id"] not in (conv.get("member_ids") or []):
+        raise HTTPException(status_code=403, detail="Not a member of this conversation")
+    return conv
+
+
+def _with_receipts(msgs: List[dict], conv: dict, current_user_id: str) -> List[dict]:
+    out = []
+    for m in msgs:
+        m.pop("_id", None)
+        receipt = _message_receipt(m, conv, current_user_id)
+        if receipt:
+            m["receipt"] = receipt
+        out.append(m)
+    return out
+
+
+@api_router.post("/chat/presence")
+async def chat_presence(current_user: dict = Depends(get_current_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    me = current_user["id"]
+    await db.users.update_one({"id": me}, {"$set": {"last_seen_at": now}})
+    await db.chat_conversations.update_many(
+        {"member_ids": me},
+        {"$set": {f"delivered_at.{me}": now}},
+    )
+    return {"last_seen_at": now}
+
+
+@api_router.get("/chat/contacts")
+async def list_chat_contacts(current_user: dict = Depends(get_current_user)):
+    users = await db.users.find(
+        {"id": {"$ne": current_user["id"]}, "is_active": True},
+        CHAT_USER_FIELDS,
+    ).sort("name", 1).to_list(500)
+    return [_public_chat_user(u) for u in users]
+
+
+@api_router.get("/chat/conversations")
+async def list_conversations(current_user: dict = Depends(get_current_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    me = current_user["id"]
+    await db.users.update_one({"id": me}, {"$set": {"last_seen_at": now}})
+    await db.chat_conversations.update_many(
+        {"member_ids": me},
+        {"$set": {f"delivered_at.{me}": now}},
+    )
+    convs = await db.chat_conversations.find(
+        {"member_ids": me},
+        {"_id": 0},
+    ).sort("last_message_at", -1).to_list(200)
+    all_ids: List[str] = []
+    for c in convs:
+        all_ids.extend(c.get("member_ids") or [])
+    users_map = await _users_by_ids(all_ids)
+    return [_serialize_conversation(c, me, users_map) for c in convs]
+
+
+@api_router.post("/chat/conversations")
+async def create_conversation(data: ConversationCreate, current_user: dict = Depends(get_current_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    me = current_user["id"]
+
+    if data.type == "dm":
+        other_id = (data.user_id or "").strip()
+        if not other_id:
+            raise HTTPException(status_code=400, detail="user_id is required for a DM")
+        if other_id == me:
+            raise HTTPException(status_code=400, detail="Cannot start a chat with yourself")
+        other = await db.users.find_one({"id": other_id, "is_active": True}, CHAT_USER_FIELDS)
+        if not other:
+            raise HTTPException(status_code=404, detail="User not found")
+        member_ids = sorted([me, other_id])
+        existing = await db.chat_conversations.find_one(
+            {"type": "dm", "member_ids": member_ids},
+            {"_id": 0},
+        )
+        if existing:
+            users_map = await _users_by_ids(existing.get("member_ids") or [])
+            return _serialize_conversation(existing, me, users_map)
+        conv = {
+            "id": str(uuid.uuid4()),
+            "type": "dm",
+            "name": None,
+            "member_ids": member_ids,
+            "created_by": me,
+            "created_at": now,
+            "last_message": None,
+            "last_message_at": now,
+            "last_sender_id": None,
+            "delivered_at": {me: now},
+            "read_at": {},
+            "typing_at": {},
+        }
+        await db.chat_conversations.insert_one(conv)
+        conv.pop("_id", None)
+        return _serialize_conversation(conv, me, {me: current_user, other_id: other})
+
+    if data.type == "group":
+        name = sanitize_input(data.name or "")
+        if not name:
+            raise HTTPException(status_code=400, detail="Group name is required")
+        if len(name) > 80:
+            raise HTTPException(status_code=400, detail="Group name is too long")
+        raw_ids = [i for i in (data.member_ids or []) if i and i != me]
+        member_ids = list(dict.fromkeys([me, *raw_ids]))
+        if len(member_ids) < 2:
+            raise HTTPException(status_code=400, detail="Add at least one other member")
+        found = await db.users.find(
+            {"id": {"$in": member_ids}, "is_active": True},
+            CHAT_USER_FIELDS,
+        ).to_list(500)
+        users_map = {u["id"]: u for u in found}
+        users_map[me] = current_user
+        missing = [i for i in member_ids if i not in users_map]
+        if missing:
+            raise HTTPException(status_code=400, detail="One or more members were not found")
+        conv = {
+            "id": str(uuid.uuid4()),
+            "type": "group",
+            "name": name,
+            "member_ids": member_ids,
+            "created_by": me,
+            "created_at": now,
+            "last_message": None,
+            "last_message_at": now,
+            "last_sender_id": None,
+            "delivered_at": {me: now},
+            "read_at": {},
+            "typing_at": {},
+        }
+        await db.chat_conversations.insert_one(conv)
+        conv.pop("_id", None)
+        return _serialize_conversation(conv, me, users_map)
+
+    raise HTTPException(status_code=400, detail="type must be dm or group")
+
+
+@api_router.post("/chat/conversations/{conv_id}/typing")
+async def set_conversation_typing(
+    conv_id: str,
+    data: ChatTypingBody,
     current_user: dict = Depends(get_current_user),
 ):
-    if thread == "team":
-        if current_user["role"] not in ["owner", "employee"]:
-            raise HTTPException(status_code=403, detail="Staff only")
-        return await db.chat_messages.find({"thread": "team"}, {"_id": 0}).sort("created_at", 1).to_list(200)
-    if current_user["role"] == "client":
-        cid = current_user.get("client_id")
+    await _require_conversation_member(conv_id, current_user)
+    me = current_user["id"]
+    if data.typing:
+        now = datetime.now(timezone.utc).isoformat()
+        await db.chat_conversations.update_one(
+            {"id": conv_id},
+            {"$set": {f"typing_at.{me}": now}},
+        )
     else:
-        cid = client_id
-    if not cid:
-        return []
-    return await db.chat_messages.find({"thread": "client", "client_id": cid}, {"_id": 0}).sort("created_at", 1).to_list(200)
+        await db.chat_conversations.update_one(
+            {"id": conv_id},
+            {"$unset": {f"typing_at.{me}": ""}},
+        )
+    return {"ok": True}
 
-@api_router.post("/chat")
-async def send_chat_message(data: ChatMessageCreate, current_user: dict = Depends(get_current_user)):
-    if data.thread == "team" and current_user["role"] not in ["owner", "employee"]:
-        raise HTTPException(status_code=403, detail="Staff only")
-    if current_user["role"] == "client":
-        data.thread = "client"
-        data.client_id = current_user.get("client_id")
-        if not data.client_id:
-            raise HTTPException(status_code=403, detail="No client profile linked")
+
+@api_router.get("/chat/conversations/{conv_id}/messages")
+async def get_conversation_messages(conv_id: str, current_user: dict = Depends(get_current_user)):
+    await _require_conversation_member(conv_id, current_user)
+    now = datetime.now(timezone.utc).isoformat()
+    me = current_user["id"]
+    await db.chat_conversations.update_one(
+        {"id": conv_id},
+        {"$set": {f"read_at.{me}": now, f"delivered_at.{me}": now}},
+    )
+    conv = await db.chat_conversations.find_one({"id": conv_id}, {"_id": 0})
+    msgs = await db.chat_messages.find(
+        {"conversation_id": conv_id},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(200)
+    msgs.reverse()
+    return _with_receipts(msgs, conv or {}, me)
+
+
+@api_router.post("/chat/conversations/{conv_id}/messages")
+async def send_conversation_message(
+    conv_id: str,
+    data: ChatMessageCreate,
+    current_user: dict = Depends(get_current_user),
+):
+    conv = await _require_conversation_member(conv_id, current_user)
+    text = sanitize_input(data.message)
+    if not text:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    now = datetime.now(timezone.utc).isoformat()
+    me = current_user["id"]
     msg = {
         "id": str(uuid.uuid4()),
-        "sender_id": current_user["id"],
+        "conversation_id": conv_id,
+        "sender_id": me,
         "sender_name": current_user["name"],
         "sender_role": current_user["role"],
-        "thread": data.thread,
-        "client_id": data.client_id,
-        "message": sanitize_input(data.message),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "message": text,
+        "created_at": now,
     }
     await db.chat_messages.insert_one(msg)
+    await db.chat_conversations.update_one(
+        {"id": conv_id},
+        {
+            "$set": {
+                "last_message": text,
+                "last_message_at": now,
+                "last_sender_id": me,
+                f"read_at.{me}": now,
+                f"delivered_at.{me}": now,
+            },
+            "$unset": {f"typing_at.{me}": ""},
+        },
+    )
     msg.pop("_id", None)
+    msg["receipt"] = _message_receipt(msg, conv, me) or "sent"
     return msg
 
 # ── Strategy Hooks ────────────────────────────────────────────────

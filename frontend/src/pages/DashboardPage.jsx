@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { Menu, LayoutDashboard, Briefcase, CalendarDays, MessageSquare, LogOut } from 'lucide-react';
 import { Sidebar } from '../components/dashboard/Sidebar';
 import { useAuth } from '../context/AuthContext';
+import apiClient from '../utils/axiosConfig';
 
 const MOBILE_TABS = {
   owner: [
@@ -19,7 +20,7 @@ const MOBILE_TABS = {
   client: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
     { to: '/dashboard/calendar', label: 'Schedule', icon: CalendarDays },
-    { to: '/dashboard/messages', label: 'Messages', icon: MessageSquare },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
     { to: '/dashboard/kpis', label: 'Reports', icon: Briefcase },
   ],
 };
@@ -70,6 +71,13 @@ export default function DashboardPage() {
     logout();
     navigate('/login');
   };
+
+  useEffect(() => {
+    const beat = () => apiClient.post('/chat/presence').catch(() => {});
+    beat();
+    const t = setInterval(beat, 8000);
+    return () => clearInterval(t);
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-navy-dark">

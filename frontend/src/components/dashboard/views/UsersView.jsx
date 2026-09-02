@@ -335,8 +335,8 @@ export default function UsersView() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editModal, setEditModal] = useState(null);
-  const [deactivateConfirm, setDeactivateConfirm] = useState(null);
-  const [deactivating, setDeactivating] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -356,22 +356,22 @@ export default function UsersView() {
 
   useEffect(() => { load(); }, []);
 
-  const handleDeactivate = async () => {
-    if (!deactivateConfirm) return;
-    setDeactivating(true);
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
     try {
-      logger.userAction('UsersView', 'deactivate_user', { userId: deactivateConfirm.id, email: deactivateConfirm.email });
-      await apiClient.delete(`/users/${deactivateConfirm.id}`);
-      setUsers((u) => u.map((x) => x.id === deactivateConfirm.id ? { ...x, is_active: false } : x));
-      toast.success(`User "${deactivateConfirm.name}" has been deactivated`);
-      logger.success('User deactivated', { userId: deactivateConfirm.id });
-      setDeactivateConfirm(null);
+      logger.userAction('UsersView', 'delete_user', { userId: deleteConfirm.id, email: deleteConfirm.email });
+      await apiClient.delete(`/users/${deleteConfirm.id}`);
+      setUsers((u) => u.filter((x) => x.id !== deleteConfirm.id));
+      toast.success(`User "${deleteConfirm.name}" has been deleted`);
+      logger.success('User deleted', { userId: deleteConfirm.id });
+      setDeleteConfirm(null);
     } catch (e) {
-      const errorMsg = e.response?.data?.detail || 'Failed to deactivate user';
+      const errorMsg = e.response?.data?.detail || 'Failed to delete user';
       toast.error(errorMsg);
-      logger.error('Failed to deactivate user', { userId: deactivateConfirm.id, error: e.message });
+      logger.error('Failed to delete user', { userId: deleteConfirm.id, error: e.message });
     } finally {
-      setDeactivating(false);
+      setDeleting(false);
     }
   };
 
@@ -396,13 +396,13 @@ export default function UsersView() {
         </div>
       ) : (
         <div className="dash-card overflow-hidden">
-          <div className="hidden md:grid grid-cols-[minmax(220px,1fr)_180px_160px_100px_120px] gap-4 px-5 py-3 border-b border-white/[0.06]">
-            {['Name / Email', 'Linked Client', 'Role', 'Status', 'Actions'].map((h) => (
+          <div className="hidden md:grid grid-cols-[minmax(220px,1fr)_180px_160px_140px] gap-4 px-5 py-3 border-b border-white/[0.06]">
+            {['Name / Email', 'Linked Client', 'Role', 'Actions'].map((h) => (
               <div key={h} className="text-white/30 text-[10px] uppercase tracking-widest">{h}</div>
             ))}
           </div>
           {users.map((u) => (
-            <div key={u.id} className="flex flex-wrap md:grid md:grid-cols-[minmax(220px,1fr)_180px_160px_100px_120px] gap-4 items-center px-5 py-4 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
+            <div key={u.id} className="flex flex-wrap md:grid md:grid-cols-[minmax(220px,1fr)_180px_160px_140px] gap-4 items-center px-5 py-4 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-md flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 bg-navy border border-white/[0.08]">
                   {u.name?.[0]?.toUpperCase()}
@@ -421,23 +421,20 @@ export default function UsersView() {
                   </span>
                 ); })()}
               </div>
-              <div>
-                <span className={`text-[10px] uppercase font-semibold px-2 py-1 rounded-full ${u.is_active ? 'bg-green-500/10 text-green-400' : 'bg-white/[0.06] text-white/30'}`}>
-                  {u.is_active ? 'Active' : 'Inactive'}
-                </span>
-              </div>
               <div className="flex gap-1.5">
                 {u.id !== user?.id && (
-                  <button onClick={() => setEditModal(u)}
-                    className="dash-btn dash-btn-ghost dash-btn-sm">
-                    Edit
-                  </button>
-                )}
-                {u.id !== user?.id && u.is_active && (
-                  <button onClick={() => setDeactivateConfirm(u)}
-                    className="dash-btn dash-btn-danger dash-btn-sm">
-                    Disable
-                  </button>
+                  <>
+                    <button onClick={() => setEditModal(u)}
+                      className="dash-btn dash-btn-ghost dash-btn-sm">
+                      Edit
+                    </button>
+                    {u.role !== 'owner' && (
+                      <button onClick={() => setDeleteConfirm(u)}
+                        className="dash-btn dash-btn-danger dash-btn-sm">
+                        Delete
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -453,13 +450,13 @@ export default function UsersView() {
         <EditUserModal editUser={editModal} clients={clients} onClose={() => setEditModal(null)} onSave={load} />
       )}
 
-      {deactivateConfirm && (
+      {deleteConfirm && (
         <DeleteConfirmDialog
-          title="Deactivate User"
-          message={`Are you sure you want to deactivate "${deactivateConfirm.name}" (${deactivateConfirm.email})? They will no longer be able to access the dashboard.`}
-          onConfirm={handleDeactivate}
-          onCancel={() => setDeactivateConfirm(null)}
-          isLoading={deactivating}
+          title="Delete user"
+          message={`This permanently deletes "${deleteConfirm.name}" (${deleteConfirm.email}) from the team. They will be removed from chat and will not be able to sign in. This cannot be undone.`}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteConfirm(null)}
+          isLoading={deleting}
         />
       )}
     </div>

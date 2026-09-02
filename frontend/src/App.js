@@ -1,6 +1,6 @@
 import "./App.css";
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider } from "./context/AuthContext";
 import { ClockInAuthProvider } from "./context/ClockInAuthContext";
@@ -170,15 +170,11 @@ function App() {
                       </ProtectedRoute>
                     } />
                     <Route path="chat" element={
-                      <ProtectedRoute roles={['owner','employee']}>
+                      <ProtectedRoute roles={['owner','employee','client']}>
                         <ChatView />
                       </ProtectedRoute>
                     } />
-                    <Route path="messages" element={
-                      <ProtectedRoute roles={['owner','employee','client']}>
-                        <ChatView clientThread />
-                      </ProtectedRoute>
-                    } />
+                    <Route path="messages" element={<Navigate to="/dashboard/chat" replace />} />
                     <Route path="kpis" element={
                       <ProtectedRoute roles={['owner','employee','client']}>
                         <KPIView />

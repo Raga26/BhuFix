@@ -117,9 +117,9 @@ export default function OverviewView() {
             </Link>
           </div>
           <div className="dash-card p-6">
-            <div className="text-white font-medium mb-2">Messages</div>
-            <div className="text-white/40 text-sm mb-5">Write directly to the BhuFix team.</div>
-            <Link to="/dashboard/messages" className="dash-btn dash-btn-ghost">
+            <div className="text-white font-medium mb-2">Chat</div>
+            <div className="text-white/40 text-sm mb-5">Message the BhuFix team or anyone else.</div>
+            <Link to="/dashboard/chat" className="dash-btn dash-btn-ghost">
               Open chat
             </Link>
           </div>
