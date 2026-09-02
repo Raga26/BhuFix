@@ -36,9 +36,6 @@ const apiClient = axios.create({
 // Request Interceptor - Log all requests
 apiClient.interceptors.request.use(
   (config) => {
-    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
-      delete config.headers['Content-Type'];
-    }
     const requestId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     config.headers['X-Request-ID'] = requestId;
 

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { X, Plus } from 'lucide-react';
 import apiClient from '../../../utils/axiosConfig';
 import { useAuth } from '../../../context/AuthContext';
-import { can } from '../../../lib/access';
 
 const PILLARS = [
   { title: 'The Reveal', desc: 'Empty → magical transformation. Highest save rate. Must post 4× weekly.', freq: '4× per week', color: '#E8734A' },
@@ -47,7 +46,7 @@ function HookList() {
     <div className="dash-card p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="text-white font-medium text-sm">Hook library</div>
-        {can(user, 'strategy.write') && (
+        {user?.role === 'owner' && (
           <button onClick={() => setShowAdd(!showAdd)}
             className="text-[#E8734A] text-xs hover:text-[#F08A66]">{showAdd ? 'Cancel' : 'Add hook'}</button>
         )}
@@ -78,7 +77,7 @@ function HookList() {
                 <div className="text-[#E8734A]/80 text-sm italic bg-[#E8734A]/[0.06] px-3 py-2 rounded-lg">{h.example_text}</div>
               )}
             </div>
-            {user && can(user, 'strategy.write') && (
+            {user?.role === 'owner' && (
               <button onClick={() => handleDelete(h.id)} className="text-white/25 hover:text-red-400 flex-shrink-0 self-start mt-1 p-1" aria-label="Delete hook">
                 <X size={14} strokeWidth={1.75} />
               </button>
