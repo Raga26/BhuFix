@@ -1142,6 +1142,55 @@ def _public_chat_user(u: dict) -> dict:
     }
 
 
+def _unique_ids(ids: Optional[List[str]]) -> List[str]:
+    seen = set()
+    out = []
+    for raw in ids or []:
+        i = str(raw).strip() if raw else ""
+        if i and i not in seen:
+            seen.add(i)
+            out.append(i)
+    return out
+
+
+def _dm_key(user_a: str, user_b: str) -> str:
+    return ":".join(sorted([user_a, user_b]))
+
+
+async def _find_existing_dm(me: str, other_id: str) -> Optional[dict]:
+    key = _dm_key(me, other_id)
+    found = await db.chat_conversations.find(
+        {
+            "type": "dm",
+            "$or": [
+                {"dm_key": key},
+                {"member_ids": {"$all": [me, other_id]}},
+            ],
+        },
+        {"_id": 0},
+    ).sort("created_at", 1).to_list(20)
+    exact = [c for c in found if len(_unique_ids(c.get("member_ids"))) == 2]
+    chosen = exact[0] if exact else (found[0] if found else None)
+    return chosen
+
+
+def _collapse_duplicate_dms(convs: List[dict], me: str) -> List[dict]:
+    """Keep one DM per partner (the original thread) so contacts cannot spawn extras."""
+    best = {}
+    rest = []
+    for conv in convs:
+        if conv.get("type") != "dm":
+            rest.append(conv)
+            continue
+        partners = tuple(sorted(i for i in (conv.get("member_ids") or []) if i != me))
+        prev = best.get(partners)
+        if not prev or (conv.get("created_at") or "") < (prev.get("created_at") or ""):
+            best[partners] = conv
+    merged = rest + list(best.values())
+    merged.sort(key=lambda c: c.get("last_message_at") or "", reverse=True)
+    return merged
+
+
 async def _users_by_ids(ids: List[str]) -> dict:
     unique = list({i for i in ids if i})
     if not unique:
@@ -1160,7 +1209,7 @@ def _stamp_after(mapping: dict, user_id: str, created: Optional[datetime]) -> bo
 def _message_receipt(msg: dict, conv: dict, current_user_id: str) -> Optional[str]:
     if msg.get("sender_id") != current_user_id:
         return None
-    others = [i for i in (conv.get("member_ids") or []) if i != current_user_id]
+    others = _unique_ids([i for i in (conv.get("member_ids") or []) if i != current_user_id])
     if not others:
         return "read"
     created = _parse_iso(msg.get("created_at"))
@@ -1190,9 +1239,20 @@ def _active_typers(conv: dict, current_user_id: str, users_map: dict) -> List[di
 def _serialize_conversation(conv: dict, current_user_id: str, users_map: dict) -> dict:
     conv.pop("_id", None)
     members = []
-    for mid in conv.get("member_ids") or []:
-        if mid in users_map:
-            members.append(_public_chat_user(users_map[mid]))
+    seen_ids = set()
+    seen_emails = set()
+    for mid in _unique_ids(conv.get("member_ids")):
+        if mid in seen_ids:
+            continue
+        person = users_map.get(mid)
+        email_key = ((person or {}).get("email") or "").strip().lower()
+        if email_key and email_key in seen_emails:
+            continue
+        seen_ids.add(mid)
+        if email_key:
+            seen_emails.add(email_key)
+        if person:
+            members.append(_public_chat_user(person))
         else:
             members.append({
                 "id": mid, "name": "Unknown", "email": None, "role": None,
@@ -1253,11 +1313,19 @@ async def chat_presence(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/chat/contacts")
 async def list_chat_contacts(current_user: dict = Depends(get_current_user)):
-    users = await db.users.find(
-        {"id": {"$ne": current_user["id"]}, "is_active": True},
-        CHAT_USER_FIELDS,
-    ).sort("name", 1).to_list(500)
-    return [_public_chat_user(u) for u in users]
+    me = current_user["id"]
+    my_email = (current_user.get("email") or "").strip().lower()
+    query = {"id": {"$ne": me}, "is_active": True}
+    users = await db.users.find(query, CHAT_USER_FIELDS).sort("name", 1).to_list(500)
+    out = []
+    for u in users:
+        if u.get("id") == me:
+            continue
+        email = (u.get("email") or "").strip().lower()
+        if my_email and email == my_email:
+            continue
+        out.append(_public_chat_user(u))
+    return out
 
 
 @api_router.get("/chat/conversations")
@@ -1273,6 +1341,7 @@ async def list_conversations(current_user: dict = Depends(get_current_user)):
         {"member_ids": me},
         {"_id": 0},
     ).sort("last_message_at", -1).to_list(200)
+    convs = _collapse_duplicate_dms(convs, me)
     all_ids: List[str] = []
     for c in convs:
         all_ids.extend(c.get("member_ids") or [])
@@ -1294,17 +1363,15 @@ async def create_conversation(data: ConversationCreate, current_user: dict = Dep
         other = await db.users.find_one({"id": other_id, "is_active": True}, CHAT_USER_FIELDS)
         if not other:
             raise HTTPException(status_code=404, detail="User not found")
-        member_ids = sorted([me, other_id])
-        existing = await db.chat_conversations.find_one(
-            {"type": "dm", "member_ids": member_ids},
-            {"_id": 0},
-        )
+        existing = await _find_existing_dm(me, other_id)
         if existing:
             users_map = await _users_by_ids(existing.get("member_ids") or [])
             return _serialize_conversation(existing, me, users_map)
+        member_ids = sorted([me, other_id])
         conv = {
             "id": str(uuid.uuid4()),
             "type": "dm",
+            "dm_key": _dm_key(me, other_id),
             "name": None,
             "member_ids": member_ids,
             "created_by": me,
@@ -1326,8 +1393,8 @@ async def create_conversation(data: ConversationCreate, current_user: dict = Dep
             raise HTTPException(status_code=400, detail="Group name is required")
         if len(name) > 80:
             raise HTTPException(status_code=400, detail="Group name is too long")
-        raw_ids = [i for i in (data.member_ids or []) if i and i != me]
-        member_ids = list(dict.fromkeys([me, *raw_ids]))
+        raw_ids = _unique_ids([i for i in (data.member_ids or []) if i and str(i).strip() != me])
+        member_ids = _unique_ids([me, *raw_ids])
         if len(member_ids) < 2:
             raise HTTPException(status_code=400, detail="Add at least one other member")
         found = await db.users.find(
@@ -1336,9 +1403,22 @@ async def create_conversation(data: ConversationCreate, current_user: dict = Dep
         ).to_list(500)
         users_map = {u["id"]: u for u in found}
         users_map[me] = current_user
-        missing = [i for i in member_ids if i not in users_map]
-        if missing:
-            raise HTTPException(status_code=400, detail="One or more members were not found")
+        my_email = (current_user.get("email") or "").strip().lower()
+        cleaned = []
+        seen_emails = set()
+        if my_email:
+            seen_emails.add(my_email)
+        for uid in member_ids:
+            person = users_map.get(uid)
+            if uid != me and not person:
+                raise HTTPException(status_code=400, detail="One or more members were not found")
+            email_key = ((person or current_user).get("email") or "").strip().lower()
+            if uid != me and email_key and email_key in seen_emails:
+                continue
+            if email_key:
+                seen_emails.add(email_key)
+            cleaned.append(uid)
+        member_ids = _unique_ids(cleaned)
         conv = {
             "id": str(uuid.uuid4()),
             "type": "group",

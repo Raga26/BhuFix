@@ -107,17 +107,29 @@ function Message({ msg, isMe }) {
   );
 }
 
-function NewGroupModal({ contacts, onClose, onCreated }) {
+function NewGroupModal({ contacts, currentUser, onClose, onCreated }) {
   const [name, setName] = useState('');
   const [picked, setPicked] = useState(() => new Set());
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('');
 
+  const people = useMemo(() => {
+    const myId = currentUser?.id;
+    const myEmail = (currentUser?.email || '').trim().toLowerCase();
+    const myName = (currentUser?.name || '').trim().toLowerCase();
+    return (contacts || []).filter((c) => {
+      if (!c?.id || c.id === myId) return false;
+      if (myEmail && (c.email || '').trim().toLowerCase() === myEmail) return false;
+      if (myName && (c.name || '').trim().toLowerCase() === myName) return false;
+      return true;
+    });
+  }, [contacts, currentUser]);
+
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return contacts;
-    return contacts.filter((c) => c.name?.toLowerCase().includes(q));
-  }, [contacts, filter]);
+    if (!q) return people;
+    return people.filter((c) => c.name?.toLowerCase().includes(q));
+  }, [people, filter]);
 
   const toggle = (id) => {
     setPicked((prev) => {
@@ -142,7 +154,7 @@ function NewGroupModal({ contacts, onClose, onCreated }) {
       const r = await apiClient.post('/chat/conversations', {
         type: 'group',
         name: name.trim(),
-        member_ids: [...picked],
+        member_ids: [...picked].filter((id) => id && id !== currentUser?.id),
       });
       onCreated(r.data);
       onClose();
@@ -298,12 +310,28 @@ export default function ChatView() {
   };
 
   const openDm = async (contact) => {
+    const existing = conversations.find((c) => {
+      if (c.type !== 'dm') return false;
+      if ((c.member_ids || []).includes(contact.id)) return true;
+      return (c.members || []).some((m) =>
+        m.id === contact.id
+        || (contact.email && m.email && m.email.toLowerCase() === contact.email.toLowerCase())
+      );
+    });
+    if (existing) {
+      openConversation(existing);
+      return;
+    }
     try {
       const r = await apiClient.post('/chat/conversations', { type: 'dm', user_id: contact.id });
       const conv = r.data;
       setConversations((list) => {
-        if (list.some((c) => c.id === conv.id)) return list;
-        return [conv, ...list];
+        const withoutDupes = list.filter((c) => {
+          if (c.id === conv.id) return false;
+          if (c.type === 'dm' && conv.type === 'dm' && (c.member_ids || []).includes(contact.id)) return false;
+          return true;
+        });
+        return [conv, ...withoutDupes];
       });
       openConversation(conv);
     } catch (e) {
@@ -396,7 +424,19 @@ export default function ChatView() {
   } else if (typing.length > 1) {
     headerSubtitle = 'typing…';
   } else if (selected?.type === 'group') {
-    headerSubtitle = (selected.members || []).map((m) => m.name).join(', ');
+    const names = [];
+    const seen = new Set();
+    for (const m of selected.members || []) {
+      const nameKey = (m.name || '').trim().toLowerCase();
+      const emailKey = (m.email || '').trim().toLowerCase();
+      const key = m.id || emailKey || nameKey;
+      if (!key || seen.has(m.id) || (emailKey && seen.has(emailKey)) || (nameKey && seen.has(`n:${nameKey}`))) continue;
+      if (m.id) seen.add(m.id);
+      if (emailKey) seen.add(emailKey);
+      if (nameKey) seen.add(`n:${nameKey}`);
+      names.push(m.name);
+    }
+    headerSubtitle = names.join(', ');
   } else {
     const other = otherMembers[0];
     if (other?.is_online) headerSubtitle = 'online';
@@ -601,6 +641,7 @@ export default function ChatView() {
       {groupOpen && (
         <NewGroupModal
           contacts={contacts}
+          currentUser={user}
           onClose={() => setGroupOpen(false)}
           onCreated={onGroupCreated}
         />
