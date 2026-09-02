@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
+import { can } from '../../../lib/access';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 import { CloseButton } from '../CloseButton';
 import { Plus } from 'lucide-react';
@@ -48,8 +49,8 @@ function AddCampaignModal({ clients, onClose, onSave, campaign, isEdit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="dash-modal p-6 w-full max-w-md">
+    <div className="dash-overlay">
+      <div className="dash-modal p-5 sm:p-6 w-full max-w-md pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-medium">{isEdit ? 'Edit campaign' : 'Add campaign'}</h2>
           <CloseButton onClick={onClose} />
@@ -65,7 +66,7 @@ function AddCampaignModal({ clients, onClose, onSave, campaign, isEdit }) {
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Platform</label>
             <input className={inputCls} value={form.platform} onChange={(e) => set('platform', e.target.value)} placeholder="Meta, Google, etc." />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Budget (₹)</label>
               <input className={inputCls} type="number" value={form.budget} onChange={(e) => set('budget', e.target.value ? +e.target.value : '')} placeholder="Enter budget" />
@@ -75,7 +76,7 @@ function AddCampaignModal({ clients, onClose, onSave, campaign, isEdit }) {
               <input className={inputCls} type="number" value={form.spent} onChange={(e) => set('spent', e.target.value ? +e.target.value : '')} placeholder="Enter amount" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Month</label>
               <input className={inputCls} type="number" min="1" max="12" value={form.month} onChange={(e) => set('month', +e.target.value)} />
@@ -151,7 +152,7 @@ export default function AdsView() {
           <h1 className="dash-title">Ads</h1>
           <p className="dash-sub">Monthly spend against the brief.</p>
         </div>
-        {user?.role === 'owner' && (
+        {can(user, 'ads.write') && (
           <button onClick={() => setModal({})} className="dash-btn dash-btn-primary self-start">
             <Plus size={14} strokeWidth={2} />
             Add campaign
@@ -196,7 +197,7 @@ export default function AdsView() {
                     </div>
                   </div>
                   <div className="text-sm font-bold min-w-[40px] text-right" style={{ color }}>{pct}%</div>
-                  {user?.role === 'owner' && (
+                  {can(user, 'ads.write') && (
                     <div className="flex gap-1.5">
                       <button
                         onClick={() => setModal(ad)}

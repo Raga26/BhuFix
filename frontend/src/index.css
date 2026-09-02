@@ -124,7 +124,7 @@ select option:checked {
 
 @layer components {
   .dash-btn {
-    @apply inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-md text-[13px] font-medium tracking-[-0.01em] transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-1.5 h-11 md:h-9 px-3.5 rounded-md text-[13px] font-medium tracking-[-0.01em] transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none touch-manipulation;
   }
   .dash-btn-primary {
     @apply bg-[#E8734A] text-white hover:bg-[#D4633D];
@@ -136,7 +136,7 @@ select option:checked {
     @apply border border-red-500/25 bg-transparent text-red-400/80 hover:bg-red-500/10 hover:text-red-300;
   }
   .dash-btn-sm {
-    @apply h-7 px-2.5 text-[11px] rounded;
+    @apply h-9 md:h-7 px-2.5 text-[11px] rounded;
   }
   .dash-title {
     @apply font-anchor italic font-medium text-[1.65rem] md:text-[1.85rem] leading-tight tracking-tight text-white;
@@ -147,8 +147,11 @@ select option:checked {
   .dash-card {
     @apply bg-[#162038] border border-white/[0.08] rounded-xl;
   }
+  .dash-overlay {
+    @apply fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4;
+  }
   .dash-modal {
-    @apply bg-[#1B2A4A] border border-white/[0.1] rounded-2xl;
+    @apply bg-[#1B2A4A] border border-white/[0.1] rounded-t-2xl sm:rounded-2xl w-full overflow-y-auto max-h-[min(90dvh,720px)];
   }
   .dash-input {
     @apply w-full bg-[#121C33] border border-white/[0.1] rounded-md px-3.5 py-2.5 text-white text-sm placeholder-white/25 outline-none focus:border-[#E8734A]/55 transition-colors;
@@ -156,6 +159,16 @@ select option:checked {
   .dash-label {
     @apply block text-white/40 text-[11px] mb-1.5;
   }
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'] {
+  color-scheme: dark;
 }
 
 .login-grain {
