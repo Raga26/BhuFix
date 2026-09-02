@@ -21,8 +21,11 @@ const SUB_ROLE_LABEL = {
 };
 
 function roleLabel(person) {
+  if (person?.job_label) return person.job_label;
   if (person?.sub_role) return SUB_ROLE_LABEL[person.sub_role] || person.sub_role;
   if (person?.role === 'owner') return 'Owner';
+  if (person?.role === 'admin') return 'Admin';
+  if (person?.role === 'operations_manager') return 'Operations Manager';
   if (person?.role === 'client') return 'Client';
   return 'Team';
 }
@@ -166,8 +169,8 @@ function NewGroupModal({ contacts, currentUser, onClose, onCreated }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="dash-modal p-6 w-full max-w-md flex flex-col max-h-[80vh]">
+    <div className="dash-overlay">
+      <div className="dash-modal p-5 sm:p-6 w-full max-w-md flex flex-col pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-medium">New group</h2>
           <CloseButton onClick={onClose} />
@@ -453,7 +456,7 @@ export default function ChatView() {
         <p className="dash-sub">Message anyone, or start a group.</p>
       </div>
 
-      <div className="dash-card flex overflow-hidden" style={{ height: 'min(calc(100vh - 220px), 680px)' }}>
+      <div className="dash-card flex overflow-hidden h-[calc(100dvh-14.5rem)] md:h-[min(calc(100vh-13.75rem),680px)]">
         {/* Left pane */}
         <div className={`${showThread ? 'hidden md:flex' : 'flex'} w-full md:w-[320px] flex-col border-r border-white/[0.06] flex-shrink-0`}>
           <div className="flex items-center gap-2 px-3 pt-3">

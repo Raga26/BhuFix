@@ -110,8 +110,8 @@ export default function LoginPage() {
         </div>
       </aside>
 
-      <main className="flex-1 flex items-center justify-center px-5 py-12 relative">
-        <div className="absolute top-6 left-5 right-5 flex items-center justify-between lg:justify-end">
+      <main className="flex-1 flex items-center justify-center px-5 py-12 pt-[max(3rem,calc(env(safe-area-inset-top,0px)+3rem))] relative">
+        <div className="absolute top-[max(1.25rem,env(safe-area-inset-top,0px))] left-5 right-5 flex items-center justify-between lg:justify-end">
           <Link to="/" className="lg:hidden text-[18px] font-extrabold tracking-tight">
             Bhu<span className="text-coral">Fix</span>
           </Link>
@@ -201,7 +201,7 @@ export default function LoginPage() {
               )}
             </button>
 
-            <p className="flex items-center justify-center gap-2 text-[11px] text-white/30">
+            <p className="hidden md:flex items-center justify-center gap-2 text-[11px] text-white/30">
               Press
               <kbd className="px-1.5 py-0.5 rounded border border-white/15 bg-white/[0.04] text-white/50 font-sans text-[10px] tracking-wide">
                 Enter

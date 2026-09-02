@@ -11,96 +11,61 @@ import {
   Users,
   LogOut,
   X,
+  CheckSquare,
+  Package,
+  Receipt,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { can, jobLabel } from '../../lib/access';
 
 const ICONS = {
   Overview: LayoutDashboard,
   Clients: Briefcase,
+  Tasks: CheckSquare,
   Calendar: CalendarDays,
   Schedule: CalendarDays,
   'Meta Ads': Megaphone,
   'Strategy Hub': Compass,
-  'Drive Links': FolderOpen,
+  Assets: FolderOpen,
   'My Files': FolderOpen,
   Chat: MessageSquare,
   'KPI Tracker': LineChart,
   'My Reports': LineChart,
+  Packages: Package,
+  Invoices: Receipt,
   'Team & Users': Users,
 };
 
-const NAV_CONFIG = {
-  owner: [
-    {
-      section: 'Main',
-      items: [
-        { to: '/dashboard', label: 'Overview', exact: true },
-        { to: '/dashboard/clients', label: 'Clients' },
-        { to: '/dashboard/calendar', label: 'Calendar' },
-      ],
-    },
-    {
-      section: 'Work',
-      items: [
-        { to: '/dashboard/ads', label: 'Meta Ads' },
-        { to: '/dashboard/strategy', label: 'Strategy Hub' },
-        { to: '/dashboard/drive', label: 'Drive Links' },
-        { to: '/dashboard/chat', label: 'Chat' },
-        { to: '/dashboard/kpis', label: 'KPI Tracker' },
-      ],
-    },
-    {
-      section: 'Admin',
-      items: [
-        { to: '/dashboard/users', label: 'Team & Users' },
-      ],
-    },
-  ],
-  employee: [
-    {
-      section: 'Main',
-      items: [
-        { to: '/dashboard', label: 'Overview', exact: true },
-        { to: '/dashboard/calendar', label: 'Calendar' },
-      ],
-    },
-    {
-      section: 'Work',
-      items: [
-        { to: '/dashboard/ads', label: 'Meta Ads' },
-        { to: '/dashboard/strategy', label: 'Strategy Hub' },
-        { to: '/dashboard/drive', label: 'Drive Links' },
-        { to: '/dashboard/chat', label: 'Chat' },
-        { to: '/dashboard/kpis', label: 'KPI Tracker' },
-      ],
-    },
-  ],
-  client: [
-    {
-      section: 'Portal',
-      items: [
-        { to: '/dashboard', label: 'Overview', exact: true },
-        { to: '/dashboard/calendar', label: 'Schedule' },
-        { to: '/dashboard/drive', label: 'My Files' },
-        { to: '/dashboard/chat', label: 'Chat' },
-        { to: '/dashboard/kpis', label: 'My Reports' },
-      ],
-    },
-  ],
-};
-
-const ROLE_BADGE = {
-  owner: { label: 'Owner', color: 'text-[#E8734A]' },
-  employee: { label: 'Team', color: 'text-sky-300' },
-  client: { label: 'Client', color: 'text-white/50' },
-};
+function navFor(user) {
+  const item = (to, label, perm, exact) => (can(user, perm) ? { to, label, exact, perm } : null);
+  const main = [
+    { to: '/dashboard', label: 'Overview', exact: true },
+    item('/dashboard/clients', 'Clients', 'clients.read'),
+    item('/dashboard/tasks', 'Tasks', 'tasks.read'),
+    item('/dashboard/calendar', user?.role === 'client' ? 'Schedule' : 'Calendar', 'calendar.read'),
+  ].filter(Boolean);
+  const work = [
+    item('/dashboard/ads', 'Meta Ads', 'ads.read'),
+    item('/dashboard/strategy', 'Strategy Hub', 'strategy.read'),
+    item('/dashboard/drive', user?.role === 'client' ? 'My Files' : 'Assets', 'assets.read'),
+    item('/dashboard/chat', 'Chat', 'chat.read'),
+    item('/dashboard/kpis', user?.role === 'client' ? 'My Reports' : 'KPI Tracker', 'kpis.read'),
+  ].filter(Boolean);
+  const admin = [
+    item('/dashboard/packages', 'Packages', 'packages.read'),
+    item('/dashboard/invoices', 'Invoices', 'invoices.read'),
+    item('/dashboard/users', 'Team & Users', 'users.read'),
+  ].filter(Boolean);
+  const groups = [{ section: 'Main', items: main }];
+  if (work.length) groups.push({ section: 'Work', items: work });
+  if (admin.length) groups.push({ section: 'Admin', items: admin });
+  return groups;
+}
 
 export function Sidebar({ mobile = false, onClose }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-
-  const groups = NAV_CONFIG[user?.role] || NAV_CONFIG.client;
-  const badge = ROLE_BADGE[user?.role] || ROLE_BADGE.client;
+  const groups = navFor(user);
 
   const handleLogout = () => {
     logout();
@@ -166,7 +131,7 @@ export function Sidebar({ mobile = false, onClose }) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-white text-[13px] font-medium truncate">{user?.name}</div>
-            <span className={`text-[11px] ${badge.color}`}>{badge.label}</span>
+            <span className="text-[11px] text-white/45">{jobLabel(user)}</span>
           </div>
         </div>
 

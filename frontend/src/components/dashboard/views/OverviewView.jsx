@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import apiClient from '../../../utils/axiosConfig';
 import { useAuth } from '../../../context/AuthContext';
+import { can } from '../../../lib/access';
+import { ClientMark } from '../ClientMark';
 
 function StatCard({ value, label }) {
   return (
@@ -16,8 +18,8 @@ function StatCard({ value, label }) {
 function RecentClientRow({ client }) {
   return (
     <div className="flex items-center gap-3 py-3 border-b border-white/[0.05] last:border-0">
-      <div className="w-9 h-9 rounded-md flex items-center justify-center text-[12px] font-semibold text-white flex-shrink-0 bg-navy border border-white/[0.08]">
-        {client.name?.[0]}
+      <div className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0">
+        <ClientMark client={client} size={36} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-white text-sm font-medium truncate">{client.name}</div>
@@ -41,7 +43,7 @@ export default function OverviewView() {
 
   useEffect(() => {
     apiClient.get('/dashboard/stats').then((r) => setStats(r.data)).catch(() => {});
-    if (user?.role === 'owner') {
+    if (user?.role !== 'client') {
       apiClient.get('/clients').then((r) => setClients(r.data?.slice(0, 4) || [])).catch(() => {});
     }
   }, [user]);
@@ -57,7 +59,7 @@ export default function OverviewView() {
           </h1>
           <p className="dash-sub">Here’s what’s moving today.</p>
         </div>
-        {user?.role === 'owner' && (
+        {can(user, 'clients.write') && (
           <Link to="/dashboard/clients" className="dash-btn dash-btn-primary self-start">
             <Plus size={14} strokeWidth={2} />
             Add client
@@ -70,11 +72,11 @@ export default function OverviewView() {
           <StatCard value={stats.total_clients} label="Active clients" />
           <StatCard value={stats.total_reels} label="Reels delivered" />
           <StatCard value={fmt(stats.total_ad_spent)} label="Ad spend" />
-          <StatCard value={stats.total_dm_inquiries || 0} label="DM inquiries" />
+          <StatCard value={stats.open_tasks ?? 0} label="Open tasks" />
         </div>
       )}
 
-      {user?.role === 'owner' && clients.length > 0 && (
+      {user?.role !== 'client' && clients.length > 0 && (
         <div className="grid md:grid-cols-2 gap-4">
           <div className="dash-card p-5">
             <div className="flex items-center justify-between mb-4">

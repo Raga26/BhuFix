@@ -28,10 +28,13 @@ import PostReportView from "./components/dashboard/views/PostReportView";
 import CalendarView from "./components/dashboard/views/CalendarView";
 import AdsView from "./components/dashboard/views/AdsView";
 import StrategyView from "./components/dashboard/views/StrategyView";
-import DriveView from "./components/dashboard/views/DriveView";
+import AssetsView from "./components/dashboard/views/AssetsView";
 import ChatView from "./components/dashboard/views/ChatView";
 import KPIView from "./components/dashboard/views/KPIView";
 import UsersView from "./components/dashboard/views/UsersView";
+import TasksView from "./components/dashboard/views/TasksView";
+import PackagesView from "./components/dashboard/views/PackagesView";
+import InvoicesView from "./components/dashboard/views/InvoicesView";
 import ClockInLandingPage from "./pages/clockin/ClockInLandingPage";
 import ClockInLoginPage from "./pages/clockin/ClockInLoginPage";
 import ClockInRegisterPage from "./pages/clockin/ClockInRegisterPage";
@@ -144,44 +147,59 @@ function App() {
                   >
                     <Route index element={<OverviewView />} />
                     <Route path="clients" element={
-                      <ProtectedRoute roles={['owner']}>
+                      <ProtectedRoute permission="clients.read">
                         <ClientsView />
                       </ProtectedRoute>
                     } />
                     <Route path="clients/:clientId/post-report" element={
-                      <ProtectedRoute roles={['owner', 'employee']}>
+                      <ProtectedRoute permission="post_reports.read">
                         <PostReportView />
                       </ProtectedRoute>
                     } />
                     <Route path="calendar" element={<CalendarView />} />
+                    <Route path="tasks" element={
+                      <ProtectedRoute permission="tasks.read">
+                        <TasksView />
+                      </ProtectedRoute>
+                    } />
                     <Route path="ads" element={
-                      <ProtectedRoute roles={['owner','employee']}>
+                      <ProtectedRoute permission="ads.read">
                         <AdsView />
                       </ProtectedRoute>
                     } />
                     <Route path="strategy" element={
-                      <ProtectedRoute roles={['owner','employee']}>
+                      <ProtectedRoute permission="strategy.read">
                         <StrategyView />
                       </ProtectedRoute>
                     } />
                     <Route path="drive" element={
-                      <ProtectedRoute roles={['owner','employee','client']}>
-                        <DriveView />
+                      <ProtectedRoute permission="assets.read">
+                        <AssetsView />
                       </ProtectedRoute>
                     } />
                     <Route path="chat" element={
-                      <ProtectedRoute roles={['owner','employee','client']}>
+                      <ProtectedRoute permission="chat.read">
                         <ChatView />
                       </ProtectedRoute>
                     } />
                     <Route path="messages" element={<Navigate to="/dashboard/chat" replace />} />
                     <Route path="kpis" element={
-                      <ProtectedRoute roles={['owner','employee','client']}>
+                      <ProtectedRoute permission="kpis.read">
                         <KPIView />
                       </ProtectedRoute>
                     } />
+                    <Route path="packages" element={
+                      <ProtectedRoute permission="packages.read">
+                        <PackagesView />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="invoices" element={
+                      <ProtectedRoute permission="invoices.read">
+                        <InvoicesView />
+                      </ProtectedRoute>
+                    } />
                     <Route path="users" element={
-                      <ProtectedRoute roles={['owner']}>
+                      <ProtectedRoute permission="users.read">
                         <UsersView />
                       </ProtectedRoute>
                     } />
