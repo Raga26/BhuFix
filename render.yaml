@@ -14,7 +14,8 @@ services:
     name: bhufix-backend
     runtime: python
     pythonVersion: "3.12.9"
-    buildCommand: cd backend && pip install -r requirements.txt
+    # Build frontend into frontend/build so /videos, favicons, and SPA assets exist for uvicorn
+    buildCommand: cd frontend && npm install && npm run build && cd ../backend && pip install -r requirements.txt
     startCommand: cd backend && python server.py
     envVars:
       - key: PORT
@@ -25,3 +26,22 @@ services:
           property: connectionString
       - key: DB_NAME
         value: Bhufix
+      # Public frontend origin for WhatsApp punch links (set to your live site)
+      - key: FRONTEND_URL
+        sync: false
+      # Meta WhatsApp Cloud API (bot number e.g. 9498802936)
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_TOKEN
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        value: bhufix-clockin-verify
+      # Face match: "dev" until AWS Rekognition keys are set, then "rekognition"
+      - key: CLOCKIN_FACE_MODE
+        value: dev
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_DEFAULT_REGION
+        value: ap-south-1

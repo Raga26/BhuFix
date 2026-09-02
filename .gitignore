@@ -81,7 +81,6 @@ android-sdk/ -e
 # Environment files
 *.env
 *.env.*
--e 
-# Environment files
-*.env
-*.env.*
+
+# ClockIN face enrollments / punch selfies
+backend/data/clockin_faces/

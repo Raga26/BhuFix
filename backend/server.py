@@ -226,21 +226,26 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-        
-        # Smart cache control:
-        # - HTML files (index.html): Don't cache - always fetch latest
-        # - Static assets (JS, CSS, images with hashes): Cache for 1 year
-        # - API routes: Don't cache
-        path = str(request.url)
-        if "/api/" in path:
-            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
-        elif path.endswith(".html") or path == "/":
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
-        elif any(path.endswith(ext) for ext in [".js", ".css", ".woff", ".woff2", ".png", ".jpg", ".svg"]):
+
+        # Cache by Content-Type — never by path alone.
+        # (Previously .jpg/.png paths got "immutable" even when SPA returned HTML,
+        #  which poisoned browsers for up to a year.)
+        path = request.url.path
+        content_type = (response.headers.get("content-type") or "").lower()
+
+        if path.startswith("/api/") or "text/html" in content_type:
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+        elif content_type.startswith(("image/", "video/", "audio/", "font/")) or any(
+            content_type.startswith(t)
+            for t in ("text/css", "application/javascript", "text/javascript")
+        ):
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        elif path.endswith(".html") or path in ("/", ""):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
         else:
             response.headers["Cache-Control"] = "public, max-age=3600"
-        
+
         return response
 
 # ── Input Sanitization ───────────────────────────────────────────
@@ -408,6 +413,19 @@ class UserUpdate(BaseModel):
     sub_role: Optional[str] = None  # editor, videographer, management
     client_id: Optional[str] = None
 
+
+def normalize_managed_user_role(role: Optional[str], sub_role: Optional[str]) -> str:
+    """Keep owner privileges out of the team/user-management flow.
+
+    Job titles, including custom titles, are employee accounts.  The only
+    exception is a client account, which is explicitly selected and has no
+    team job title.  Owner accounts are provisioned through the owner seed,
+    not through this endpoint.
+    """
+    if role == "client" and not sub_role:
+        return "client"
+    return "employee"
+
 class ClientCreate(BaseModel):
     name: str
     industry: str = ""
@@ -453,7 +471,8 @@ class CalendarEventCreate(BaseModel):
     title: str
     type: str = "reel"   # reel, post, ad, content, shoot
     date: str            # ISO date string e.g. "2026-04-15"
-    status: str = "not_started"  # not_started, in_progress, done, completed
+    time: Optional[str] = None  # HH:MM e.g. "14:30"
+    status: str = "not_started"  # not_started, in_progress, completed, postpone
 
 class AdsCampaignCreate(BaseModel):
     client_id: str
@@ -473,6 +492,22 @@ class KPICreate(BaseModel):
     bookings: int = 0
     month: int
     year: int
+
+class PostReportUpsert(BaseModel):
+    client_id: str
+    month: int
+    year: int
+    target_videos: int = 0
+    target_posters: int = 0
+    target_youtube: int = 0
+    posted_videos: int = 0
+    posted_posters: int = 0
+    posted_youtube: int = 0
+    video_dates: List[str] = []
+    poster_dates: List[str] = []
+    youtube_dates: List[str] = []
+    completed: bool = False
+    notes: str = ""
 
 class ChatMessageCreate(BaseModel):
     thread: str = "team"   # "team" or "client"
@@ -521,6 +556,16 @@ async def require_staff(current_user: dict = Depends(get_current_user)) -> dict:
     if current_user["role"] not in ["owner", "employee"]:
         raise HTTPException(status_code=403, detail="Staff access required")
     return current_user
+
+async def normalize_existing_team_roles():
+    """Remove legacy owner access from users created with a team job title."""
+    result = await db.users.update_many(
+        {"role": "owner", "sub_role": {"$exists": True, "$ne": None}},
+        {"$set": {"role": "employee"}},
+    )
+    if result.modified_count:
+        logger.info("Normalized %s legacy team role(s) to employee access", result.modified_count)
+
 
 async def seed_owner():
     if not OWNER_EMAIL or not OWNER_PASSWORD:
@@ -740,12 +785,13 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 async def create_user(data: UserCreate, current_user: dict = Depends(require_owner)):
     if await db.users.find_one({"email": data.email.lower()}):
         raise HTTPException(status_code=400, detail="User with this email already exists")
+    role = normalize_managed_user_role(data.role, data.sub_role)
     user = {
         "id": str(uuid.uuid4()),
         "email": data.email.lower().strip(),
         "name": sanitize_input(data.name),
         "password_hash": get_password_hash(data.password),
-        "role": data.role,
+        "role": role,
         "sub_role": data.sub_role,
         "client_id": data.client_id,
         "is_active": True,
@@ -767,10 +813,19 @@ async def deactivate_user(user_id: str, current_user: dict = Depends(require_own
 
 @api_router.put("/users/{user_id}")
 async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depends(require_owner)):
-    # Include sub_role even when None so it can be explicitly cleared
-    update_data = {k: v for k, v in data.dict().items() if v is not None or k == "sub_role"}
+    # Keep explicitly supplied nulls (for clearing a job/client association),
+    # but do not treat omitted fields as updates.
+    update_data = data.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No data to update")
+    if "role" in update_data or "sub_role" in update_data:
+        existing = await db.users.find_one({"id": user_id}, {"_id": 0, "role": 1, "sub_role": 1})
+        if not existing:
+            raise HTTPException(status_code=404, detail="User not found")
+        update_data["role"] = normalize_managed_user_role(
+            update_data.get("role", existing.get("role")),
+            update_data.get("sub_role", existing.get("sub_role")),
+        )
     result = await db.users.update_one({"id": user_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
@@ -958,6 +1013,63 @@ async def delete_kpi(kpi_id: str, current_user: dict = Depends(require_staff)):
         raise HTTPException(status_code=404, detail="KPI not found")
     return {"message": "KPI deleted"}
 
+# ── Post Reports (monthly delivery tracker) ───────────────────────
+@api_router.get("/post-reports")
+async def get_post_reports(
+    client_id: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user),
+):
+    if current_user["role"] == "client":
+        cid = current_user.get("client_id")
+        if not cid:
+            return []
+        return await db.post_reports.find({"client_id": cid}, {"_id": 0}).to_list(500)
+    if current_user["role"] not in ["owner", "employee"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    query = {"client_id": client_id} if client_id else {}
+    return await db.post_reports.find(query, {"_id": 0}).to_list(500)
+
+@api_router.put("/post-reports")
+async def upsert_post_report(data: PostReportUpsert, current_user: dict = Depends(require_staff)):
+    if data.month < 1 or data.month > 12:
+        raise HTTPException(status_code=400, detail="Month must be 1-12")
+    if data.year < 2000 or data.year > 2100:
+        raise HTTPException(status_code=400, detail="Invalid year")
+    client = await db.clients.find_one({"id": data.client_id}, {"_id": 0})
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    payload = data.model_dump()
+    payload["notes"] = sanitize_input(payload.get("notes") or "")
+    payload["video_dates"] = [d for d in (payload.get("video_dates") or []) if d]
+    payload["poster_dates"] = [d for d in (payload.get("poster_dates") or []) if d]
+    payload["youtube_dates"] = [d for d in (payload.get("youtube_dates") or []) if d]
+    payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    existing = await db.post_reports.find_one(
+        {"client_id": data.client_id, "month": data.month, "year": data.year},
+        {"_id": 0},
+    )
+    if existing:
+        await db.post_reports.update_one({"id": existing["id"]}, {"$set": payload})
+        return await db.post_reports.find_one({"id": existing["id"]}, {"_id": 0})
+
+    report = {
+        "id": str(uuid.uuid4()),
+        **payload,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.post_reports.insert_one(report)
+    report.pop("_id", None)
+    return report
+
+@api_router.delete("/post-reports/{report_id}")
+async def delete_post_report(report_id: str, current_user: dict = Depends(require_staff)):
+    result = await db.post_reports.delete_one({"id": report_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Post report not found")
+    return {"message": "Post report deleted"}
+
 # ── Chat ──────────────────────────────────────────────────────────
 @api_router.get("/chat")
 async def get_chat_messages(
@@ -1042,6 +1154,22 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         content={"detail": exc.detail},
     )
 
+# ── BhuFix ClockIN (separate product) ─────────────────────────────
+from clockin import create_clockin_router, mount_adms_routes
+
+api_router.include_router(
+    create_clockin_router(
+        db,
+        secret_key=SECRET_KEY,
+        algorithm=ALGORITHM,
+        verify_password=verify_password,
+        get_password_hash=get_password_hash,
+        create_access_token=create_access_token,
+    )
+)
+mount_adms_routes(app, db)
+logger.info("✓ ClockIN module mounted (/api/clockin + /iclock ADMS)")
+
 # ── Include Router & Middleware ───────────────────────────────────
 logger.info("Including API router and setting up middleware...")
 app.include_router(api_router)
@@ -1051,6 +1179,14 @@ if FRONTEND_BUILD_DIR.exists():
     logger.info(f"✓ Frontend build directory found at {FRONTEND_BUILD_DIR}")
     app.mount("/static", StaticFiles(directory=FRONTEND_BUILD_DIR / "static"), name="static")
     logger.info("✓ Static files mounted at /static")
+
+    # Client reels / logos from CRA public/videos → build/videos
+    videos_dir = FRONTEND_BUILD_DIR / "videos"
+    if videos_dir.is_dir():
+        app.mount("/videos", StaticFiles(directory=str(videos_dir)), name="videos")
+        logger.info(f"✓ Video assets mounted at /videos ({videos_dir})")
+    else:
+        logger.warning(f"⚠️  No videos directory at {videos_dir}")
     
     @app.get("/sitemap.xml")
     async def serve_sitemap():
@@ -1087,11 +1223,23 @@ if FRONTEND_BUILD_DIR.exists():
     
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        """Serve SPA - return index.html for all non-API routes"""
-        if full_path.startswith("api/"):
+        """Serve build assets when present; otherwise SPA index.html for client routes."""
+        if full_path.startswith("api/") or full_path.startswith("iclock"):
             logger.warning(f"API route not found: /{full_path}")
             return JSONResponse({"error": "Not found"}, status_code=404)
-        
+
+        # Prevent path traversal; serve real files from the CRA build (favicon, logos, etc.)
+        build_root = FRONTEND_BUILD_DIR.resolve()
+        candidate = (FRONTEND_BUILD_DIR / full_path).resolve()
+        try:
+            candidate.relative_to(build_root)
+        except ValueError:
+            return JSONResponse({"error": "Not found"}, status_code=404)
+
+        if candidate.is_file():
+            logger.debug(f"✓ Serving build asset: /{full_path}")
+            return FileResponse(candidate)
+
         logger.debug(f"SPA route requested: /{full_path}")
         index_file = FRONTEND_BUILD_DIR / "index.html"
         if index_file.exists():
@@ -1148,6 +1296,7 @@ async def startup_event():
     else:
         logger.info(f"📡 Local development: http://localhost:{os.environ.get('PORT', 8000)}")
     logger.info("=" * 80)
+    await normalize_existing_team_roles()
     await seed_owner()
 
 @app.on_event("shutdown")
