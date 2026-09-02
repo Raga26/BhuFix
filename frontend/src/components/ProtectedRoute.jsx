@@ -1,8 +1,8 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { can } from '../lib/access';
 
-// roles: array of allowed roles, e.g. ['owner'] or ['owner','employee']
-export function ProtectedRoute({ children, roles }) {
+export function ProtectedRoute({ children, roles, permission }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -16,6 +16,10 @@ export function ProtectedRoute({ children, roles }) {
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (permission && !can(user, permission)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   if (roles && !roles.includes(user.role)) {

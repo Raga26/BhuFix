@@ -3,6 +3,8 @@ import { ArrowLeft, Check, CheckCheck, Search, Send, Users, UserPlus } from 'luc
 import { toast } from 'sonner';
 import apiClient from '../../../utils/axiosConfig';
 import { useAuth } from '../../../context/AuthContext';
+import { isLeadership } from '../../../lib/access';
+import { apiError } from '../../../utils/apiError';
 import { CloseButton } from '../CloseButton';
 
 const ROLE_COLOR = {
@@ -21,8 +23,11 @@ const SUB_ROLE_LABEL = {
 };
 
 function roleLabel(person) {
+  if (person?.job_label) return person.job_label;
   if (person?.sub_role) return SUB_ROLE_LABEL[person.sub_role] || person.sub_role;
   if (person?.role === 'owner') return 'Owner';
+  if (person?.role === 'admin') return 'Admin';
+  if (person?.role === 'operations_manager') return 'Operations Manager';
   if (person?.role === 'client') return 'Client';
   return 'Team';
 }
@@ -95,6 +100,11 @@ function Message({ msg, isMe }) {
             ? 'bg-[#E8734A]/20 border border-[#E8734A]/25 rounded-tr-sm'
             : 'bg-white/[0.07] border border-white/[0.08] rounded-tl-sm'
         } text-white`}>
+          {msg.ref_type && (
+            <div className="text-[10px] uppercase tracking-wide text-[#E8734A]/80 mb-1">
+              {msg.ref_label || msg.ref_type}
+            </div>
+          )}
           {msg.message}
         </div>
         <div className="flex items-center gap-1 text-[10px] text-white/25 mt-1">
@@ -166,8 +176,8 @@ function NewGroupModal({ contacts, currentUser, onClose, onCreated }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="dash-modal p-6 w-full max-w-md flex flex-col max-h-[80vh]">
+    <div className="dash-overlay">
+      <div className="dash-modal p-5 sm:p-6 w-full max-w-md flex flex-col pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-medium">New group</h2>
           <CloseButton onClick={onClose} />
@@ -232,12 +242,17 @@ function NewGroupModal({ contacts, currentUser, onClose, onCreated }) {
 
 export default function ChatView() {
   const { user } = useAuth();
+  const leadership = isLeadership(user);
   const [tab, setTab] = useState('chats');
   const [conversations, setConversations] = useState([]);
   const [contacts, setContacts] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [selected, setSelected] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [refType, setRefType] = useState('');
+  const [refId, setRefId] = useState('');
+  const [refOptions, setRefOptions] = useState([]);
   const [search, setSearch] = useState('');
   const [sending, setSending] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
@@ -248,6 +263,10 @@ export default function ChatView() {
 
   const loadContacts = useCallback(() => {
     apiClient.get('/chat/contacts').then((r) => setContacts(r.data || [])).catch(() => {});
+  }, []);
+
+  const loadRequests = useCallback(() => {
+    apiClient.get('/chat/requests').then((r) => setRequests(r.data || [])).catch(() => {});
   }, []);
 
   const loadConversations = useCallback(() => {
@@ -275,7 +294,8 @@ export default function ChatView() {
   useEffect(() => {
     loadContacts();
     loadConversations();
-  }, [loadContacts, loadConversations]);
+    loadRequests();
+  }, [loadContacts, loadConversations, loadRequests]);
 
   useEffect(() => {
     loadMessages();
@@ -285,10 +305,11 @@ export default function ChatView() {
     const id = setInterval(() => {
       loadConversations();
       loadContacts();
+      loadRequests();
       if (selectedIdRef.current) loadMessages();
-    }, 2500);
+    }, 5000);
     return () => clearInterval(id);
-  }, [loadConversations, loadContacts, loadMessages]);
+  }, [loadConversations, loadContacts, loadMessages, loadRequests]);
 
   useEffect(() => {
     const convId = selected?.id;
@@ -324,6 +345,12 @@ export default function ChatView() {
     }
     try {
       const r = await apiClient.post('/chat/conversations', { type: 'dm', user_id: contact.id });
+      if (r.status === 202 || r.data?.status === 'pending_request') {
+        toast.success('Request sent. Owner, Admin, or Ops Manager must approve this client chat.');
+        loadContacts();
+        loadRequests();
+        return;
+      }
       const conv = r.data;
       setConversations((list) => {
         const withoutDupes = list.filter((c) => {
@@ -335,13 +362,25 @@ export default function ChatView() {
       });
       openConversation(conv);
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Could not open chat');
+      toast.error(apiError(e, 'Could not open chat'));
     }
   };
 
   const onGroupCreated = (conv) => {
     setConversations((list) => [conv, ...list.filter((c) => c.id !== conv.id)]);
     openConversation(conv);
+  };
+
+  const decideRequest = async (id, action) => {
+    try {
+      await apiClient.post(`/chat/requests/${id}/decide`, { action });
+      toast.success(action === 'approve' ? 'Chat opened' : 'Request declined');
+      loadRequests();
+      loadConversations();
+      loadContacts();
+    } catch (e) {
+      toast.error(apiError(e, 'Could not decide'));
+    }
   };
 
   const pingTyping = (on) => {
@@ -373,9 +412,24 @@ export default function ChatView() {
     pingTyping(false);
     typingPingRef.current = { at: 0, convId: selected.id };
     try {
-      const r = await apiClient.post(`/chat/conversations/${selected.id}/messages`, { message: input });
+      const mention_ids = contacts
+        .filter((c) => {
+          const bits = (c.name || '').split(/\s+/).filter(Boolean);
+          return bits.some((n) => input.toLowerCase().includes(`@${n.toLowerCase()}`));
+        })
+        .map((c) => c.id);
+      const payload = { message: input, mention_ids };
+      if (refType && refId) {
+        const picked = refOptions.find((o) => o.id === refId);
+        payload.ref_type = refType;
+        payload.ref_id = refId;
+        if (picked?.label) payload.ref_label = picked.label;
+      }
+      const r = await apiClient.post(`/chat/conversations/${selected.id}/messages`, payload);
       setMessages((m) => [...m, r.data]);
       setInput('');
+      setRefType('');
+      setRefId('');
       setConversations((list) => {
         const updated = list.map((c) =>
           c.id === selected.id
@@ -393,7 +447,7 @@ export default function ChatView() {
         return current ? [current, ...updated.filter((c) => c.id !== selected.id)] : updated;
       });
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Could not send message');
+      toast.error(apiError(e, 'Could not send message'));
     } finally {
       setSending(false);
     }
@@ -407,6 +461,7 @@ export default function ChatView() {
   };
 
   const q = search.trim().toLowerCase();
+  const pendingRequests = requests.filter((r) => r.status === 'pending');
   const filteredChats = q
     ? conversations.filter((c) => c.display_name?.toLowerCase().includes(q))
     : conversations;
@@ -448,12 +503,14 @@ export default function ChatView() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="dash-title">Chat</h1>
-        <p className="dash-sub">Message anyone, or start a group.</p>
+      <div className={`${showThread ? 'hidden md:block' : ''} mb-6`}>
+        <h1 className="dash-title">{user?.role === 'client' ? 'Messages' : 'Chat'}</h1>
+        <p className="dash-sub">{user?.role === 'client' ? 'Message the studio about your work.' : 'If you work on a client, chat with them is open. Anyone else needs Owner / Admin / Ops to connect you.'}</p>
       </div>
 
-      <div className="dash-card flex overflow-hidden" style={{ height: 'min(calc(100vh - 220px), 680px)' }}>
+      <div className={`dash-card flex overflow-hidden ${showThread
+        ? 'h-[calc(100dvh-9.25rem-env(safe-area-inset-bottom,0px))] md:h-[min(calc(100vh-13.75rem),680px)]'
+        : 'h-[calc(100dvh-13.5rem-env(safe-area-inset-bottom,0px))] md:h-[min(calc(100vh-13.75rem),680px)]'}`}>
         {/* Left pane */}
         <div className={`${showThread ? 'hidden md:flex' : 'flex'} w-full md:w-[320px] flex-col border-r border-white/[0.06] flex-shrink-0`}>
           <div className="flex items-center gap-2 px-3 pt-3">
@@ -462,22 +519,24 @@ export default function ChatView() {
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
-                className={`flex-1 text-[12px] font-medium py-2 rounded-md capitalize transition-colors ${
+                className={`flex-1 text-[12px] font-medium min-h-[44px] rounded-md capitalize transition-colors ${
                   tab === t ? 'bg-white/[0.08] text-white' : 'text-white/40 hover:text-white/70'
                 }`}
               >
                 {t === 'contacts' ? 'Contacts' : 'Chats'}
               </button>
             ))}
-            <button
-              type="button"
-              onClick={() => setGroupOpen(true)}
-              className="p-2 rounded-md text-white/45 hover:text-white hover:bg-white/[0.06]"
-              aria-label="New group"
-              title="New group"
-            >
-              <UserPlus size={16} strokeWidth={1.75} />
-            </button>
+            {user?.role !== 'client' && (
+              <button
+                type="button"
+                onClick={() => setGroupOpen(true)}
+                className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-white/45 hover:text-white hover:bg-white/[0.06]"
+                aria-label="New group"
+                title="New group"
+              >
+                <UserPlus size={16} strokeWidth={1.75} />
+              </button>
+            )}
           </div>
 
           <div className="px-3 py-2.5">
@@ -493,6 +552,26 @@ export default function ChatView() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
+            {tab === 'chats' && pendingRequests.length > 0 && (
+              <div className="px-3 py-2 space-y-2 border-b border-white/[0.06]">
+                <div className="text-[10px] uppercase tracking-wider text-white/30 px-1">Connection requests</div>
+                {pendingRequests.map((r) => (
+                  <div key={r.id} className="bg-white/[0.04] rounded-md px-3 py-2">
+                    <div className="text-white text-xs truncate">
+                      {r.from_user?.name || 'Someone'} → {r.to_user?.name || 'Someone'}
+                    </div>
+                    {leadership ? (
+                      <div className="flex gap-1.5 mt-1.5">
+                        <button type="button" className="dash-btn dash-btn-primary min-h-[44px] flex-1" onClick={() => decideRequest(r.id, 'approve')}>Approve</button>
+                        <button type="button" className="dash-btn dash-btn-ghost min-h-[44px] flex-1" onClick={() => decideRequest(r.id, 'reject')}>Reject</button>
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-white/35 mt-1">Waiting for leadership</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
             {tab === 'chats' && (
               filteredChats.length === 0 ? (
                 <div className="text-white/25 text-xs text-center px-6 py-10">
@@ -560,8 +639,16 @@ export default function ChatView() {
                   />
                   <div className="min-w-0">
                     <div className="text-white text-sm font-medium truncate">{c.name}</div>
-                    <div className={`text-[12px] ${c.is_online ? 'text-[#25D366]' : 'text-white/35'}`}>
-                      {c.is_online ? 'online' : (formatLastSeen(c.last_seen_at) || roleLabel(c))}
+                    <div className={`text-[12px] ${
+                      c.dm_status === 'pending' ? 'text-[#E8734A]'
+                        : c.dm_status === 'none' ? 'text-white/45'
+                        : c.is_online ? 'text-[#25D366]' : 'text-white/35'
+                    }`}>
+                      {c.dm_status === 'pending'
+                        ? 'Request pending'
+                        : c.dm_status === 'none'
+                          ? 'Not on this client — request'
+                          : (c.is_online ? 'online' : (formatLastSeen(c.last_seen_at) || roleLabel(c)))}
                     </div>
                   </div>
                 </button>
@@ -582,7 +669,7 @@ export default function ChatView() {
                 <button
                   type="button"
                   onClick={() => setSelected(null)}
-                  className="md:hidden p-1.5 -ml-1 rounded-md text-white/50 hover:text-white"
+                  className="md:hidden min-h-[44px] min-w-[44px] -ml-1 rounded-md text-white/50 hover:text-white flex items-center justify-center"
                   aria-label="Back to chats"
                 >
                   <ArrowLeft size={18} strokeWidth={1.75} />
@@ -615,23 +702,69 @@ export default function ChatView() {
                 <div ref={bottomRef} />
               </div>
 
-              <div className="flex gap-2 p-3 border-t border-white/[0.06]">
+              <div className="flex flex-col gap-2 p-3 border-t border-white/[0.06]">
+                {user?.role !== 'client' && (
+                  <div className="flex gap-2">
+                    <select
+                      value={refType}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setRefType(next);
+                        setRefId('');
+                        setRefOptions([]);
+                        if (!next) return;
+                        const path = { task: '/tasks', client: '/clients', clip: '/clips', asset: '/assets' }[next];
+                        if (!path) return;
+                        apiClient.get(path).then((r) => {
+                          const rows = r.data || [];
+                          setRefOptions(rows.slice(0, 80).map((row) => ({
+                            id: row.id,
+                            label: row.title || row.name || row.filename || row.id,
+                          })));
+                        }).catch(() => setRefOptions([]));
+                      }}
+                      className="bg-[#121C33] border border-white/[0.1] rounded-md px-2 text-white/70 text-sm outline-none min-h-[40px]"
+                      aria-label="Link a record"
+                    >
+                      <option value="">Link</option>
+                      <option value="task">Task</option>
+                      <option value="client">Client</option>
+                      <option value="clip">Clip</option>
+                      <option value="asset">Asset</option>
+                    </select>
+                    {refType && (
+                      <select
+                        value={refId}
+                        onChange={(e) => setRefId(e.target.value)}
+                        className="flex-1 min-w-0 bg-[#121C33] border border-white/[0.1] rounded-md px-2 text-white/70 text-sm outline-none min-h-[40px]"
+                        aria-label="Choose record"
+                      >
+                        <option value="">Pick…</option>
+                        {refOptions.map((o) => (
+                          <option key={o.id} value={o.id}>{o.label}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                )}
+                <div className="flex gap-2">
                 <input
                   value={input}
                   onChange={onInputChange}
                   onKeyDown={handleKey}
                   placeholder="Type a message…"
                   maxLength={2000}
-                  className="flex-1 bg-[#121C33] border border-white/[0.1] rounded-md px-3.5 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors"
+                  className="flex-1 bg-[#121C33] border border-white/[0.1] rounded-md px-3.5 py-2.5 text-white text-base md:text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors"
                 />
                 <button
                   onClick={send}
                   disabled={sending || !input.trim()}
-                  className="dash-btn dash-btn-primary h-10 w-10 px-0"
+                  className="dash-btn dash-btn-primary h-11 w-11 px-0 flex-shrink-0"
                   aria-label="Send"
                 >
                   <Send size={15} strokeWidth={1.75} />
                 </button>
+                </div>
               </div>
             </>
           )}

@@ -1,8 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import apiClient from '../../../utils/axiosConfig';
 import { useAuth } from '../../../context/AuthContext';
+import { can, isCreative, canReview } from '../../../lib/access';
+import { apiError } from '../../../utils/apiError';
+import EditorHomeView from './EditorHomeView';
+import ClientHomeView from './ClientHomeView';
+import { ClientMark } from '../ClientMark';
+import { NotesDialog } from '../NotesDialog';
 
 function StatCard({ value, label }) {
   return (
@@ -16,8 +23,8 @@ function StatCard({ value, label }) {
 function RecentClientRow({ client }) {
   return (
     <div className="flex items-center gap-3 py-3 border-b border-white/[0.05] last:border-0">
-      <div className="w-9 h-9 rounded-md flex items-center justify-center text-[12px] font-semibold text-white flex-shrink-0 bg-navy border border-white/[0.08]">
-        {client.name?.[0]}
+      <div className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0">
+        <ClientMark client={client} size={36} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-white text-sm font-medium truncate">{client.name}</div>
@@ -33,18 +40,46 @@ function RecentClientRow({ client }) {
 
 export default function OverviewView() {
   const { user } = useAuth();
+  if (user?.role === 'client') {
+    return <ClientHomeView />;
+  }
+  if (isCreative(user)) {
+    return <EditorHomeView />;
+  }
+  return <AgencyOverviewView user={user} />;
+}
+
+function AgencyOverviewView({ user }) {
   const [stats, setStats] = useState(null);
   const [clients, setClients] = useState([]);
+  const [queue, setQueue] = useState([]);
+  const [tracker, setTracker] = useState(null);
+  const [changeId, setChangeId] = useState(null);
+  const reviewer = canReview(user);
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   useEffect(() => {
     apiClient.get('/dashboard/stats').then((r) => setStats(r.data)).catch(() => {});
-    if (user?.role === 'owner') {
+    if (user?.role !== 'client') {
       apiClient.get('/clients').then((r) => setClients(r.data?.slice(0, 4) || [])).catch(() => {});
+      apiClient.get('/tracker/month').then((r) => setTracker(r.data)).catch(() => {});
+    }
+    if (canReview(user)) {
+      apiClient.get('/approvals', { params: { status: 'pending' } }).then((r) => setQueue(r.data || [])).catch(() => {});
     }
   }, [user]);
+
+  const decide = async (id, action, notes = '') => {
+    try {
+      await apiClient.post(`/approvals/${id}/decide`, { action, notes: notes || '' });
+      toast.success(action === 'approve' ? 'Locked this version' : 'Changes requested');
+      apiClient.get('/approvals', { params: { status: 'pending' } }).then((r) => setQueue(r.data || [])).catch(() => {});
+    } catch (e) {
+      toast.error(apiError(e, 'Could not decide'));
+    }
+  };
 
   const fmt = (n) => (n >= 100000 ? `₹${(n / 100000).toFixed(1)}L` : n >= 1000 ? `₹${(n / 1000).toFixed(0)}K` : `₹${n}`);
 
@@ -57,7 +92,7 @@ export default function OverviewView() {
           </h1>
           <p className="dash-sub">Here’s what’s moving today.</p>
         </div>
-        {user?.role === 'owner' && (
+        {can(user, 'clients.write') && (
           <Link to="/dashboard/clients" className="dash-btn dash-btn-primary self-start">
             <Plus size={14} strokeWidth={2} />
             Add client
@@ -70,11 +105,52 @@ export default function OverviewView() {
           <StatCard value={stats.total_clients} label="Active clients" />
           <StatCard value={stats.total_reels} label="Reels delivered" />
           <StatCard value={fmt(stats.total_ad_spent)} label="Ad spend" />
-          <StatCard value={stats.total_dm_inquiries || 0} label="DM inquiries" />
+          <StatCard value={stats.open_tasks ?? 0} label="Open tasks" />
         </div>
       )}
 
-      {user?.role === 'owner' && clients.length > 0 && (
+      {tracker && user?.role !== 'client' && (
+        <div className="dash-card p-5 mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-white font-medium text-sm">This month</div>
+            <Link to="/dashboard/calendar" className="text-[#E8734A] text-xs">Calendar</Link>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div><div className="text-white text-lg">{tracker.calendar?.planned ?? 0}</div><div className="text-white/35 text-xs">Planned</div></div>
+            <div><div className="text-white text-lg">{tracker.calendar?.in_production ?? 0}</div><div className="text-white/35 text-xs">In production</div></div>
+            <div><div className="text-white text-lg">{tracker.calendar?.published ?? 0}</div><div className="text-white/35 text-xs">Published</div></div>
+            <div><div className="text-white text-lg">{tracker.calendar?.on_time_pct != null ? `${tracker.calendar.on_time_pct}%` : '—'}</div><div className="text-white/35 text-xs">On-time of published{tracker.calendar?.late ? ` · ${tracker.calendar.late} late` : ''}</div></div>
+          </div>
+          <div className="text-white/35 text-xs mt-3">Approvals {tracker.approvals?.pending ?? 0} pending · {tracker.approvals?.approved ?? 0} locked</div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px] text-white/40">
+            {['idea', 'writing', 'editing', 'review', 'approved', 'scheduled', 'published', 'postponed'].map((k) => (
+              <span key={k} className="capitalize">{k.replace('_', ' ')} {tracker.calendar?.[k] ?? 0}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {reviewer && (
+        <div className="dash-card p-5 mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-white font-medium text-sm">Review queue</div>
+            <Link to="/dashboard/clip" className="text-[#E8734A] text-xs">Clip</Link>
+          </div>
+          {queue.length === 0 ? (
+            <p className="text-white/35 text-sm">Nothing waiting.</p>
+          ) : queue.slice(0, 8).map((a) => (
+            <div key={a.id} className="py-2 border-b border-white/[0.04] last:border-0">
+              <div className="text-white text-sm">{a.type} {a.version_label} · pending</div>
+              <div className="flex gap-1.5 mt-1.5">
+                <button className="dash-btn dash-btn-primary dash-btn-sm" onClick={() => decide(a.id, 'approve')}>Approve</button>
+                <button className="dash-btn dash-btn-ghost dash-btn-sm" onClick={() => setChangeId(a.id)}>Changes</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {user?.role !== 'client' && clients.length > 0 && (
         <div className="grid md:grid-cols-2 gap-4">
           <div className="dash-card p-5">
             <div className="flex items-center justify-between mb-4">
@@ -124,6 +200,15 @@ export default function OverviewView() {
             </Link>
           </div>
         </div>
+      )}
+      {changeId && (
+        <NotesDialog
+          title="Request changes"
+          label="What should change?"
+          confirmLabel="Send"
+          onClose={() => setChangeId(null)}
+          onConfirm={(notes) => { const id = changeId; setChangeId(null); decide(id, 'changes_requested', notes); }}
+        />
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Request, HTTPException, Depends, Query
+from fastapi import FastAPI, APIRouter, Request, HTTPException, Depends, Query, File, Form, UploadFile
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer
@@ -26,6 +26,15 @@ from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 import traceback
 import json
+
+import rbac
+from p0 import create_p0_router
+from p1 import create_p1_router
+from p2 import create_p2_router, normalize_cal_status
+from p3 import create_p3_router
+from p4 import create_p4_router, client_ad
+from p5 import create_p5_router, write_audit, offboard_user
+from p6 import create_p6_router
 
 # Configure comprehensive logging
 LOG_DIR = Path(__file__).parent / "logs"
@@ -403,34 +412,37 @@ class UserCreate(BaseModel):
     email: str
     name: str
     password: str
-    role: str = "employee"  # owner, employee, client
-    sub_role: Optional[str] = None  # editor, videographer, management
+    role: str = "employee"
+    job_role: Optional[str] = None
+    sub_role: Optional[str] = None  # legacy job title / custom label
     client_id: Optional[str] = None
+    assigned_client_ids: Optional[List[str]] = None
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     role: Optional[str] = None
-    sub_role: Optional[str] = None  # editor, videographer, management
+    job_role: Optional[str] = None
+    sub_role: Optional[str] = None
     client_id: Optional[str] = None
+    assigned_client_ids: Optional[List[str]] = None
+    is_active: Optional[bool] = None
 
 
 def normalize_managed_user_role(role: Optional[str], sub_role: Optional[str]) -> str:
-    """Keep owner privileges out of the team/user-management flow.
-
-    Job titles, including custom titles, are employee accounts.  The only
-    exception is a client account, which is explicitly selected and has no
-    team job title.  Owner accounts are provisioned through the owner seed,
-    not through this endpoint.
-    """
+    """Legacy helper — P0 uses rbac.normalize_create_role instead."""
     if role == "client" and not sub_role:
         return "client"
+    if role in ("admin", "operations_manager", "owner"):
+        return role
     return "employee"
 
 class ClientCreate(BaseModel):
     name: str
     industry: str = ""
+    location: str = ""
     level: str = "Silver"  # Silver, Gold, Diamond, Customised
     logo_emoji: str = ""
+    logo_url: str = ""
     color: str = "#E8734A"
     ig_handle: str = ""
     followers: str = "0"
@@ -440,6 +452,7 @@ class ClientCreate(BaseModel):
     monthly_progress: int = 0
     drive_link: str = ""
     start_date: str = ""
+    assigned_user_ids: Optional[List[str]] = None
 
     @field_validator('reels_count', 'ad_budget', 'ad_spent', 'monthly_progress', mode='before')
     @classmethod
@@ -451,11 +464,18 @@ class ClientCreate(BaseModel):
         except (ValueError, TypeError):
             return 0
 
+    @field_validator('monthly_progress')
+    @classmethod
+    def clamp_progress(cls, v):
+        return max(0, min(100, int(v or 0)))
+
 class ClientUpdate(BaseModel):
     name: Optional[str] = None
     industry: Optional[str] = None
+    location: Optional[str] = None
     level: Optional[str] = None
     logo_emoji: Optional[str] = None
+    logo_url: Optional[str] = None
     color: Optional[str] = None
     ig_handle: Optional[str] = None
     followers: Optional[str] = None
@@ -465,6 +485,24 @@ class ClientUpdate(BaseModel):
     monthly_progress: Optional[int] = None
     drive_link: Optional[str] = None
     start_date: Optional[str] = None
+    assigned_user_ids: Optional[List[str]] = None
+
+    @field_validator('reels_count', 'ad_budget', 'ad_spent', 'monthly_progress', mode='before')
+    @classmethod
+    def coerce_empty_to_zero(cls, v):
+        if v is None or v == '':
+            return None
+        try:
+            return int(float(str(v)))
+        except (ValueError, TypeError):
+            return None
+
+    @field_validator('monthly_progress')
+    @classmethod
+    def clamp_progress(cls, v):
+        if v is None:
+            return None
+        return max(0, min(100, int(v)))
 
 class CalendarEventCreate(BaseModel):
     client_id: str
@@ -472,13 +510,38 @@ class CalendarEventCreate(BaseModel):
     type: str = "reel"   # reel, post, ad, content, shoot
     date: str            # ISO date string e.g. "2026-04-15"
     time: Optional[str] = None  # HH:MM e.g. "14:30"
-    status: str = "not_started"  # not_started, in_progress, completed, postpone
+    status: str = "idea"
+    owner_id: Optional[str] = None
+
+class AdsVariant(BaseModel):
+    id: Optional[str] = None
+    name: str = ""
+    status: str = "running"
+    impressions: int = 0
+    clicks: int = 0
+    spent: int = 0
+    notes: str = ""
+
 
 class AdsCampaignCreate(BaseModel):
     client_id: str
     platform: str = "Meta"
+    name: str = ""
     budget: int = 0
     spent: int = 0
+    impressions: int = 0
+    clicks: int = 0
+    leads: int = 0
+    conversions: int = 0
+    landing: int = 0
+    whatsapp: int = 0
+    qualified: int = 0
+    appointments: int = 0
+    customers: int = 0
+    revenue: int = 0
+    objective: str = ""
+    notes: str = ""
+    variants: List[AdsVariant] = []
     month: int
     year: int
 
@@ -517,6 +580,10 @@ class ConversationCreate(BaseModel):
 
 class ChatMessageCreate(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
+    ref_type: Optional[str] = None  # task | client | clip | asset | approval
+    ref_id: Optional[str] = None
+    ref_label: Optional[str] = None
+    mention_ids: Optional[List[str]] = None
 
 class ChatTypingBody(BaseModel):
     typing: bool = True
@@ -560,18 +627,199 @@ async def require_owner(current_user: dict = Depends(get_current_user)) -> dict:
     return current_user
 
 async def require_staff(current_user: dict = Depends(get_current_user)) -> dict:
-    if current_user["role"] not in ["owner", "employee"]:
+    if current_user["role"] not in rbac.AGENCY_ROLES:
         raise HTTPException(status_code=403, detail="Staff access required")
     return current_user
 
+p0_router = create_p0_router(
+    db,
+    get_current_user=get_current_user,
+    secret_key=SECRET_KEY,
+    sanitize_input=sanitize_input,
+    assets_dir=ROOT_DIR / "data" / "os_assets",
+    logger=logger,
+)
+api_router.include_router(p0_router)
+p1_router = create_p1_router(
+    db,
+    get_current_user=get_current_user,
+    sanitize_input=sanitize_input,
+    logger=logger,
+)
+api_router.include_router(p1_router)
+p2_router = create_p2_router(
+    db,
+    get_current_user=get_current_user,
+    sanitize_input=sanitize_input,
+    logger=logger,
+)
+api_router.include_router(p2_router)
+p3_router = create_p3_router(
+    db,
+    get_current_user=get_current_user,
+    sanitize_input=sanitize_input,
+    logger=logger,
+)
+api_router.include_router(p3_router)
+p4_router = create_p4_router(
+    db,
+    get_current_user=get_current_user,
+    sanitize_input=sanitize_input,
+    logger=logger,
+)
+api_router.include_router(p4_router)
+p5_router = create_p5_router(
+    db,
+    get_current_user=get_current_user,
+    sanitize_input=sanitize_input,
+    logger=logger,
+)
+api_router.include_router(p5_router)
+p6_router = create_p6_router(
+    db,
+    get_current_user=get_current_user,
+    sanitize_input=sanitize_input,
+    logger=logger,
+)
+api_router.include_router(p6_router)
+
+LEVEL_TO_SLUG = {
+    "Silver": "silver",
+    "Gold": "gold",
+    "Diamond": "diamond",
+    "Customised": "customised",
+}
+
+
+def with_client_logo(client: Optional[dict]) -> Optional[dict]:
+    if not client:
+        return client
+    return p0_router._with_logo(client)
+
+
+async def attach_teams(clients: list) -> list:
+    if not clients:
+        return clients
+    staff = await db.users.find(
+        {"is_active": True, "role": "employee"},
+        {"_id": 0, "id": 1, "name": 1, "role": 1, "job_role": 1, "job_title": 1, "sub_role": 1, "assigned_client_ids": 1},
+    ).to_list(500)
+    by_client = {}
+    for u in staff:
+        member = {
+            "id": u["id"],
+            "name": u.get("name"),
+            "job_label": rbac.job_label(u),
+        }
+        for cid in u.get("assigned_client_ids") or []:
+            by_client.setdefault(cid, []).append(member)
+    out = []
+    for c in clients:
+        team = by_client.get(c.get("id"), [])
+        c = with_client_logo(dict(c))
+        c["team"] = team
+        c["assigned_user_ids"] = [m["id"] for m in team]
+        out.append(c)
+    return out
+
+
+async def sync_client_assignees(client_id: str, user_ids: Optional[list]):
+    """Many employees can share one client; one employee can have many clients."""
+    if user_ids is None:
+        return
+    wanted = {i for i in user_ids if i}
+    if wanted:
+        staff = await db.users.find(
+            {"id": {"$in": list(wanted)}, "is_active": True},
+            {"_id": 0, "id": 1, "role": 1},
+        ).to_list(len(wanted) + 8)
+        by_id = {u["id"]: u for u in staff}
+        for uid in wanted:
+            u = by_id.get(uid)
+            if not u or u.get("role") != "employee":
+                raise HTTPException(status_code=400, detail="Only active staff can be assigned to a client")
+        await db.users.update_many(
+            {"id": {"$in": list(wanted)}},
+            {"$addToSet": {"assigned_client_ids": client_id}},
+        )
+    await db.users.update_many(
+        {
+            "role": "employee",
+            "assigned_client_ids": client_id,
+            "id": {"$nin": list(wanted) or ["__none__"]},
+        },
+        {"$pull": {"assigned_client_ids": client_id}},
+    )
+
+
+async def attach_package_fields(client: dict) -> dict:
+    slug = LEVEL_TO_SLUG.get(client.get("level") or "", "customised")
+    pkg = await db.packages.find_one({"slug": slug}, {"_id": 0})
+    if not pkg:
+        return client
+    client["package_id"] = pkg["id"]
+    client["package_version_id"] = pkg.get("current_version_id")
+    client["package_name"] = pkg.get("name")
+    return client
+
+
+async def assert_record_client(current_user: dict, record: Optional[dict], *, missing="Record not found"):
+    if not record:
+        raise HTTPException(status_code=404, detail=missing)
+    rbac.assert_client_access(current_user, record.get("client_id"))
+    return record
+
+
 async def normalize_existing_team_roles():
-    """Remove legacy owner access from users created with a team job title."""
+    """Remove legacy owner access from users created with a team job title and apply P0 fields."""
     result = await db.users.update_many(
         {"role": "owner", "sub_role": {"$exists": True, "$ne": None}},
         {"$set": {"role": "employee"}},
     )
     if result.modified_count:
         logger.info("Normalized %s legacy team role(s) to employee access", result.modified_count)
+    users = await db.users.find({}, {"_id": 0}).to_list(2000)
+    for u in users:
+        updates = rbac.migrate_user_doc(u)
+        if updates:
+            await db.users.update_one({"id": u["id"]}, {"$set": updates})
+    try:
+        await p0_router.seed_packages()
+    except Exception as e:
+        logger.error("Package seed failed: %s", e)
+    await db.tasks.create_index("client_id")
+    await db.tasks.create_index("owner_id")
+    await db.assets.create_index("client_id")
+    await db.assets.create_index("version_group")
+    try:
+        await db.invoices.create_index("number", unique=True)
+    except Exception as e:
+        logger.warning("Invoice number index: %s", e)
+    await db.invoices.create_index("client_id")
+    try:
+        await p1_router.seed_indexes()
+    except Exception as e:
+        logger.warning("P1 index seed: %s", e)
+    try:
+        await p2_router.seed_indexes()
+    except Exception as e:
+        logger.warning("P2 index seed: %s", e)
+    try:
+        await p3_router.seed_indexes()
+    except Exception as e:
+        logger.warning("P3 index seed: %s", e)
+    try:
+        await p4_router.seed_indexes()
+    except Exception as e:
+        logger.warning("P4 index seed: %s", e)
+    try:
+        await p5_router.seed_indexes()
+    except Exception as e:
+        logger.warning("P5 index seed: %s", e)
+    try:
+        await p6_router.seed_indexes()
+    except Exception as e:
+        logger.warning("P6 index seed: %s", e)
 
 
 async def seed_owner():
@@ -586,6 +834,8 @@ async def seed_owner():
             {"$set": {
                 "password_hash": new_hash,
                 "role": "owner",
+                "department": "administration",
+                "job_role": "owner",
                 "is_active": True,
                 "name": OWNER_NAME,
             }}
@@ -598,6 +848,9 @@ async def seed_owner():
         "name": OWNER_NAME,
         "password_hash": new_hash,
         "role": "owner",
+        "department": "administration",
+        "job_role": "owner",
+        "assigned_client_ids": [],
         "client_id": None,
         "is_active": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -696,7 +949,9 @@ async def submit_contact(data: ContactCreate, request: Request):
     return {"id": contact_id, "message": "Contact form submitted successfully"}
 
 @api_router.get("/contact", response_model=List[ContactResponse])
-async def get_contacts():
+async def get_contacts(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") not in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
     logger.info("📋 Fetching all contacts")
     try:
         logger.debug("Querying contacts from MongoDB")
@@ -781,46 +1036,75 @@ async def login(data: LoginRequest):
     if not user or not verify_password(data.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = create_access_token({"sub": user["id"], "role": user["role"]})
-    return {"token": token, "user": {k: v for k, v in user.items() if k != "password_hash"}}
+    try:
+        await write_audit(db, user, "login", "auth", user["id"], user.get("email") or "")
+    except Exception:
+        pass
+    return {"token": token, "user": rbac.public_user(user)}
 
 @api_router.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
-    return {k: v for k, v in current_user.items() if k != "password_hash"}
+    return rbac.public_user(current_user)
 
-# ── User Management (owner only) ──────────────────────────────────
+# ── User Management ───────────────────────────────────────────────
 @api_router.post("/users")
-async def create_user(data: UserCreate, current_user: dict = Depends(require_owner)):
+async def create_user(data: UserCreate, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "users", "write")
     if await db.users.find_one({"email": data.email.lower()}):
         raise HTTPException(status_code=400, detail="User with this email already exists")
-    role = normalize_managed_user_role(data.role, data.sub_role)
+    identity = rbac.normalize_create_role(current_user, data.role, data.job_role, data.sub_role)
+    assigned = list(data.assigned_client_ids or [])
+    if identity["role"] == "client":
+        if not data.client_id:
+            raise HTTPException(status_code=400, detail="Client users must be linked to a client profile")
+        if not await db.clients.find_one({"id": data.client_id}, {"_id": 1}):
+            raise HTTPException(status_code=400, detail="Client profile not found")
+        identity["client_id"] = data.client_id
+        assigned = [data.client_id]
+    else:
+        identity["client_id"] = None
+        for cid in assigned:
+            if not await db.clients.find_one({"id": cid}, {"_id": 1}):
+                raise HTTPException(status_code=400, detail="Assigned client not found")
     user = {
         "id": str(uuid.uuid4()),
         "email": data.email.lower().strip(),
         "name": sanitize_input(data.name),
         "password_hash": get_password_hash(data.password),
-        "role": role,
-        "sub_role": data.sub_role,
-        "client_id": data.client_id,
+        **identity,
+        "assigned_client_ids": assigned,
         "is_active": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(user)
-    return {k: v for k, v in user.items() if k not in ["_id", "password_hash"]}
+    return rbac.public_user(user)
 
 @api_router.get("/users")
-async def list_users(current_user: dict = Depends(require_owner)):
-    await db.users.delete_many({"is_active": False})
-    return await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(500)
+async def list_users(current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "users", "read")
+    return await db.users.find({}, {"_id": 0, "password_hash": 0}).sort("name", 1).to_list(500)
+
+@api_router.get("/users/directory")
+async def users_directory(current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "users", "directory")
+    rows = await db.users.find(
+        {"is_active": True, "role": {"$in": list(rbac.AGENCY_ROLES)}},
+        {"_id": 0, "id": 1, "name": 1, "role": 1, "job_role": 1, "department": 1, "job_title": 1, "sub_role": 1},
+    ).sort("name", 1).to_list(500)
+    return [{**u, "job_label": rbac.job_label(u)} for u in rows]
 
 @api_router.delete("/users/{user_id}")
-async def delete_user(user_id: str, current_user: dict = Depends(require_owner)):
-    if user_id == current_user["id"]:
-        raise HTTPException(status_code=400, detail="You cannot delete your own account")
-    target = await db.users.find_one({"id": user_id}, {"_id": 0, "id": 1, "role": 1})
+async def delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
+    target = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    if target.get("role") == "owner":
-        raise HTTPException(status_code=400, detail="The owner account cannot be deleted")
+    rbac.can_mutate_user(current_user, target, deleting=True)
+    await db.users.update_one({"id": user_id}, {"$set": {"is_active": False, "deactivated_at": datetime.now(timezone.utc).isoformat()}})
+    try:
+        await offboard_user(db, user_id, current_user["id"])
+        await write_audit(db, current_user, "deactivate", "users", user_id, target.get("email") or target.get("name") or "")
+    except Exception as e:
+        logger.warning("Offboard hook: %s", e)
 
     convs = await db.chat_conversations.find(
         {"member_ids": user_id},
@@ -839,110 +1123,195 @@ async def delete_user(user_id: str, current_user: dict = Depends(require_owner))
     if to_delete:
         await db.chat_conversations.delete_many({"id": {"$in": to_delete}})
         await db.chat_messages.delete_many({"conversation_id": {"$in": to_delete}})
-
-    result = await db.users.delete_one({"id": user_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {"message": "User deleted"}
+    return {"message": "User deactivated"}
 
 @api_router.put("/users/{user_id}")
-async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depends(require_owner)):
-    # Keep explicitly supplied nulls (for clearing a job/client association),
-    # but do not treat omitted fields as updates.
+async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "users", "write")
+    target = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    rbac.can_mutate_user(current_user, target, deleting=False)
     update_data = data.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="No data to update")
-    if "role" in update_data or "sub_role" in update_data:
-        existing = await db.users.find_one({"id": user_id}, {"_id": 0, "role": 1, "sub_role": 1})
-        if not existing:
-            raise HTTPException(status_code=404, detail="User not found")
-        update_data["role"] = normalize_managed_user_role(
-            update_data.get("role", existing.get("role")),
-            update_data.get("sub_role", existing.get("sub_role")),
+    if "role" in update_data or "job_role" in update_data or "sub_role" in update_data:
+        identity = rbac.normalize_create_role(
+            current_user,
+            update_data.get("role", target.get("role")),
+            update_data.get("job_role", target.get("job_role")),
+            update_data.get("sub_role", target.get("sub_role")),
         )
+        update_data.update(identity)
+    if "assigned_client_ids" in update_data:
+        assigned = list(update_data["assigned_client_ids"] or [])
+        for cid in assigned:
+            if not await db.clients.find_one({"id": cid}, {"_id": 1}):
+                raise HTTPException(status_code=400, detail="Assigned client not found")
+        update_data["assigned_client_ids"] = assigned
+    if update_data.get("role") == "client":
+        cid = update_data.get("client_id") or target.get("client_id")
+        if not cid:
+            raise HTTPException(status_code=400, detail="Client users must be linked to a client profile")
+        update_data["client_id"] = cid
+        update_data["assigned_client_ids"] = [cid]
     result = await db.users.update_one({"id": user_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
-    return updated
+    try:
+        bits = []
+        if "role" in update_data or "job_role" in update_data:
+            bits.append(f"{updated.get('role')} / {updated.get('job_role')}")
+        if "assigned_client_ids" in update_data:
+            bits.append("clients")
+        await write_audit(db, current_user, "permissions", "users", user_id, "; ".join(bits) or "update")
+    except Exception:
+        pass
+    return rbac.public_user(updated)
 
 @api_router.put("/users/{user_id}/reset-password")
-async def reset_user_password(user_id: str, data: dict, current_user: dict = Depends(require_owner)):
+async def reset_user_password(user_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "users", "write")
+    target = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    rbac.can_mutate_user(current_user, target, deleting=False)
     new_password = data.get("password", "")
     if len(new_password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
-    result = await db.users.update_one({"id": user_id}, {"$set": {"password_hash": get_password_hash(new_password)}})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="User not found")
+    await db.users.update_one({"id": user_id}, {"$set": {"password_hash": get_password_hash(new_password)}})
     return {"message": "Password updated"}
 
 # ── Dashboard Stats ───────────────────────────────────────────────
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] in ["owner", "employee"]:
+    if current_user["role"] in rbac.AGENCY_ROLES:
         def to_int(v):
             try:
                 return int(float(str(v))) if v not in (None, '') else 0
             except (ValueError, TypeError):
                 return 0
 
-        total_clients = await db.clients.count_documents({})
-        clients_data = await db.clients.find({}, {"reels_count": 1}).to_list(1000)
-        total_reels = sum(to_int(c.get("reels_count", 0)) for c in clients_data)
-        ads = await db.ads_campaigns.find({}).to_list(1000)
-        total_budget = sum(to_int(a.get("budget", 0)) for a in ads)
-        total_spent = sum(to_int(a.get("spent", 0)) for a in ads)
-        kpis = await db.kpis.find({}).to_list(1000)
-        total_dm = sum(to_int(k.get("dm_inquiries", 0)) for k in kpis)
+        ids = rbac.accessible_client_ids(current_user)
+        if ids is None:
+            client_match = {}
+            related = {}
+            total_clients = await db.clients.count_documents({})
+        else:
+            client_match = {"id": {"$in": ids}}
+            related = {"client_id": {"$in": ids}}
+            total_clients = len(ids)
+        clients_data = await db.clients.find(client_match, {"reels_count": 1}).to_list(1000)
+        ads = await db.ads_campaigns.find(related).to_list(1000)
+        kpis = await db.kpis.find(related).to_list(1000)
+        open_q = {"status": {"$nin": ["done", "cancelled"]}}
+        if related:
+            open_q.update(related)
+        open_tasks = await db.tasks.count_documents(open_q)
         return {
             "total_clients": total_clients,
-            "total_reels": total_reels,
-            "total_ad_budget": total_budget,
-            "total_ad_spent": total_spent,
-            "total_dm_inquiries": total_dm,
+            "total_reels": sum(to_int(c.get("reels_count", 0)) for c in clients_data),
+            "total_ad_budget": sum(to_int(a.get("budget", 0)) for a in ads),
+            "total_ad_spent": sum(to_int(a.get("spent", 0)) for a in ads),
+            "total_dm_inquiries": sum(to_int(k.get("dm_inquiries", 0)) for k in kpis),
+            "open_tasks": open_tasks,
         }
     client_id = current_user.get("client_id")
     if not client_id:
         return {}
     client = await db.clients.find_one({"id": client_id}, {"_id": 0})
-    return client or {}
+    return with_client_logo(client) or {}
 
 # ── Clients ───────────────────────────────────────────────────────
 @api_router.get("/clients")
 async def list_clients(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] in ["owner", "employee"]:
-        return await db.clients.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
-    client_id = current_user.get("client_id")
-    if not client_id:
-        return []
-    client = await db.clients.find_one({"id": client_id}, {"_id": 0})
-    return [client] if client else []
+    ids = rbac.accessible_client_ids(current_user)
+    if ids is None:
+        rows = await db.clients.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    elif not ids:
+        rows = []
+    else:
+        rows = await db.clients.find({"id": {"$in": ids}}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return (await attach_teams(rows)) if rows else []
 
 @api_router.post("/clients")
-async def create_client(data: ClientCreate, current_user: dict = Depends(require_owner)):
-    client = {"id": str(uuid.uuid4()), **data.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
+async def create_client(data: ClientCreate, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "clients", "write")
+    payload = data.model_dump()
+    assigned_user_ids = payload.pop("assigned_user_ids", None)
+    client = {"id": str(uuid.uuid4()), **payload, "created_at": datetime.now(timezone.utc).isoformat()}
+    client = await attach_package_fields(client)
     await db.clients.insert_one(client)
     client.pop("_id", None)
-    return client
+    await sync_client_assignees(client["id"], assigned_user_ids)
+    return (await attach_teams([client]))[0]
 
 @api_router.put("/clients/{client_id}")
-async def update_client(client_id: str, data: ClientUpdate, current_user: dict = Depends(require_owner)):
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    if not update_data:
-        raise HTTPException(status_code=400, detail="No fields to update")
-    result = await db.clients.update_one({"id": client_id}, {"$set": update_data})
-    if result.matched_count == 0:
+async def update_client(client_id: str, data: ClientUpdate, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "clients", "write")
+    existing = await db.clients.find_one({"id": client_id}, {"_id": 0})
+    if not existing:
         raise HTTPException(status_code=404, detail="Client not found")
-    return await db.clients.find_one({"id": client_id}, {"_id": 0})
+    dumped = data.model_dump(exclude_unset=True)
+    assigned_user_ids = dumped.pop("assigned_user_ids", None)
+    update_data = {k: v for k, v in dumped.items() if v is not None}
+    if "level" in update_data and update_data["level"] != existing.get("level"):
+        packaged = await attach_package_fields({**existing, **update_data})
+        update_data["package_id"] = packaged.get("package_id")
+        update_data["package_version_id"] = packaged.get("package_version_id")
+        update_data["package_name"] = packaged.get("package_name")
+    if update_data:
+        result = await db.clients.update_one({"id": client_id}, {"$set": update_data})
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Client not found")
+    if assigned_user_ids is not None:
+        await sync_client_assignees(client_id, assigned_user_ids)
+    updated = await db.clients.find_one({"id": client_id}, {"_id": 0})
+    return (await attach_teams([updated]))[0]
+
+@api_router.post("/clients/{client_id}/logo")
+async def upload_client_logo(
+    client_id: str,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+):
+    rbac.assert_can(current_user, "clients", "write")
+    if not await db.clients.find_one({"id": client_id}, {"_id": 1}):
+        raise HTTPException(status_code=404, detail="Client not found")
+    asset = await p0_router._store_upload(
+        upload=file,
+        current_user=current_user,
+        client_id=client_id,
+        bucket="brand",
+        task_id=None,
+        campaign_id=None,
+        max_bytes=3 * 1024 * 1024,
+        logo=True,
+    )
+    await db.clients.update_one(
+        {"id": client_id},
+        {"$set": {"logo_asset_id": asset["id"], "logo_url": ""}},
+    )
+    return with_client_logo(await db.clients.find_one({"id": client_id}, {"_id": 0}))
 
 @api_router.delete("/clients/{client_id}")
-async def delete_client(client_id: str, current_user: dict = Depends(require_owner)):
+async def delete_client(client_id: str, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "clients", "delete")
     result = await db.clients.delete_one({"id": client_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Client not found")
+    await db.users.update_many({}, {"$pull": {"assigned_client_ids": client_id}})
     return {"message": "Client deleted"}
 
 # ── Content Calendar ──────────────────────────────────────────────
+def _stamp_published(payload: dict, existing: Optional[dict] = None) -> dict:
+    if payload.get("status") == "published":
+        payload["published_at"] = (existing or {}).get("published_at") or datetime.now(timezone.utc).isoformat()
+    else:
+        payload["published_at"] = None
+    return payload
+
 @api_router.get("/calendar")
 async def get_calendar(
     month: Optional[int] = Query(None),
@@ -952,18 +1321,28 @@ async def get_calendar(
     query = {}
     if month and year:
         query["date"] = {"$regex": f"^{year}-{str(month).zfill(2)}"}
-    if current_user["role"] == "client":
-        client_id = current_user.get("client_id")
-        if not client_id:
-            return []
-        query["client_id"] = client_id
-    return await db.calendar_events.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    rbac.apply_client_query(query, current_user)
+    rows = await db.calendar_events.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    out = []
+    for ev in rows:
+        ev["status"] = normalize_cal_status(ev.get("status"))
+        if current_user.get("role") == "client" and ev["status"] not in ("approved", "scheduled", "published", "postponed"):
+            continue
+        if current_user.get("role") == "client":
+            ev = {k: ev.get(k) for k in ("id", "title", "date", "time", "type", "status", "client_id")}
+        out.append(ev)
+    return out
 
 @api_router.post("/calendar")
-async def create_calendar_event(data: CalendarEventCreate, current_user: dict = Depends(require_staff)):
+async def create_calendar_event(data: CalendarEventCreate, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "calendar", "write")
+    rbac.assert_client_access(current_user, data.client_id)
+    payload = data.model_dump()
+    payload["status"] = normalize_cal_status(payload.get("status"))
+    payload = _stamp_published(payload)
     event = {
         "id": str(uuid.uuid4()),
-        **data.model_dump(),
+        **payload,
         "created_by": current_user["id"],
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -972,79 +1351,121 @@ async def create_calendar_event(data: CalendarEventCreate, current_user: dict = 
     return event
 
 @api_router.put("/calendar/{event_id}")
-async def update_calendar_event(event_id: str, data: CalendarEventCreate, current_user: dict = Depends(require_staff)):
-    result = await db.calendar_events.update_one({"id": event_id}, {"$set": data.model_dump()})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Event not found")
+async def update_calendar_event(event_id: str, data: CalendarEventCreate, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "calendar", "write")
+    existing = await db.calendar_events.find_one({"id": event_id}, {"_id": 0})
+    await assert_record_client(current_user, existing, missing="Event not found")
+    rbac.assert_client_access(current_user, data.client_id)
+    payload = data.model_dump()
+    payload["status"] = normalize_cal_status(payload.get("status"))
+    payload = _stamp_published(payload, existing)
+    await db.calendar_events.update_one({"id": event_id}, {"$set": payload})
     return await db.calendar_events.find_one({"id": event_id}, {"_id": 0})
 
 @api_router.delete("/calendar/{event_id}")
-async def delete_calendar_event(event_id: str, current_user: dict = Depends(require_staff)):
-    result = await db.calendar_events.delete_one({"id": event_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Event not found")
+async def delete_calendar_event(event_id: str, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "calendar", "write")
+    existing = await db.calendar_events.find_one({"id": event_id}, {"_id": 0})
+    await assert_record_client(current_user, existing, missing="Event not found")
+    await db.calendar_events.delete_one({"id": event_id})
     return {"message": "Event deleted"}
 
 # ── Ads Campaigns ─────────────────────────────────────────────────
+def _ads_payload(data: AdsCampaignCreate) -> dict:
+    payload = data.model_dump()
+    payload["notes"] = sanitize_input(payload.get("notes") or "")[:2000]
+    payload["name"] = sanitize_input(payload.get("name") or "")[:120]
+    payload["objective"] = sanitize_input(payload.get("objective") or "")[:80]
+    payload["platform"] = sanitize_input(payload.get("platform") or "Meta")[:40]
+    variants = []
+    for v in payload.get("variants") or []:
+        st = v.get("status") or "running"
+        if st not in ("running", "winner", "paused"):
+            st = "running"
+        variants.append({
+            "id": v.get("id") or str(uuid.uuid4()),
+            "name": sanitize_input(v.get("name") or "")[:80],
+            "status": st,
+            "impressions": int(v.get("impressions") or 0),
+            "clicks": int(v.get("clicks") or 0),
+            "spent": int(v.get("spent") or 0),
+            "notes": sanitize_input(v.get("notes") or "")[:500],
+        })
+    payload["variants"] = variants
+    return payload
+
+
 @api_router.get("/ads")
 async def get_ads(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] in ["owner", "employee"]:
-        return await db.ads_campaigns.find({}, {"_id": 0}).to_list(500)
-    client_id = current_user.get("client_id")
-    if not client_id:
-        return []
-    return await db.ads_campaigns.find({"client_id": client_id}, {"_id": 0}).to_list(500)
+    rbac.assert_can(current_user, "ads", "read")
+    query = {}
+    rbac.apply_client_query(query, current_user)
+    rows = await db.ads_campaigns.find(query, {"_id": 0}).to_list(500)
+    if current_user.get("role") == "client":
+        return [client_ad(r) for r in rows]
+    return rows
 
 @api_router.post("/ads")
-async def create_ads_campaign(data: AdsCampaignCreate, current_user: dict = Depends(require_owner)):
-    campaign = {"id": str(uuid.uuid4()), **data.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
+async def create_ads_campaign(data: AdsCampaignCreate, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "ads", "write")
+    rbac.assert_client_access(current_user, data.client_id)
+    campaign = {"id": str(uuid.uuid4()), **_ads_payload(data), "created_at": datetime.now(timezone.utc).isoformat()}
     await db.ads_campaigns.insert_one(campaign)
     campaign.pop("_id", None)
     return campaign
 
 @api_router.put("/ads/{campaign_id}")
-async def update_ads_campaign(campaign_id: str, data: AdsCampaignCreate, current_user: dict = Depends(require_owner)):
-    result = await db.ads_campaigns.update_one({"id": campaign_id}, {"$set": data.model_dump()})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Campaign not found")
+async def update_ads_campaign(campaign_id: str, data: AdsCampaignCreate, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "ads", "write")
+    existing = await db.ads_campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    await assert_record_client(current_user, existing, missing="Campaign not found")
+    rbac.assert_client_access(current_user, data.client_id)
+    await db.ads_campaigns.update_one({"id": campaign_id}, {"$set": _ads_payload(data)})
     return await db.ads_campaigns.find_one({"id": campaign_id}, {"_id": 0})
 
 @api_router.delete("/ads/{campaign_id}")
-async def delete_ads_campaign(campaign_id: str, current_user: dict = Depends(require_owner)):
-    result = await db.ads_campaigns.delete_one({"id": campaign_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Campaign not found")
+async def delete_ads_campaign(campaign_id: str, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "ads", "write")
+    existing = await db.ads_campaigns.find_one({"id": campaign_id}, {"_id": 0})
+    await assert_record_client(current_user, existing, missing="Campaign not found")
+    await db.ads_campaigns.delete_one({"id": campaign_id})
+    try:
+        await write_audit(db, current_user, "delete", "ads", campaign_id, existing.get("name") or existing.get("platform") or "")
+    except Exception:
+        pass
     return {"message": "Campaign deleted"}
 
 # ── KPIs ──────────────────────────────────────────────────────────
 @api_router.get("/kpis")
 async def get_kpis(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] in ["owner", "employee"]:
-        return await db.kpis.find({}, {"_id": 0}).to_list(500)
-    client_id = current_user.get("client_id")
-    if not client_id:
-        return []
-    return await db.kpis.find({"client_id": client_id}, {"_id": 0}).to_list(500)
+    query = {}
+    rbac.apply_client_query(query, current_user)
+    return await db.kpis.find(query, {"_id": 0}).to_list(500)
 
 @api_router.post("/kpis")
-async def create_kpi(data: KPICreate, current_user: dict = Depends(require_staff)):
+async def create_kpi(data: KPICreate, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "kpis", "write")
+    rbac.assert_client_access(current_user, data.client_id)
     kpi = {"id": str(uuid.uuid4()), **data.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
     await db.kpis.insert_one(kpi)
     kpi.pop("_id", None)
     return kpi
 
 @api_router.put("/kpis/{kpi_id}")
-async def update_kpi(kpi_id: str, data: KPICreate, current_user: dict = Depends(require_staff)):
-    result = await db.kpis.update_one({"id": kpi_id}, {"$set": data.model_dump()})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="KPI not found")
+async def update_kpi(kpi_id: str, data: KPICreate, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "kpis", "write")
+    existing = await db.kpis.find_one({"id": kpi_id}, {"_id": 0})
+    await assert_record_client(current_user, existing, missing="KPI not found")
+    rbac.assert_client_access(current_user, data.client_id)
+    await db.kpis.update_one({"id": kpi_id}, {"$set": data.model_dump()})
     return await db.kpis.find_one({"id": kpi_id}, {"_id": 0})
 
 @api_router.delete("/kpis/{kpi_id}")
-async def delete_kpi(kpi_id: str, current_user: dict = Depends(require_staff)):
-    result = await db.kpis.delete_one({"id": kpi_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="KPI not found")
+async def delete_kpi(kpi_id: str, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "kpis", "write")
+    existing = await db.kpis.find_one({"id": kpi_id}, {"_id": 0})
+    await assert_record_client(current_user, existing, missing="KPI not found")
+    await db.kpis.delete_one({"id": kpi_id})
     return {"message": "KPI deleted"}
 
 # ── Post Reports (monthly delivery tracker) ───────────────────────
@@ -1057,14 +1478,22 @@ async def get_post_reports(
         cid = current_user.get("client_id")
         if not cid:
             return []
-        return await db.post_reports.find({"client_id": cid}, {"_id": 0}).to_list(500)
-    if current_user["role"] not in ["owner", "employee"]:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    query = {"client_id": client_id} if client_id else {}
+        return [
+            {k: r.get(k) for k in r if k != "notes"} | {"notes": ""}
+            for r in await db.post_reports.find({"client_id": cid}, {"_id": 0}).to_list(500)
+        ]
+    rbac.assert_can(current_user, "post_reports", "read")
+    query = {}
+    rbac.apply_client_query(query, current_user)
+    if client_id:
+        rbac.assert_client_access(current_user, client_id)
+        query["client_id"] = client_id
     return await db.post_reports.find(query, {"_id": 0}).to_list(500)
 
 @api_router.put("/post-reports")
-async def upsert_post_report(data: PostReportUpsert, current_user: dict = Depends(require_staff)):
+async def upsert_post_report(data: PostReportUpsert, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "post_reports", "write")
+    rbac.assert_client_access(current_user, data.client_id)
     if data.month < 1 or data.month > 12:
         raise HTTPException(status_code=400, detail="Month must be 1-12")
     if data.year < 2000 or data.year > 2100:
@@ -1098,14 +1527,15 @@ async def upsert_post_report(data: PostReportUpsert, current_user: dict = Depend
     return report
 
 @api_router.delete("/post-reports/{report_id}")
-async def delete_post_report(report_id: str, current_user: dict = Depends(require_staff)):
-    result = await db.post_reports.delete_one({"id": report_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Post report not found")
+async def delete_post_report(report_id: str, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "post_reports", "write")
+    existing = await db.post_reports.find_one({"id": report_id}, {"_id": 0})
+    await assert_record_client(current_user, existing, missing="Post report not found")
+    await db.post_reports.delete_one({"id": report_id})
     return {"message": "Post report deleted"}
 
 # ── Chat ──────────────────────────────────────────────────────────
-CHAT_USER_FIELDS = {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1, "sub_role": 1, "last_seen_at": 1}
+CHAT_USER_FIELDS = {"_id": 0, "id": 1, "name": 1, "email": 1, "role": 1, "sub_role": 1, "job_role": 1, "department": 1, "job_title": 1, "last_seen_at": 1}
 CHAT_ONLINE_SECONDS = 25
 CHAT_TYPING_SECONDS = 5
 
@@ -1137,6 +1567,8 @@ def _public_chat_user(u: dict) -> dict:
         "email": u.get("email"),
         "role": u.get("role"),
         "sub_role": u.get("sub_role"),
+        "job_role": u.get("job_role"),
+        "job_label": rbac.job_label(u),
         "last_seen_at": last_seen_at,
         "is_online": _is_online(last_seen_at),
     }
@@ -1299,6 +1731,91 @@ def _with_receipts(msgs: List[dict], conv: dict, current_user_id: str) -> List[d
     return out
 
 
+def _staff_client_pair(a: dict, b: dict) -> bool:
+    roles = {a.get("role"), b.get("role")}
+    if rbac.is_leadership(a) or rbac.is_leadership(b) or a.get("role") == "owner" or b.get("role") == "owner":
+        return False
+    return "client" in roles and "employee" in roles
+
+
+def _staff_already_on_client(staff: dict, client: dict) -> bool:
+    cid = client.get("client_id")
+    if not cid:
+        return False
+    return cid in rbac.assigned_client_ids(staff)
+
+
+async def _connection_status(me: dict, other: dict) -> str:
+    """open | pending | none — request only if the staffer is not already on that client."""
+    if not _staff_client_pair(me, other):
+        return "open"
+    staff, client_user = (me, other) if me.get("role") != "client" else (other, me)
+    if _staff_already_on_client(staff, client_user):
+        return "open"
+    existing = await _find_existing_dm(me["id"], other["id"])
+    if existing:
+        return "open"
+    req = await db.chat_connection_requests.find_one(
+        {
+            "$or": [
+                {"from_id": me["id"], "to_id": other["id"]},
+                {"from_id": other["id"], "to_id": me["id"]},
+            ],
+        },
+        {"_id": 0},
+        sort=[("created_at", -1)],
+    )
+    if not req:
+        return "none"
+    if req.get("status") == "approved":
+        return "open"
+    if req.get("status") == "pending":
+        return "pending"
+    return "none"
+
+
+async def _ensure_department_channels():
+    now = datetime.now(timezone.utc).isoformat()
+    labels = {
+        "marketing": "Marketing",
+        "creative": "Creative",
+        "technology": "Technology",
+        "operations": "Operations",
+    }
+    staff = await db.users.find(
+        {"is_active": True, "role": {"$in": list(rbac.AGENCY_ROLES)}},
+        {"_id": 0, "id": 1, "department": 1, "role": 1},
+    ).to_list(500)
+    for dept, name in labels.items():
+        members = [
+            u["id"]
+            for u in staff
+            if (u.get("department") == dept or u.get("role") in rbac.LEADERSHIP_ROLES or u.get("role") == "owner")
+        ]
+        members = list(dict.fromkeys(members))
+        if len(members) < 2:
+            continue
+        conv = await db.chat_conversations.find_one({"type": "group", "department": dept}, {"_id": 0})
+        if not conv:
+            await db.chat_conversations.insert_one({
+                "id": str(uuid.uuid4()),
+                "type": "group",
+                "department": dept,
+                "name": name,
+                "member_ids": members,
+                "created_by": None,
+                "created_at": now,
+                "last_message": None,
+                "last_message_at": now,
+                "last_sender_id": None,
+                "delivered_at": {},
+                "read_at": {},
+                "typing_at": {},
+            })
+        else:
+            await db.chat_conversations.update_one({"id": conv["id"]}, {"$set": {"member_ids": members}})
+
+
 @api_router.post("/chat/presence")
 async def chat_presence(current_user: dict = Depends(get_current_user)):
     now = datetime.now(timezone.utc).isoformat()
@@ -1315,7 +1832,7 @@ async def chat_presence(current_user: dict = Depends(get_current_user)):
 async def list_chat_contacts(current_user: dict = Depends(get_current_user)):
     me = current_user["id"]
     my_email = (current_user.get("email") or "").strip().lower()
-    query = {"id": {"$ne": me}, "is_active": True}
+    query = rbac.chat_visible_query(current_user)
     users = await db.users.find(query, CHAT_USER_FIELDS).sort("name", 1).to_list(500)
     out = []
     for u in users:
@@ -1324,7 +1841,7 @@ async def list_chat_contacts(current_user: dict = Depends(get_current_user)):
         email = (u.get("email") or "").strip().lower()
         if my_email and email == my_email:
             continue
-        out.append(_public_chat_user(u))
+        out.append({**_public_chat_user(u), "dm_status": await _connection_status(current_user, u)})
     return out
 
 
@@ -1332,6 +1849,8 @@ async def list_chat_contacts(current_user: dict = Depends(get_current_user)):
 async def list_conversations(current_user: dict = Depends(get_current_user)):
     now = datetime.now(timezone.utc).isoformat()
     me = current_user["id"]
+    if current_user.get("role") in rbac.AGENCY_ROLES:
+        await _ensure_department_channels()
     await db.users.update_one({"id": me}, {"$set": {"last_seen_at": now}})
     await db.chat_conversations.update_many(
         {"member_ids": me},
@@ -1363,10 +1882,29 @@ async def create_conversation(data: ConversationCreate, current_user: dict = Dep
         other = await db.users.find_one({"id": other_id, "is_active": True}, CHAT_USER_FIELDS)
         if not other:
             raise HTTPException(status_code=404, detail="User not found")
+        allowed = await db.users.find_one({**rbac.chat_visible_query(current_user), "id": other_id}, {"_id": 1})
+        if not allowed:
+            raise HTTPException(status_code=403, detail="You cannot message this user")
         existing = await _find_existing_dm(me, other_id)
         if existing:
             users_map = await _users_by_ids(existing.get("member_ids") or [])
             return _serialize_conversation(existing, me, users_map)
+        status = await _connection_status(current_user, other)
+        if status == "pending":
+            raise HTTPException(status_code=409, detail="Connection request is waiting for Owner / Admin / Operations Manager")
+        if status == "none":
+            req = {
+                "id": str(uuid.uuid4()),
+                "from_id": me,
+                "to_id": other_id,
+                "status": "pending",
+                "created_at": now,
+                "decided_by": None,
+                "decided_at": None,
+            }
+            await db.chat_connection_requests.insert_one(req)
+            req.pop("_id", None)
+            return JSONResponse(status_code=202, content={"status": "pending_request", "request": req})
         member_ids = sorted([me, other_id])
         conv = {
             "id": str(uuid.uuid4()),
@@ -1499,6 +2037,10 @@ async def send_conversation_message(
         "sender_name": current_user["name"],
         "sender_role": current_user["role"],
         "message": text,
+        "ref_type": data.ref_type,
+        "ref_id": data.ref_id,
+        "ref_label": sanitize_input(data.ref_label) if data.ref_label else None,
+        "mention_ids": list(data.mention_ids or []),
         "created_at": now,
     }
     await db.chat_messages.insert_one(msg)
@@ -1519,20 +2061,91 @@ async def send_conversation_message(
     msg["receipt"] = _message_receipt(msg, conv, me) or "sent"
     return msg
 
+
+class ChatRequestDecide(BaseModel):
+    action: str  # approve | reject
+
+
+@api_router.get("/chat/requests")
+async def list_chat_requests(current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "chat", "read")
+    if rbac.is_leadership(current_user) or current_user.get("role") == "owner":
+        rows = await db.chat_connection_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    else:
+        rows = await db.chat_connection_requests.find(
+            {"$or": [{"from_id": current_user["id"]}, {"to_id": current_user["id"]}]},
+            {"_id": 0},
+        ).sort("created_at", -1).to_list(50)
+    ids = []
+    for r in rows:
+        ids.extend([r.get("from_id"), r.get("to_id")])
+    users_map = await _users_by_ids(ids)
+    out = []
+    for r in rows:
+        out.append({
+            **r,
+            "from_user": _public_chat_user(users_map.get(r.get("from_id")) or {"id": r.get("from_id")}),
+            "to_user": _public_chat_user(users_map.get(r.get("to_id")) or {"id": r.get("to_id")}),
+        })
+    return out
+
+
+@api_router.post("/chat/requests/{request_id}/decide")
+async def decide_chat_request(request_id: str, data: ChatRequestDecide, current_user: dict = Depends(get_current_user)):
+    if not (rbac.is_leadership(current_user) or current_user.get("role") == "owner"):
+        raise HTTPException(status_code=403, detail="Only Owner / Admin / Operations Manager can approve chat requests")
+    req = await db.chat_connection_requests.find_one({"id": request_id}, {"_id": 0})
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Request already decided")
+    action = data.action
+    if action not in ("approve", "reject"):
+        raise HTTPException(status_code=400, detail="action must be approve or reject")
+    now = datetime.now(timezone.utc).isoformat()
+    status = "approved" if action == "approve" else "rejected"
+    await db.chat_connection_requests.update_one(
+        {"id": request_id},
+        {"$set": {"status": status, "decided_by": current_user["id"], "decided_at": now}},
+    )
+    if action == "approve":
+        a, b = req["from_id"], req["to_id"]
+        existing = await _find_existing_dm(a, b)
+        if not existing:
+            conv = {
+                "id": str(uuid.uuid4()),
+                "type": "dm",
+                "dm_key": _dm_key(a, b),
+                "name": None,
+                "member_ids": sorted([a, b]),
+                "created_by": current_user["id"],
+                "created_at": now,
+                "last_message": None,
+                "last_message_at": now,
+                "last_sender_id": None,
+                "delivered_at": {},
+                "read_at": {},
+                "typing_at": {},
+            }
+            await db.chat_conversations.insert_one(conv)
+    return await db.chat_connection_requests.find_one({"id": request_id}, {"_id": 0})
+
 # ── Strategy Hooks ────────────────────────────────────────────────
 @api_router.get("/strategy/hooks")
 async def get_hooks(current_user: dict = Depends(require_staff)):
     return await db.strategy_hooks.find({}, {"_id": 0}).sort("created_at", 1).to_list(100)
 
 @api_router.post("/strategy/hooks")
-async def create_hook(data: StrategyHookCreate, current_user: dict = Depends(require_owner)):
+async def create_hook(data: StrategyHookCreate, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "strategy", "write")
     hook = {"id": str(uuid.uuid4()), **data.model_dump(), "created_at": datetime.now(timezone.utc).isoformat()}
     await db.strategy_hooks.insert_one(hook)
     hook.pop("_id", None)
     return hook
 
 @api_router.delete("/strategy/hooks/{hook_id}")
-async def delete_hook(hook_id: str, current_user: dict = Depends(require_owner)):
+async def delete_hook(hook_id: str, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "strategy", "write")
     result = await db.strategy_hooks.delete_one({"id": hook_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Hook not found")
@@ -1562,6 +2175,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     )
 
 # ── BhuFix ClockIN (separate product) ─────────────────────────────
+import rbac
+from p0 import create_p0_router
 from clockin import create_clockin_router, mount_adms_routes
 
 api_router.include_router(

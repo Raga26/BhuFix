@@ -27,11 +27,23 @@ import ClientsView from "./components/dashboard/views/ClientsView";
 import PostReportView from "./components/dashboard/views/PostReportView";
 import CalendarView from "./components/dashboard/views/CalendarView";
 import AdsView from "./components/dashboard/views/AdsView";
+import SeoView from "./components/dashboard/views/SeoView";
+import WebView from "./components/dashboard/views/WebView";
+import CompetitorsView from "./components/dashboard/views/CompetitorsView";
 import StrategyView from "./components/dashboard/views/StrategyView";
-import DriveView from "./components/dashboard/views/DriveView";
+import AssetsView from "./components/dashboard/views/AssetsView";
 import ChatView from "./components/dashboard/views/ChatView";
 import KPIView from "./components/dashboard/views/KPIView";
 import UsersView from "./components/dashboard/views/UsersView";
+import TasksView from "./components/dashboard/views/TasksView";
+import PackagesView from "./components/dashboard/views/PackagesView";
+import InvoicesView from "./components/dashboard/views/InvoicesView";
+import ClipView from "./components/dashboard/views/ClipView";
+import ApprovalsView from "./components/dashboard/views/ApprovalsView";
+import PublishQueueView from "./components/dashboard/views/PublishQueueView";
+import PerformanceView from "./components/dashboard/views/PerformanceView";
+import InsightsView from "./components/dashboard/views/InsightsView";
+import AuditView from "./components/dashboard/views/AuditView";
 import ClockInLandingPage from "./pages/clockin/ClockInLandingPage";
 import ClockInLoginPage from "./pages/clockin/ClockInLoginPage";
 import ClockInRegisterPage from "./pages/clockin/ClockInRegisterPage";
@@ -117,7 +129,7 @@ function App() {
           <ClockInAuthProvider>
             <div className="App">
               <BrowserRouter>
-                <Toaster position="top-right" richColors />
+                <Toaster position="top-center" richColors />
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/login" element={<LoginPage />} />
@@ -144,45 +156,105 @@ function App() {
                   >
                     <Route index element={<OverviewView />} />
                     <Route path="clients" element={
-                      <ProtectedRoute roles={['owner']}>
+                      <ProtectedRoute permission="clients.read">
                         <ClientsView />
                       </ProtectedRoute>
                     } />
                     <Route path="clients/:clientId/post-report" element={
-                      <ProtectedRoute roles={['owner', 'employee']}>
+                      <ProtectedRoute permission="post_reports.read">
                         <PostReportView />
                       </ProtectedRoute>
                     } />
                     <Route path="calendar" element={<CalendarView />} />
+                    <Route path="publish" element={
+                      <ProtectedRoute permission="calendar.read">
+                        <PublishQueueView />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="approvals" element={
+                      <ProtectedRoute permission="approvals.read">
+                        <ApprovalsView />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="tasks" element={
+                      <ProtectedRoute permission="tasks.read">
+                        <TasksView />
+                      </ProtectedRoute>
+                    } />
                     <Route path="ads" element={
-                      <ProtectedRoute roles={['owner','employee']}>
+                      <ProtectedRoute permission="ads.read">
                         <AdsView />
                       </ProtectedRoute>
                     } />
+                    <Route path="performance" element={
+                      <ProtectedRoute permission="performance.read">
+                        <PerformanceView />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="insights" element={
+                      <ProtectedRoute permission="insights.read">
+                        <InsightsView />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="seo" element={
+                      <ProtectedRoute permission="seo.read">
+                        <SeoView />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="web" element={
+                      <ProtectedRoute permission="web.read">
+                        <WebView />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="competitors" element={
+                      <ProtectedRoute permission="competitors.read">
+                        <CompetitorsView />
+                      </ProtectedRoute>
+                    } />
                     <Route path="strategy" element={
-                      <ProtectedRoute roles={['owner','employee']}>
+                      <ProtectedRoute permission="strategy.read">
                         <StrategyView />
                       </ProtectedRoute>
                     } />
                     <Route path="drive" element={
-                      <ProtectedRoute roles={['owner','employee','client']}>
-                        <DriveView />
+                      <ProtectedRoute permission="assets.read">
+                        <AssetsView />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="clip" element={
+                      <ProtectedRoute permission="clips.read">
+                        <ClipView />
                       </ProtectedRoute>
                     } />
                     <Route path="chat" element={
-                      <ProtectedRoute roles={['owner','employee','client']}>
+                      <ProtectedRoute permission="chat.read">
                         <ChatView />
                       </ProtectedRoute>
                     } />
                     <Route path="messages" element={<Navigate to="/dashboard/chat" replace />} />
                     <Route path="kpis" element={
-                      <ProtectedRoute roles={['owner','employee','client']}>
+                      <ProtectedRoute permission="kpis.read">
                         <KPIView />
                       </ProtectedRoute>
                     } />
+                    <Route path="packages" element={
+                      <ProtectedRoute permission="packages.read">
+                        <PackagesView />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="invoices" element={
+                      <ProtectedRoute permission="invoices.read">
+                        <InvoicesView />
+                      </ProtectedRoute>
+                    } />
                     <Route path="users" element={
-                      <ProtectedRoute roles={['owner']}>
+                      <ProtectedRoute permission="users.read">
                         <UsersView />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="audit" element={
+                      <ProtectedRoute permission="audit.read">
+                        <AuditView />
                       </ProtectedRoute>
                     } />
                   </Route>
