@@ -1,0 +1,13 @@
+.git
+.github
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.env
+**/.env.*
+!**/.env.example
+frontend/build
+backend/logs
+backend/data/clockin_faces
+*.md
+.emergent
