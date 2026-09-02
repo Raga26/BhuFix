@@ -2,8 +2,8 @@ import { X } from 'lucide-react';
 
 export function DeleteConfirmDialog({ title, message, onConfirm, onCancel, isLoading }) {
   return (
-    <div className="dash-overlay">
-      <div className="dash-modal p-5 sm:p-6 w-full max-w-md pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+      <div className="dash-modal p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-white font-medium text-lg">{title}</h2>
           <button

@@ -5,107 +5,72 @@ import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 import { CloseButton } from '../CloseButton';
-import { JOB_OPTIONS, jobLabel } from '../../../lib/access';
 import { Plus } from 'lucide-react';
+
+// Map sub_role → display label + colour
+const SUB_ROLE_META = {
+  editor:       { label: 'Editor',          color: '#34D399' }, // green
+  videographer: { label: 'Videographer',    color: '#60A5FA' }, // blue
+  management:   { label: 'Management Team', color: '#F59E0B' }, // amber
+  digital_marketer: { label: 'Digital Marketer', color: '#22C55E' },
+  graphic_designer: { label: 'Graphic Designer', color: '#F472B6' },
+  content_writer:   { label: 'Content Writer',   color: '#38BDF8' },
+};
 
 const ROLE_COLOR = {
   owner: '#E8734A',
-  admin: '#F59E0B',
-  operations_manager: '#60A5FA',
   employee: '#A78BFA',
   client: '#4DD9FF',
 };
 
 function getRoleDisplay(u) {
-  if (u.role === 'owner') return { label: 'Owner', color: ROLE_COLOR.owner };
-  if (u.role === 'admin') return { label: 'Admin', color: ROLE_COLOR.admin };
-  if (u.role === 'operations_manager') return { label: 'Operations Manager', color: ROLE_COLOR.operations_manager };
-  if (u.role === 'client') return { label: 'Client', color: ROLE_COLOR.client };
-  return { label: jobLabel(u), color: ROLE_COLOR.employee };
+  if (u.sub_role && SUB_ROLE_META[u.sub_role]) return SUB_ROLE_META[u.sub_role];
+  if (u.sub_role) return { label: u.sub_role, color: ROLE_COLOR.employee };
+  if (u.role === 'owner')    return { label: 'Owner',    color: ROLE_COLOR.owner };
+  if (u.role === 'client')   return { label: 'Client',   color: ROLE_COLOR.client };
+  return { label: 'Employee', color: ROLE_COLOR.employee };
 }
 
-function optionForUser(user) {
+// Role labels describe a team member's job.  Their dashboard access remains
+// employee access; only the configured owner account can be an owner.
+const ROLE_OPTIONS = [
+  { value: 'editor',        label: 'Editor',          role: 'employee', sub_role: 'editor' },
+  { value: 'videographer',  label: 'Videographer',    role: 'employee', sub_role: 'videographer' },
+  { value: 'management',    label: 'Management Team', role: 'employee', sub_role: 'management' },
+  { value: 'digital_marketer', label: 'Digital Marketer', role: 'employee', sub_role: 'digital_marketer' },
+  { value: 'graphic_designer', label: 'Graphic Designer', role: 'employee', sub_role: 'graphic_designer' },
+  { value: 'content_writer',   label: 'Content Writer',   role: 'employee', sub_role: 'content_writer' },
+  { value: 'custom',        label: 'Custom role',      role: 'employee', sub_role: null },
+  { value: 'client',        label: 'Client',          role: 'client',   sub_role: null },
+];
+
+function getRoleOption(user) {
+  if (user.sub_role && ROLE_OPTIONS.find((o) => o.value === user.sub_role)) return user.sub_role;
   if (user.role === 'client') return 'client';
-  if (user.role === 'admin') return 'admin';
-  if (user.role === 'operations_manager') return 'operations_manager';
-  if (user.job_role && JOB_OPTIONS.find((o) => o.value === user.job_role)) return user.job_role;
-  if (user.job_role === 'custom' || user.sub_role) return 'custom';
-  return 'junior_editor';
+  if (user.sub_role) return 'custom';
+  return 'editor'; // default fallback for legacy employees
 }
 
-function payloadFromOption(form, selected) {
-  if (selected.role === 'client') {
-    return { role: 'client', job_role: 'client', client_id: form.client_id || null, assigned_client_ids: [] };
-  }
-  if (selected.role === 'admin' || selected.role === 'operations_manager') {
-    return { role: selected.role, job_role: selected.value, client_id: null, assigned_client_ids: form.assigned_client_ids || [] };
-  }
+function getRolePayload(form, selectedOpt) {
   return {
-    role: 'employee',
-    job_role: form.roleOption === 'custom' ? 'custom' : selected.value,
-    sub_role: form.roleOption === 'custom' ? form.customRole.trim() : selected.value,
-    client_id: null,
-    assigned_client_ids: form.assigned_client_ids || [],
+    role: selectedOpt.role,
+    sub_role: form.roleOption === 'custom' ? form.customRole.trim() : selectedOpt.sub_role,
   };
 }
 
-function ClientAssignCheckboxes({ clients, selectedIds, onChange }) {
-  const selected = selectedIds || [];
-  const toggle = (id) => {
-    if (selected.includes(id)) onChange(selected.filter((x) => x !== id));
-    else onChange([...selected, id]);
-  };
-  if (!clients.length) {
-    return <p className="text-white/40 text-xs">Add clients first, then assign them here.</p>;
-  }
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-2 mb-1.5">
-        <label className="text-white/40 text-[10px] uppercase tracking-widest">Assigned clients</label>
-        <div className="flex gap-3 flex-shrink-0">
-          <button type="button" className="text-[10px] text-[#E8734A] min-h-8 px-1" onClick={() => onChange(clients.map((c) => c.id))}>Select all</button>
-          <button type="button" className="text-[10px] text-white/40 min-h-8 px-1" onClick={() => onChange([])}>Clear</button>
-        </div>
-      </div>
-      <div className="max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-white/[0.03] p-1.5 space-y-0.5">
-        {clients.map((c) => {
-          const on = selected.includes(c.id);
-          return (
-            <label key={c.id} className="flex items-center gap-3 px-2 min-h-11 rounded-lg hover:bg-white/[0.04] cursor-pointer">
-              <input type="checkbox" checked={on} onChange={() => toggle(c.id)} className="accent-[#E8734A] w-4 h-4 flex-shrink-0" />
-              <span className="text-white text-sm truncate">{c.name}</span>
-              {c.industry && <span className="text-white/30 text-xs truncate ml-auto">{c.industry}</span>}
-            </label>
-          );
-        })}
-      </div>
-      <p className="text-white/30 text-[10px] mt-1.5">{selected.length} client{selected.length === 1 ? '' : 's'} selected. Staff see only these.</p>
-    </div>
-  );
-}
-
-function CreateUserModal({ clients, onClose, onSave, actor }) {
-  const [form, setForm] = useState({ name: '', email: '', password: '', roleOption: 'junior_editor', customRole: '', client_id: '', assigned_client_ids: [] });
+function CreateUserModal({ clients, onClose, onSave }) {
+  const [form, setForm] = useState({ name: '', email: '', password: '', roleOption: 'editor', customRole: '', client_id: '' });
   const [saving, setSaving] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors [&:-webkit-autofill]:shadow-[0_0_0_1000px_#0D0E1A_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]";
 
-  const options = JOB_OPTIONS.filter((o) => {
-    if (o.role === 'admin') return actor?.role === 'owner';
-    if (o.role === 'operations_manager') return actor?.role === 'owner' || actor?.role === 'admin';
-    return true;
-  });
-  const selectedOpt = options.find((o) => o.value === form.roleOption) || options[0];
+  const selectedOpt = ROLE_OPTIONS.find((o) => o.value === form.roleOption) || ROLE_OPTIONS[0];
   const optStyle = { background: '#0D0E1A', color: '#fff' };
 
   const handleSave = async () => {
     if (!form.name || !form.email || !form.password) {
       toast.error('Please fill in all required fields');
-      return;
-    }
-    if (form.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
       return;
     }
     if (form.roleOption === 'custom' && !form.customRole.trim()) {
@@ -118,12 +83,13 @@ function CreateUserModal({ clients, onClose, onSave, actor }) {
     }
     setSaving(true);
     try {
-      const rolePayload = payloadFromOption(form, selectedOpt);
+      const rolePayload = getRolePayload(form, selectedOpt);
       const payload = {
         name: form.name,
         email: form.email,
         password: form.password,
         ...rolePayload,
+        client_id: selectedOpt.role === 'client' ? form.client_id : null,
       };
       logger.formSubmit('UsersView', 'create_user', { name: form.name, email: form.email, ...rolePayload });
       await apiClient.post('/users', payload);
@@ -141,8 +107,8 @@ function CreateUserModal({ clients, onClose, onSave, actor }) {
   };
 
   return (
-    <div className="dash-overlay">
-      <div className="dash-modal p-5 sm:p-6 w-full max-w-lg pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="dash-modal p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-medium">Create user</h2>
           <CloseButton onClick={onClose} />
@@ -179,16 +145,22 @@ function CreateUserModal({ clients, onClose, onSave, actor }) {
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Role / Type</label>
             <select className={inputCls} value={form.roleOption} onChange={(e) => set('roleOption', e.target.value)}>
-              {['Leadership', 'Marketing', 'Creative', 'Technology', 'Operations', 'External'].map((g) => {
-                const opts = options.filter((o) => o.group === g);
-                if (!opts.length) return null;
-                return (
-                  <optgroup key={g} label={g} style={optStyle}>
-                    {opts.map((o) => <option key={o.value} value={o.value} style={optStyle}>{o.label}</option>)}
-                  </optgroup>
-                );
-              })}
+              <optgroup label="Team" style={optStyle}>
+                <option value="editor" style={optStyle}>Editor</option>
+                <option value="videographer" style={optStyle}>Videographer</option>
+                <option value="management" style={optStyle}>Management Team</option>
+                <option value="digital_marketer" style={optStyle}>Digital Marketer</option>
+                <option value="graphic_designer" style={optStyle}>Graphic Designer</option>
+                <option value="content_writer" style={optStyle}>Content Writer</option>
+                <option value="custom" style={optStyle}>Custom role…</option>
+              </optgroup>
+              <optgroup label="Other" style={optStyle}>
+                <option value="client" style={optStyle}>Client</option>
+              </optgroup>
             </select>
+            {form.roleOption === 'management' && (
+              <p className="text-amber-400/70 text-[10px] mt-1.5">Management Team has employee access.</p>
+            )}
             {form.roleOption === 'custom' && (
               <input className={inputCls + ' mt-2'} value={form.customRole} onChange={(e) => set('customRole', e.target.value)} placeholder="e.g. Cleaner" />
             )}
@@ -202,13 +174,6 @@ function CreateUserModal({ clients, onClose, onSave, actor }) {
               </select>
             </div>
           )}
-          {selectedOpt.role === 'employee' && (
-            <ClientAssignCheckboxes
-              clients={clients}
-              selectedIds={form.assigned_client_ids}
-              onChange={(ids) => set('assigned_client_ids', ids)}
-            />
-          )}
         </div>
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Cancel</button>
@@ -221,13 +186,12 @@ function CreateUserModal({ clients, onClose, onSave, actor }) {
   );
 }
 
-function EditUserModal({ editUser, clients, onClose, onSave, actor }) {
+function EditUserModal({ editUser, clients, onClose, onSave }) {
   const [form, setForm] = useState({
     name: editUser.name,
-    roleOption: optionForUser(editUser),
-    customRole: optionForUser(editUser) === 'custom' ? (editUser.job_title || editUser.sub_role || '') : '',
+    roleOption: getRoleOption(editUser),
+    customRole: getRoleOption(editUser) === 'custom' ? editUser.sub_role || '' : '',
     client_id: editUser.client_id || '',
-    assigned_client_ids: editUser.assigned_client_ids || [],
   });
   const [newPassword, setNewPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -236,25 +200,20 @@ function EditUserModal({ editUser, clients, onClose, onSave, actor }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50 transition-colors [&:-webkit-autofill]:shadow-[0_0_0_1000px_#0D0E1A_inset] [&:-webkit-autofill]:[-webkit-text-fill-color:white]";
 
-  const options = JOB_OPTIONS.filter((o) => {
-    if (o.role === 'admin') return actor?.role === 'owner';
-    if (o.role === 'operations_manager') return actor?.role === 'owner' || actor?.role === 'admin';
-    return true;
-  });
-  const selectedOpt = options.find((o) => o.value === form.roleOption) || options[0];
+  const selectedOpt = ROLE_OPTIONS.find((o) => o.value === form.roleOption) || ROLE_OPTIONS[0];
   const optStyle = { background: '#0D0E1A', color: '#fff' };
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Name is required'); return; }
-    if (selectedOpt.role === 'client' && !form.client_id) {
-      toast.error('Please select a client profile for this user');
-      return;
-    }
     if (form.roleOption === 'custom' && !form.customRole.trim()) { toast.error('Please enter a custom role'); return; }
     setSaving(true);
     try {
-      const rolePayload = payloadFromOption(form, selectedOpt);
-      const payload = { name: form.name, ...rolePayload };
+      const rolePayload = getRolePayload(form, selectedOpt);
+      const payload = {
+        name: form.name,
+        ...rolePayload,
+        client_id: selectedOpt.role === 'client' ? form.client_id || null : null,
+      };
       await apiClient.put(`/users/${editUser.id}`, payload);
       toast.success('User updated successfully');
       onSave();
@@ -281,8 +240,8 @@ function EditUserModal({ editUser, clients, onClose, onSave, actor }) {
   };
 
   return (
-    <div className="dash-overlay">
-      <div className="dash-modal p-5 sm:p-6 w-full max-w-lg pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="dash-modal p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-medium">Edit user</h2>
           <CloseButton onClick={onClose} />
@@ -300,16 +259,22 @@ function EditUserModal({ editUser, clients, onClose, onSave, actor }) {
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Role / Type</label>
             <select className={inputCls} value={form.roleOption} onChange={(e) => set('roleOption', e.target.value)}>
-              {['Leadership', 'Marketing', 'Creative', 'Technology', 'Operations', 'External'].map((g) => {
-                const opts = options.filter((o) => o.group === g);
-                if (!opts.length) return null;
-                return (
-                  <optgroup key={g} label={g} style={optStyle}>
-                    {opts.map((o) => <option key={o.value} value={o.value} style={optStyle}>{o.label}</option>)}
-                  </optgroup>
-                );
-              })}
+              <optgroup label="Team" style={optStyle}>
+                <option value="editor" style={optStyle}>Editor</option>
+                <option value="videographer" style={optStyle}>Videographer</option>
+                <option value="management" style={optStyle}>Management Team</option>
+                <option value="digital_marketer" style={optStyle}>Digital Marketer</option>
+                <option value="graphic_designer" style={optStyle}>Graphic Designer</option>
+                <option value="content_writer" style={optStyle}>Content Writer</option>
+                <option value="custom" style={optStyle}>Custom role…</option>
+              </optgroup>
+              <optgroup label="Other" style={optStyle}>
+                <option value="client" style={optStyle}>Client</option>
+              </optgroup>
             </select>
+            {form.roleOption === 'management' && (
+              <p className="text-amber-400/70 text-[10px] mt-1.5">Management Team has employee access.</p>
+            )}
             {form.roleOption === 'custom' && (
               <input className={inputCls + ' mt-2'} value={form.customRole} onChange={(e) => set('customRole', e.target.value)} placeholder="e.g. Cleaner" />
             )}
@@ -322,13 +287,6 @@ function EditUserModal({ editUser, clients, onClose, onSave, actor }) {
                 {clients.map((c) => <option key={c.id} value={c.id} style={optStyle}>{c.name}</option>)}
               </select>
             </div>
-          )}
-          {selectedOpt.role === 'employee' && editUser.role !== 'owner' && (
-            <ClientAssignCheckboxes
-              clients={clients}
-              selectedIds={form.assigned_client_ids}
-              onChange={(ids) => set('assigned_client_ids', ids)}
-            />
           )}
         </div>
 
@@ -386,7 +344,7 @@ export default function UsersView() {
       apiClient.get('/users'),
       apiClient.get('/clients'),
     ]).then(([ur, cr]) => {
-      setUsers((ur.data || []).filter((u) => u.is_active !== false));
+      setUsers(ur.data || []);
       setClients(cr.data || []);
       setLoading(false);
       logger.info('Users list loaded', { count: ur.data?.length || 0 });
@@ -417,21 +375,16 @@ export default function UsersView() {
     }
   };
 
-  const clientName = (u) => {
-    if (u.role === 'client') return u.client_id ? clients.find((c) => c.id === u.client_id)?.name || u.client_id : '—';
-    const ids = u.assigned_client_ids || [];
-    if (!ids.length) return 'None assigned';
-    return ids.map((id) => clients.find((c) => c.id === id)?.name || id).join(', ');
-  };
+  const clientName = (cid) => cid ? clients.find((c) => c.id === cid)?.name || cid : '—';
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-8">
+      <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="dash-title">People</h1>
           <p className="dash-sub">Who can get in, and what they can see.</p>
         </div>
-        <button onClick={() => setModal(true)} className="dash-btn dash-btn-primary self-start">
+        <button onClick={() => setModal(true)} className="dash-btn dash-btn-primary">
           <Plus size={14} strokeWidth={2} />
           Create user
         </button>
@@ -459,7 +412,7 @@ export default function UsersView() {
                   <div className="text-white/30 text-xs truncate">{u.email}</div>
                 </div>
               </div>
-              <div className="text-white/50 text-sm truncate">{clientName(u)}</div>
+              <div className="text-white/50 text-sm truncate">{clientName(u.client_id)}</div>
               <div className="min-w-0">
                 {(() => { const rd = getRoleDisplay(u); return (
                   <span className="flex w-full min-h-7 items-center justify-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase leading-4"
@@ -490,11 +443,11 @@ export default function UsersView() {
       )}
 
       {modal && (
-        <CreateUserModal clients={clients} actor={user} onClose={() => setModal(false)} onSave={load} />
+        <CreateUserModal clients={clients} onClose={() => setModal(false)} onSave={load} />
       )}
 
       {editModal && (
-        <EditUserModal editUser={editModal} clients={clients} actor={user} onClose={() => setEditModal(null)} onSave={load} />
+        <EditUserModal editUser={editModal} clients={clients} onClose={() => setEditModal(null)} onSave={load} />
       )}
 
       {deleteConfirm && (

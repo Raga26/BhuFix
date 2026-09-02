@@ -3,7 +3,6 @@ import { toast } from 'sonner';
 import apiClient from '../../../utils/axiosConfig';
 import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
-import { can } from '../../../lib/access';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 import { CloseButton } from '../CloseButton';
 import { Plus } from 'lucide-react';
@@ -54,14 +53,14 @@ function AddKPIModal({ clients, onClose, onSave, kpi, isEdit }) {
   };
 
   return (
-    <div className="dash-overlay">
-      <div className="dash-modal p-5 sm:p-6 w-full max-w-md pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="dash-modal p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-white font-medium">{isEdit ? 'Edit KPI' : 'Add KPI'}</h2>
           <CloseButton onClick={onClose} />
         </div>
         <div className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Client</label>
               <select className={inputCls} value={form.client_id} onChange={(e) => set('client_id', e.target.value)}>
@@ -75,7 +74,7 @@ function AddKPIModal({ clients, onClose, onSave, kpi, isEdit }) {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Reach</label>
               <input className={inputCls} type="number" value={form.reach} onChange={(e) => set('reach', e.target.value ? +e.target.value : '')} placeholder="0" />
@@ -99,7 +98,7 @@ function AddKPIModal({ clients, onClose, onSave, kpi, isEdit }) {
               <input className={inputCls} type="number" value={form.bookings} onChange={(e) => set('bookings', e.target.value ? +e.target.value : '')} placeholder="0" />
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Month</label>
               <input className={inputCls} type="number" min="1" max="12" value={form.month} onChange={(e) => set('month', +e.target.value)} />
@@ -130,7 +129,7 @@ function fmtNum(n) {
 
 export default function KPIView() {
   const { user } = useAuth();
-  const isOwner = can(user, 'kpis.write');
+  const isOwner = user?.role === 'owner';
   const [kpis, setKpis] = useState([]);
   const [clients, setClients] = useState([]);
   const [modal, setModal] = useState(null);
@@ -142,7 +141,7 @@ export default function KPIView() {
       setKpis(r.data || []);
       logger.info('KPIs loaded', { count: r.data?.length || 0 });
     }).catch((e) => logger.error('Failed to load KPIs', { error: e.message }));
-    if (isOwner) {
+    if (user?.role === 'owner') {
       apiClient.get('/clients').then((r) => setClients(r.data || [])).catch((e) => logger.error('Failed to load clients', { error: e.message }));
     }
   }, [user]);

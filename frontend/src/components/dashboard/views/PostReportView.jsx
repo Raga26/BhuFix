@@ -384,7 +384,7 @@ export default function PostReportView() {
   const { clientId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canEdit = user?.role !== 'client';
+  const canEdit = user?.role === 'owner' || user?.role === 'employee';
 
   const [client, setClient] = useState(null);
   const [reports, setReports] = useState([]);

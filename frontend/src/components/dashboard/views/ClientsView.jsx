@@ -6,33 +6,23 @@ import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 import { CloseButton } from '../CloseButton';
-import { ClientMark } from '../ClientMark';
-import { can } from '../../../lib/access';
-import { apiError } from '../../../utils/apiError';
 import { Plus } from 'lucide-react';
 
 function parseIgHandle(raw) {
   if (!raw) return null;
+  // Strip full URL patterns
   let handle = raw.trim();
   try {
     const url = new URL(handle.startsWith('http') ? handle : `https://${handle}`);
     if (url.hostname.includes('instagram.com')) {
-      const reserved = new Set(['p', 'reel', 'reels', 'stories', 'tv', 'explore', 'accounts']);
-      const parts = url.pathname.split('/').filter(Boolean);
-      handle = parts.find((p) => !reserved.has(p.toLowerCase())) || '';
+      handle = url.pathname.replace(/\//g, '').split('?')[0];
     }
   } catch (_) {
-    // not a URL
+    // not a URL, fall through
   }
-  handle = handle.replace(/^@/, '').split(/[/?#]/)[0];
+  // Strip leading @
+  handle = handle.replace(/^@/, '');
   return handle || null;
-}
-
-function formatBudget(n) {
-  const v = Number(n) || 0;
-  if (!v) return '—';
-  if (v >= 1000) return `₹${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}K`;
-  return `₹${v.toLocaleString('en-IN')}`;
 }
 
 const InstagramIcon = () => (
@@ -50,74 +40,19 @@ const LEVEL_STYLE = {
   Customised: { bg: 'rgba(167,139,250,0.12)', color: '#A78BFA', border: 'rgba(167,139,250,0.3)', gradient: 'linear-gradient(135deg,#A78BFA,#7C3AED)' },
 };
 
-function StaffAssignCheckboxes({ staff, selectedIds, onChange }) {
-  const selected = selectedIds || [];
-  const [q, setQ] = useState('');
-  const toggle = (id) => {
-    if (selected.includes(id)) onChange(selected.filter((x) => x !== id));
-    else onChange([...selected, id]);
-  };
-  const filtered = staff.filter((u) => {
-    if (!q.trim()) return true;
-    const hay = `${u.name || ''} ${u.job_label || ''} ${u.job_role || ''}`.toLowerCase();
-    return hay.includes(q.trim().toLowerCase());
-  });
-  if (!staff.length) {
-    return <p className="text-white/40 text-xs">Add staff in Team & Users first, then assign them here.</p>;
-  }
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-2 mb-1.5">
-        <label className="text-white/40 text-[10px] uppercase tracking-widest">Assigned team</label>
-        <div className="flex gap-3 flex-shrink-0">
-          <button type="button" className="text-[10px] text-[#E8734A] min-h-8 px-1" onClick={() => onChange(staff.map((u) => u.id))}>Select all</button>
-          <button type="button" className="text-[10px] text-white/40 min-h-8 px-1" onClick={() => onChange([])}>Clear</button>
-        </div>
-      </div>
-      {staff.length > 6 && (
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search staff…"
-          className="w-full mb-2 bg-white/[0.06] border border-white/10 rounded-xl px-3 py-2 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50"
-        />
-      )}
-      <div className="max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-white/[0.03] p-1.5 space-y-0.5">
-        {filtered.length === 0 ? (
-          <p className="text-white/30 text-xs px-2 py-2">No match.</p>
-        ) : filtered.map((u) => {
-          const on = selected.includes(u.id);
-          return (
-            <label key={u.id} className="flex items-center gap-3 px-2 min-h-11 rounded-lg hover:bg-white/[0.04] cursor-pointer">
-              <input type="checkbox" checked={on} onChange={() => toggle(u.id)} className="accent-[#E8734A] w-4 h-4 flex-shrink-0" />
-              <span className="text-white text-sm truncate">{u.name}</span>
-              <span className="text-white/30 text-xs truncate ml-auto">{u.job_label || u.job_role}</span>
-            </label>
-          );
-        })}
-      </div>
-      <p className="text-white/30 text-[10px] mt-1.5 leading-relaxed">
-        {selected.length} staff selected. Tick editor, manager, SMM, and anyone else on this client. Owner / Admin / Operations Manager already see every client.
-      </p>
-    </div>
-  );
-}
-
 function ClientCard({ client, onEdit, onDelete, onPostReport, canMutate }) {
   const ls = LEVEL_STYLE[client.level] || LEVEL_STYLE.Silver;
-  const pct = Math.max(0, Math.min(100, Number(client.monthly_progress) || 0));
-  const team = client.team || [];
-  const shownTeam = team.slice(0, 4);
-  const extraTeam = team.length - shownTeam.length;
+  const pct = client.monthly_progress || 0;
   return (
-    <div className="dash-card p-4 sm:p-5 hover:border-white/[0.14] transition-colors relative overflow-hidden">
+    <div className="dash-card p-5 hover:border-white/[0.14] transition-colors relative overflow-hidden">
       <div className="flex items-center gap-3 mb-4">
-        <ClientMark client={client} size={44} />
+        <div className="w-11 h-11 rounded-md flex items-center justify-center text-sm font-semibold flex-shrink-0 text-white bg-navy border border-white/[0.08]">
+          {client.name?.[0]}
+        </div>
         <div className="flex-1 min-w-0">
           <div className="text-white font-bold text-sm truncate">{client.name}</div>
           <div className="text-white/40 text-xs flex items-center gap-1.5 flex-wrap">
             <span>{client.industry}</span>
-            {client.location && (<><span>·</span><span>{client.location}</span></>)}
             {parseIgHandle(client.ig_handle) && (
               <>
                 <span>·</span>
@@ -142,31 +77,14 @@ function ClientCard({ client, onEdit, onDelete, onPostReport, canMutate }) {
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-1 mb-3 min-h-[22px]">
-        {team.length === 0 ? (
-          <span className="text-white/25 text-[10px]">No staff assigned</span>
-        ) : (
-          <>
-            {shownTeam.map((m) => (
-              <span key={m.id} className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.06] text-white/70 border border-white/[0.06] max-w-[140px] truncate">
-                {m.name}{m.job_label ? ` · ${m.job_label}` : ''}
-              </span>
-            ))}
-            {extraTeam > 0 && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.06] text-white/50">+{extraTeam} more</span>
-            )}
-          </>
-        )}
-      </div>
-
       <div className="grid grid-cols-3 gap-2 mb-4">
         {[
           { val: client.followers, label: 'Followers' },
           { val: client.reels_count, label: 'Reels' },
-          { val: formatBudget(client.ad_budget), label: 'Budget' },
+          { val: client.ad_budget ? `₹${(client.ad_budget/1000).toFixed(0)}K` : '—', label: 'Budget' },
         ].map((m) => (
-          <div key={m.label} className="bg-white/[0.03] rounded-xl py-2 text-center min-w-0">
-            <div className="text-white font-bold text-sm truncate px-1">{m.val}</div>
+          <div key={m.label} className="bg-white/[0.03] rounded-xl py-2 text-center">
+            <div className="text-white font-bold text-sm">{m.val}</div>
             <div className="text-white/30 text-[10px]">{m.label}</div>
           </div>
         ))}
@@ -179,9 +97,9 @@ function ClientCard({ client, onEdit, onDelete, onPostReport, canMutate }) {
         <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${pct}%`, background: ls.color }} />
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center justify-between">
         <span className="text-white/30 text-xs">{client.start_date || 'New'}</span>
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap justify-end">
           <button onClick={() => onPostReport(client)}
             className="dash-btn dash-btn-ghost dash-btn-sm"
             title="Monthly post report">
@@ -213,33 +131,12 @@ function ClientCard({ client, onEdit, onDelete, onPostReport, canMutate }) {
   );
 }
 
-function ClientModal({ client, onClose, onSave }) {
+function ClientModal({ client, clients, onClose, onSave }) {
   const isEdit = !!client?.id;
-  const [form, setForm] = useState({
-    name: client?.name || '',
-    industry: client?.industry || '',
-    location: client?.location || '',
-    level: client?.level || 'Silver',
-    ig_handle: client?.ig_handle || '',
-    followers: client?.followers || '',
-    reels_count: client?.reels_count ?? '',
-    ad_budget: client?.ad_budget ?? '',
-    ad_spent: client?.ad_spent ?? '',
-    start_date: client?.start_date || '',
-    monthly_progress: client?.monthly_progress ?? '',
-    drive_link: client?.drive_link || '',
-    assigned_user_ids: client?.assigned_user_ids || [],
-  });
-  const [staff, setStaff] = useState([]);
+  const [form, setForm] = useState(
+    client || { name: '', industry: '', level: 'Silver', logo_emoji: '', ig_handle: '', followers: '', reels_count: '', ad_budget: '', drive_link: '', start_date: '', monthly_progress: '' }
+  );
   const [saving, setSaving] = useState(false);
-  const [logoFile, setLogoFile] = useState(null);
-
-  useEffect(() => {
-    apiClient.get('/users/directory').then((r) => {
-      const rows = (r.data || []).filter((u) => u.role === 'employee');
-      setStaff(rows);
-    }).catch(() => setStaff([]));
-  }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -253,19 +150,11 @@ function ClientModal({ client, onClose, onSave }) {
     }
     setSaving(true);
     const payload = {
-      name: form.name.trim(),
-      industry: form.industry,
-      location: form.location,
-      level: form.level,
-      ig_handle: form.ig_handle,
-      followers: form.followers || '0',
+      ...form,
       reels_count: toNum(form.reels_count),
       ad_budget: toNum(form.ad_budget),
       ad_spent: toNum(form.ad_spent),
-      monthly_progress: Math.max(0, Math.min(100, toNum(form.monthly_progress))),
-      drive_link: form.drive_link || '',
-      start_date: form.start_date || '',
-      assigned_user_ids: form.assigned_user_ids || [],
+      monthly_progress: toNum(form.monthly_progress),
     };
     try {
       logger.formSubmit('ClientsView', isEdit ? 'update_client' : 'create_client', {
@@ -273,29 +162,19 @@ function ClientModal({ client, onClose, onSave }) {
         industry: form.industry,
         level: form.level,
       });
-      const savedId = isEdit ? client.id : (await apiClient.post('/clients', payload)).data?.id;
       if (isEdit) {
-        await apiClient.put(`/clients/${client.id}`, payload);
+        await apiClient.put(`/clients/${form.id}`, payload);
+        toast.success('Client updated successfully');
+        logger.success('Client updated', { clientId: form.id });
+      } else {
+        await apiClient.post('/clients', payload);
+        toast.success('Client added successfully');
+        logger.success('New client created', { name: form.name });
       }
-      if (logoFile && savedId) {
-        try {
-          const fd = new FormData();
-          fd.append('file', logoFile);
-          await apiClient.post(`/clients/${savedId}/logo`, fd);
-        } catch (logoErr) {
-          toast.success(isEdit ? 'Client saved, but logo upload failed' : 'Client added, but logo upload failed');
-          logger.error('Logo upload failed', { error: logoErr.message });
-          onSave();
-          onClose();
-          return;
-        }
-      }
-      toast.success(isEdit ? 'Client updated successfully' : 'Client added successfully');
-      logger.success(isEdit ? 'Client updated' : 'New client created', { clientId: savedId, name: form.name });
       onSave();
       onClose();
     } catch (e) {
-      const errorMsg = apiError(e, 'Failed to save client');
+      const errorMsg = e.response?.data?.detail || 'Failed to save client';
       toast.error(errorMsg);
       logger.error('Failed to save client', { isEdit, error: e.message, detail: e.response?.data });
     } finally {
@@ -307,13 +186,13 @@ function ClientModal({ client, onClose, onSave }) {
   const optStyle = { background: '#0D0E1A', color: '#fff' };
 
   return (
-    <div className="dash-overlay">
-      <div className="dash-modal p-5 sm:p-6 w-full max-w-lg pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="dash-modal p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-white font-medium text-lg">{isEdit ? 'Edit client' : 'New client'}</h2>
           <CloseButton onClick={onClose} />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Client Name</label>
             <input className={inputCls} value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Vaibha Wedding" />
@@ -323,7 +202,7 @@ function ClientModal({ client, onClose, onSave }) {
             <input className={inputCls} value={form.industry} onChange={(e) => set('industry', e.target.value)} placeholder="e.g. Wedding & Events" />
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Level</label>
             <select className={inputCls} value={form.level} onChange={(e) => set('level', e.target.value)}>
@@ -338,31 +217,17 @@ function ClientModal({ client, onClose, onSave }) {
             <input className={inputCls} type="date" value={form.start_date} onChange={(e) => set('start_date', e.target.value)} />
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Instagram Handle</label>
             <input className={inputCls} value={form.ig_handle} onChange={(e) => set('ig_handle', e.target.value)} placeholder="@handle" />
           </div>
           <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Location</label>
-            <input className={inputCls} value={form.location || ''} onChange={(e) => set('location', e.target.value)} placeholder="City, country" />
+            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Initials</label>
+            <input className={inputCls} value={form.logo_emoji} onChange={(e) => set('logo_emoji', e.target.value)} placeholder="e.g. VW" maxLength={3} />
           </div>
         </div>
-        <div className="mb-3">
-          <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Logo</label>
-          <input className="text-white/50 text-xs w-full" type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-          <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Followers</label>
-            <input className={inputCls} value={form.followers} onChange={(e) => set('followers', e.target.value)} placeholder="e.g. 12.4K" />
-          </div>
-          <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Reels</label>
-            <input className={inputCls} type="number" min="0" value={form.reels_count} onChange={(e) => set('reels_count', e.target.value ? +e.target.value : '')} placeholder="0" />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div className="grid grid-cols-2 gap-3 mb-3">
           <div>
             <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Ad Budget (₹)</label>
             <input className={inputCls} type="number" value={form.ad_budget} onChange={(e) => set('ad_budget', e.target.value ? +e.target.value : '')} placeholder="Enter budget" />
@@ -372,16 +237,9 @@ function ClientModal({ client, onClose, onSave }) {
             <input className={inputCls} type="number" min="0" max="100" value={form.monthly_progress} onChange={(e) => set('monthly_progress', e.target.value ? +e.target.value : '')} placeholder="0-100" />
           </div>
         </div>
-        <div className="mb-4">
-          <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">External Drive (optional fallback)</label>
-          <input className={inputCls} value={form.drive_link || ''} onChange={(e) => set('drive_link', e.target.value)} placeholder="https://drive.google.com/…" />
-        </div>
         <div className="mb-5">
-          <StaffAssignCheckboxes
-            staff={staff}
-            selectedIds={form.assigned_user_ids}
-            onChange={(ids) => set('assigned_user_ids', ids)}
-          />
+          <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Google Drive Link</label>
+          <input className={inputCls} value={form.drive_link} onChange={(e) => set('drive_link', e.target.value)} placeholder="https://drive.google.com/…" />
         </div>
         <div className="flex gap-3">
           <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Cancel</button>
@@ -398,7 +256,7 @@ function ClientModal({ client, onClose, onSave }) {
 export default function ClientsView() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const canMutate = can(user, 'clients.write');
+  const isOwner = user?.role === 'owner';
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
@@ -455,9 +313,9 @@ export default function ClientsView() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search…"
-            className="dash-input flex-1 min-w-0 sm:w-48 sm:flex-none"
+            className="dash-input w-48"
           />
-          {canMutate && (
+          {user?.role === 'owner' && (
             <button onClick={() => setModal({})} className="dash-btn dash-btn-primary whitespace-nowrap">
               <Plus size={14} strokeWidth={2} />
               Add client
@@ -483,7 +341,7 @@ export default function ClientsView() {
               onEdit={(cl) => setModal(cl)}
               onDelete={(cl) => setDeleteConfirm(cl)}
               onPostReport={(cl) => navigate(`/dashboard/clients/${cl.id}/post-report`)}
-              canMutate={canMutate}
+              canMutate={isOwner}
             />
           ))}
         </div>

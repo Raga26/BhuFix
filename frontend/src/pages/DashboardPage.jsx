@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
-import { Menu, LayoutDashboard, Briefcase, CalendarDays, MessageSquare, LogOut, CheckSquare } from 'lucide-react';
+import { Menu, LayoutDashboard, Briefcase, CalendarDays, MessageSquare, LogOut } from 'lucide-react';
 import { Sidebar } from '../components/dashboard/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../utils/axiosConfig';
@@ -9,32 +9,19 @@ const MOBILE_TABS = {
   owner: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
     { to: '/dashboard/clients', label: 'Clients', icon: Briefcase },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
-  ],
-  admin: [
-    { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/clients', label: 'Clients', icon: Briefcase },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
-  ],
-  operations_manager: [
-    { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/clients', label: 'Clients', icon: Briefcase },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
+    { to: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
     { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
   ],
   employee: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/clients', label: 'Clients', icon: Briefcase },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
+    { to: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
     { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
   ],
   client: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
     { to: '/dashboard/calendar', label: 'Schedule', icon: CalendarDays },
     { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
-    { to: '/dashboard/invoices', label: 'Invoices', icon: Briefcase },
+    { to: '/dashboard/kpis', label: 'Reports', icon: Briefcase },
   ],
 };
 
@@ -99,16 +86,16 @@ export default function DashboardPage() {
       </div>
 
       {sidebarOpen && (
-        <div className="md:hidden fixed inset-0 z-[60]">
+        <div className="md:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/70" onClick={() => setSidebarOpen(false)} />
-          <div className="absolute left-0 top-0 bottom-0 w-[min(18rem,85vw)] z-10">
+          <div className="absolute left-0 top-0 bottom-0 w-72 z-10">
             <Sidebar mobile onClose={() => setSidebarOpen(false)} />
           </div>
         </div>
       )}
 
       <div className="flex-1 md:ml-60 relative z-10 flex flex-col min-h-screen">
-        <div className="md:hidden flex items-center justify-between px-4 min-h-12 py-2 pt-[max(0.5rem,env(safe-area-inset-top,0px))] border-b border-white/[0.06] bg-navy-dark/90 backdrop-blur sticky top-0 z-20">
+        <div className="md:hidden flex items-center justify-between px-4 h-12 border-b border-white/[0.06] bg-navy-dark/90 backdrop-blur sticky top-0 z-20">
           <button
             onClick={() => setSidebarOpen(true)}
             className="text-white/50 hover:text-white p-1"
@@ -138,7 +125,7 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-5 md:p-8 pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:pb-10">
+        <main className="flex-1 p-5 md:p-8 pb-24 md:pb-10">
           <Outlet />
         </main>
       </div>
