@@ -294,6 +294,10 @@ def create_p6_router(db, *, get_current_user, sanitize_input, logger) -> APIRout
         rbac.apply_client_query(q, current_user)
         if current_user.get("role") == "client":
             q["kind"] = {"$in": list(CLIENT_KINDS)}
+        else:
+            kinds = rbac.insight_kinds_for(current_user)
+            if kinds is not None:
+                q["kind"] = {"$in": kinds}
         rows = await db.insights.find(q, {"_id": 0}).sort("updated_at", -1).to_list(120)
         if current_user.get("role") == "client":
             rows = [client_insight(r) for r in rows]

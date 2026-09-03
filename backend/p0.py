@@ -85,6 +85,12 @@ class PackageVersionCreate(BaseModel):
     name: Optional[str] = None
 
 
+class InvoiceLine(BaseModel):
+    name: str = ""
+    quantity: float = 1
+    unit_price: float = 0
+
+
 class InvoiceCreate(BaseModel):
     client_id: str
     billing_period: str = ""
@@ -92,11 +98,36 @@ class InvoiceCreate(BaseModel):
     discount: float = 0
     tax_rate: float = 0
     notes: str = ""
+    client_memo: str = ""
+    services: Optional[List[InvoiceLine]] = None
+    gstin: str = ""
+    bank_name: str = ""
+    account_name: str = ""
+    account_number: str = ""
+    ifsc: str = ""
+    upi: str = ""
+    terms: str = ""
+    bill_to: str = ""
 
 
 class InvoiceStatusUpdate(BaseModel):
-    status: str
+    status: Optional[str] = None
     paid_at: Optional[str] = None
+    billing_period: Optional[str] = None
+    due_date: Optional[str] = None
+    discount: Optional[float] = None
+    tax_rate: Optional[float] = None
+    notes: Optional[str] = None
+    client_memo: Optional[str] = None
+    services: Optional[List[InvoiceLine]] = None
+    gstin: Optional[str] = None
+    bank_name: Optional[str] = None
+    account_name: Optional[str] = None
+    account_number: Optional[str] = None
+    ifsc: Optional[str] = None
+    upi: Optional[str] = None
+    terms: Optional[str] = None
+    bill_to: Optional[str] = None
 
 
 class TaskCreate(BaseModel):
@@ -190,6 +221,8 @@ def create_p0_router(
     def _invoice_totals(services, discount=0, tax_rate=0):
         subtotal = 0.0
         for s in services or []:
+            if hasattr(s, "model_dump"):
+                s = s.model_dump()
             subtotal += float(s.get("quantity") or 0) * float(s.get("unit_price") or 0)
         discount = float(discount or 0)
         tax_rate = float(tax_rate or 0)
@@ -202,6 +235,21 @@ def create_p0_router(
             "tax": round(tax, 2),
             "total": round(after + tax, 2),
         }
+
+    def _invoice_lines(services, sanitize_input):
+        out = []
+        for s in services or []:
+            if hasattr(s, "model_dump"):
+                s = s.model_dump()
+            name = sanitize_input(str(s.get("name") or ""))[:200]
+            if not name:
+                continue
+            out.append({
+                "name": name,
+                "quantity": float(s.get("quantity") or 0),
+                "unit_price": float(s.get("unit_price") or 0),
+            })
+        return out
 
     async def next_invoice_number() -> str:
         year = datetime.now(IST).year
@@ -325,7 +373,13 @@ def create_p0_router(
             vid = client.get("package_version_id") or (pkg or {}).get("current_version_id")
             if vid:
                 ver = await db.package_versions.find_one({"id": vid}, {"_id": 0})
-        services = list((ver or {}).get("services") or [])
+        if data.services is not None:
+            services = _invoice_lines(data.services, sanitize_input)
+            if not services:
+                services = list((ver or {}).get("services") or [])
+        else:
+            services = list((ver or {}).get("services") or [])
+        period = sanitize_input(data.billing_period or "") or datetime.now(IST).strftime("%B %Y")
         totals = _invoice_totals(services, data.discount, data.tax_rate)
         number = await next_invoice_number()
         inv = {
@@ -333,15 +387,24 @@ def create_p0_router(
             "number": number,
             "client_id": data.client_id,
             "client_name": client.get("name"),
+            "bill_to": sanitize_input(data.bill_to or "") or client.get("name"),
             "package_id": (pkg or {}).get("id"),
             "package_version_id": (ver or {}).get("id"),
             "package_name": (ver or {}).get("name") or (pkg or {}).get("name"),
             "package_version": (ver or {}).get("version"),
             "services": services,
             **totals,
-            "billing_period": sanitize_input(data.billing_period or ""),
+            "billing_period": period,
             "due_date": data.due_date or "",
             "notes": sanitize_input(data.notes or ""),
+            "client_memo": sanitize_input(data.client_memo or ""),
+            "gstin": sanitize_input(data.gstin or ""),
+            "bank_name": sanitize_input(data.bank_name or ""),
+            "account_name": sanitize_input(data.account_name or ""),
+            "account_number": sanitize_input(data.account_number or ""),
+            "ifsc": sanitize_input(data.ifsc or ""),
+            "upi": sanitize_input(data.upi or ""),
+            "terms": sanitize_input(data.terms or ""),
             "status": "draft",
             "created_by": current_user["id"],
             "created_at": _now(),
@@ -357,17 +420,69 @@ def create_p0_router(
         current_user: dict = Depends(get_current_user),
     ):
         rbac.assert_can(current_user, "invoices", "write")
-        if data.status not in INVOICE_STATUSES:
-            raise HTTPException(status_code=400, detail="Invalid invoice status")
         inv = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
         if not inv:
             raise HTTPException(status_code=404, detail="Invoice not found")
         rbac.assert_client_access(current_user, inv.get("client_id"))
-        patch = {"status": data.status, "updated_at": _now()}
-        if data.status == "paid":
-            patch["paid_at"] = data.paid_at or _now()
+        body = data.model_dump(exclude_unset=True)
+        patch = {"updated_at": _now()}
+        if body.get("status"):
+            if body["status"] not in INVOICE_STATUSES:
+                raise HTTPException(status_code=400, detail="Invalid invoice status")
+            patch["status"] = body["status"]
+            if body["status"] == "paid":
+                patch["paid_at"] = body.get("paid_at") or _now()
+        money_keys = (
+            "services", "discount", "tax_rate", "billing_period", "due_date", "notes",
+            "client_memo", "gstin", "bank_name", "account_name", "account_number",
+            "ifsc", "upi", "terms", "bill_to",
+        )
+        editing = any(k in body for k in money_keys)
+        if editing and inv.get("status") in ("paid", "void"):
+            raise HTTPException(
+                status_code=400,
+                detail="Paid or void invoices cannot be edited. Create a new draft if you need a correction.",
+            )
+        if "services" in body and body["services"] is not None:
+            patch["services"] = _invoice_lines(body["services"], sanitize_input)
+        for key in (
+            "billing_period", "due_date", "notes", "client_memo", "gstin", "bank_name",
+            "account_name", "account_number", "ifsc", "upi", "terms", "bill_to",
+        ):
+            if key in body and body[key] is not None:
+                patch[key] = body[key] if key == "due_date" else sanitize_input(str(body[key]))
+        if "discount" in body or "tax_rate" in body or "services" in body:
+            services = patch.get("services", inv.get("services") or [])
+            discount = body["discount"] if body.get("discount") is not None else inv.get("discount") or 0
+            tax_rate = body["tax_rate"] if body.get("tax_rate") is not None else inv.get("tax_rate") or 0
+            patch.update(_invoice_totals(services, discount, tax_rate))
         await db.invoices.update_one({"id": invoice_id}, {"$set": patch})
         return await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
+
+    @router.delete("/invoices/{invoice_id}")
+    async def delete_invoice(invoice_id: str, current_user: dict = Depends(get_current_user)):
+        rbac.assert_can(current_user, "invoices", "write")
+        inv = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
+        if not inv:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        rbac.assert_client_access(current_user, inv.get("client_id"))
+        if inv.get("status") == "paid":
+            raise HTTPException(
+                status_code=400,
+                detail="Paid invoices are kept as a record. They cannot be deleted.",
+            )
+        if inv.get("status") == "sent" and (inv.get("payments") or []):
+            raise HTTPException(
+                status_code=400,
+                detail="This invoice has payments. Mark it paid or void instead of deleting.",
+            )
+        await db.invoices.delete_one({"id": invoice_id})
+        try:
+            from p5 import write_audit
+            await write_audit(db, current_user, "delete", "invoices", invoice_id, inv.get("number") or "")
+        except Exception:
+            pass
+        return {"ok": True, "id": invoice_id}
 
     # ── Tasks ─────────────────────────────────────────────────────
     def _task_ok(status: str):

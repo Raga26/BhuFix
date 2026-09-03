@@ -176,12 +176,51 @@ MATRIX = {
     },
 }
 
+EMPLOYEE_STRATEGY_WRITE_JOBS = {
+    "digital_marketer", "smm", "seo", "operations_staff",
+}
 EMPLOYEE_ADS_WRITE_DEPTS = {"marketing"}
 EMPLOYEE_KPI_WRITE_DEPTS = {"marketing"}
 EMPLOYEE_SEO_WRITE_DEPTS = {"marketing"}
 EMPLOYEE_WEB_WRITE_DEPTS = {"technology"}
 EMPLOYEE_COMPETITOR_WRITE_DEPTS = {"marketing"}
 CLIENT_ASSET_BUCKETS = {"approved", "published", "reports", "invoices", "brand"}
+
+_CREATIVE_DESK = frozenset({
+    "dashboard", "clients", "tasks", "assets", "calendar", "chat",
+    "strategy", "approvals", "notifications", "clips",
+})
+_MARKETING_CORE = frozenset({
+    "dashboard", "clients", "tasks", "assets", "calendar", "chat",
+    "strategy", "approvals", "notifications", "post_reports",
+})
+
+# Floor staff only see the desk for their job. Leadership is not in this map.
+EMPLOYEE_JOB_RESOURCES = {
+    "digital_marketer": _MARKETING_CORE | {"ads", "performance", "kpis", "insights", "competitors"},
+    "smm": _MARKETING_CORE,
+    "seo": _MARKETING_CORE | {"seo", "competitors", "insights", "web"},
+    "data_analyst": frozenset({
+        "dashboard", "clients", "tasks", "chat", "notifications",
+        "ads", "performance", "kpis", "insights", "seo",
+    }),
+    "senior_editor": _CREATIVE_DESK,
+    "junior_editor": _CREATIVE_DESK,
+    "cinematographer": _CREATIVE_DESK,
+    "content_writer": _CREATIVE_DESK,
+    "designer": _CREATIVE_DESK,
+    "web_developer": frozenset({
+        "dashboard", "clients", "tasks", "assets", "chat", "approvals",
+        "notifications", "web", "seo",
+    }),
+    "operations_staff": frozenset({
+        "dashboard", "clients", "tasks", "assets", "calendar", "chat",
+        "strategy", "approvals", "notifications",
+    }),
+    "custom": frozenset({
+        "dashboard", "clients", "tasks", "calendar", "chat", "notifications",
+    }),
+}
 
 
 def is_agency(user: dict) -> bool:
@@ -224,6 +263,24 @@ def job_label(user: dict) -> str:
     return custom or "Employee"
 
 
+def normalized_job(user: dict) -> str:
+    raw = (user or {}).get("job_role") or (user or {}).get("sub_role") or ""
+    return SUB_ROLE_MAP.get(raw, raw) or "custom"
+
+
+def employee_resources(user: dict) -> frozenset:
+    job = normalized_job(user)
+    if job in EMPLOYEE_JOB_RESOURCES:
+        return EMPLOYEE_JOB_RESOURCES[job]
+    if (user or {}).get("department") == "creative":
+        return _CREATIVE_DESK
+    if (user or {}).get("department") == "marketing":
+        return _MARKETING_CORE
+    if (user or {}).get("department") == "technology":
+        return EMPLOYEE_JOB_RESOURCES["web_developer"]
+    return EMPLOYEE_JOB_RESOURCES["custom"]
+
+
 def can(user: dict, resource: str, action: str) -> bool:
     if not user:
         return False
@@ -234,8 +291,12 @@ def can(user: dict, resource: str, action: str) -> bool:
     if role not in allowed:
         return False
     if role == "employee":
+        if resource not in employee_resources(user):
+            return False
         dept = user.get("department") or department_for_job(user.get("job_role"), role)
         if resource == "ads" and action == "write" and dept not in EMPLOYEE_ADS_WRITE_DEPTS:
+            return False
+        if resource == "strategy" and action == "write" and normalized_job(user) not in EMPLOYEE_STRATEGY_WRITE_JOBS:
             return False
         if resource == "kpis" and action == "write" and dept not in EMPLOYEE_KPI_WRITE_DEPTS:
             return False
@@ -246,6 +307,32 @@ def can(user: dict, resource: str, action: str) -> bool:
         if resource == "competitors" and action == "write" and dept not in EMPLOYEE_COMPETITOR_WRITE_DEPTS:
             return False
     return True
+
+
+def insight_kinds_for(user: dict) -> Optional[list]:
+    """None = every kind (leadership). Employees get only kinds for their job."""
+    if not user:
+        return []
+    if is_leadership(user) or user.get("role") == "owner":
+        return None
+    if user.get("role") == "client":
+        return None
+    job = normalized_job(user)
+    by_job = {
+        "digital_marketer": ["ads_health", "ads_budget", "ads_ab", "overdue_task", "strategy_gap"],
+        "smm": ["overdue_content", "overdue_task", "strategy_gap", "clip_idea"],
+        "seo": ["seo_rank", "overdue_task", "strategy_gap", "web_stage"],
+        "data_analyst": ["ads_health", "ads_budget", "ads_ab", "seo_rank"],
+        "web_developer": ["web_stage", "seo_rank", "overdue_task"],
+        "senior_editor": ["overdue_task", "clip_idea", "overdue_content"],
+        "junior_editor": ["overdue_task", "clip_idea", "overdue_content"],
+        "cinematographer": ["overdue_task", "clip_idea"],
+        "content_writer": ["overdue_task", "clip_idea"],
+        "designer": ["overdue_task", "clip_idea"],
+        "operations_staff": ["overdue_task", "overdue_content", "strategy_gap"],
+        "custom": ["overdue_task"],
+    }
+    return by_job.get(job, ["overdue_task"])
 
 
 def permission_keys(user: dict) -> list:
@@ -284,7 +371,18 @@ def can_internal_review(user: dict, client_id: Optional[str] = None) -> bool:
 
 
 def is_creative_staff(user: dict) -> bool:
-    return (user or {}).get("job_role") in {
+    job = normalized_job(user)
+    if job in EMPLOYEE_JOB_RESOURCES and job not in {
+        "senior_editor",
+        "junior_editor",
+        "cinematographer",
+        "content_writer",
+        "designer",
+    }:
+        return False
+    if (user or {}).get("department") == "creative":
+        return True
+    return job in {
         "senior_editor",
         "junior_editor",
         "cinematographer",

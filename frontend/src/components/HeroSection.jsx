@@ -8,6 +8,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 // Full-bleed path: strong upward arc; tip sits below the peak badge with a gap.
@@ -39,6 +40,7 @@ const easeInOutCubic = (t) =>
 
 export const HeroSection = () => {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const isDark = theme === "dark";
   const navigate = useNavigate();
 
@@ -241,11 +243,11 @@ export const HeroSection = () => {
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
           <Button
-            onClick={() => navigate("/login")}
+            onClick={() => navigate(user ? "/dashboard" : "/login")}
             className="w-full rounded-full bg-navy px-7 py-5 text-sm font-semibold text-white hover:bg-navy/90 dark:bg-slate-700 dark:hover:bg-slate-600 sm:w-auto sm:text-base"
           >
             <LayoutDashboard className="mr-2 h-4 w-4" />
-            Client Dashboard
+            {user ? "Open OS" : "Client Dashboard"}
           </Button>
           <Button
             variant="outline"

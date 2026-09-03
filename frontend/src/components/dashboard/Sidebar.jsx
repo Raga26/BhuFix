@@ -25,7 +25,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { can, jobLabel, isCreative, isLeadership } from '../../lib/access';
+import { can, jobLabel, isCreative, isLeadership, canSeePublish } from '../../lib/access';
 
 const ICONS = {
   Overview: LayoutDashboard,
@@ -74,7 +74,8 @@ function navFor(user) {
     isClient ? null : item('/dashboard/tasks', 'Tasks', 'tasks.read'),
     item('/dashboard/calendar', isClient ? 'Content' : 'Calendar', 'calendar.read'),
     isClient ? item('/dashboard/approvals', 'Approvals', 'approvals.read') : null,
-    !isClient ? item('/dashboard/publish', 'Publish', 'calendar.read') : null,
+    (!isClient && canSeePublish(user))
+      ? item('/dashboard/publish', 'Publish', 'calendar.read') : null,
   ].filter(Boolean);
   const work = [
     item('/dashboard/ads', isClient ? 'Campaigns' : 'Meta Ads', 'ads.read'),
@@ -121,7 +122,7 @@ export function Sidebar({ mobile = false, onClose }) {
   return (
     <div className={`flex flex-col h-full bg-navy-dark border-r border-white/[0.07] ${mobile ? 'w-full' : 'w-60'}`}>
       <div className="flex items-center gap-3 px-5 h-14 border-b border-white/[0.07]">
-        <Link to="/" className="text-[17px] font-extrabold tracking-tight text-white">
+        <Link to="/dashboard" className="text-[17px] font-extrabold tracking-tight text-white">
           Bhu<span className="text-coral">Fix</span>
         </Link>
         {mobile && (

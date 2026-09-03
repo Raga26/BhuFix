@@ -2,7 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { can } from '../lib/access';
 
-export function ProtectedRoute({ children, roles, permission }) {
+export function ProtectedRoute({ children, roles, permission, allow }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -19,6 +19,10 @@ export function ProtectedRoute({ children, roles, permission }) {
   }
 
   if (permission && !can(user, permission)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (typeof allow === 'function' && !allow(user)) {
     return <Navigate to="/dashboard" replace />;
   }
 

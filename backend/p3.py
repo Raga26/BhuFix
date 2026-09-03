@@ -104,50 +104,159 @@ def client_approval(row: dict) -> dict:
     }
 
 
+def _rupee(n) -> str:
+    return f"₹{float(n or 0):,.2f}"
+
+
 def invoice_html(inv: dict) -> str:
+    esc = html.escape
     services = inv.get("services") or []
     rows = "".join(
-        f"<tr><td>{html.escape(str(s.get('name') or ''))}</td>"
+        f"<tr><td>{esc(str(s.get('name') or ''))}</td>"
         f"<td class='r'>{s.get('quantity') or 0}</td>"
-        f"<td class='r'>₹{float(s.get('unit_price') or 0):,.0f}</td>"
-        f"<td class='r'>₹{float(s.get('quantity') or 0) * float(s.get('unit_price') or 0):,.0f}</td></tr>"
+        f"<td class='r'>{_rupee(s.get('unit_price'))}</td>"
+        f"<td class='r'>{_rupee(float(s.get('quantity') or 0) * float(s.get('unit_price') or 0))}</td></tr>"
         for s in services
-    )
+    ) or "<tr><td colspan='4'>No line items.</td></tr>"
     payments = inv.get("payments") or []
+    paid = sum(float(p.get("amount") or 0) for p in payments)
+    due_left = max(float(inv.get("total") or 0) - paid, 0)
     pay_rows = "".join(
-        f"<tr><td>{html.escape(str(p.get('created_at') or '')[:10])}</td>"
-        f"<td>{html.escape(p.get('method') or '')}</td>"
-        f"<td class='r'>₹{float(p.get('amount') or 0):,.0f}</td>"
-        f"<td>{html.escape(p.get('note') or '')}</td></tr>"
+        f"<tr><td>{esc(str(p.get('created_at') or '')[:10])}</td>"
+        f"<td>{esc(p.get('method') or '')}</td>"
+        f"<td class='r'>{_rupee(p.get('amount'))}</td>"
+        f"<td>{esc(p.get('note') or '')}</td></tr>"
         for p in payments
-    ) or "<tr><td colspan='4'>No payments recorded.</td></tr>"
-    memo = html.escape(inv.get("client_memo") or "")
+    )
+    memo = esc(inv.get("client_memo") or inv.get("notes") or "")
+    bill_to = esc(inv.get("bill_to") or inv.get("client_name") or "")
+    gstin = esc(inv.get("gstin") or "")
+    bank_bits = []
+    if inv.get("account_name"):
+        bank_bits.append(f"<div><span>Account name</span>{esc(inv.get('account_name'))}</div>")
+    if inv.get("bank_name"):
+        bank_bits.append(f"<div><span>Bank</span>{esc(inv.get('bank_name'))}</div>")
+    if inv.get("account_number"):
+        bank_bits.append(f"<div><span>Account no.</span>{esc(inv.get('account_number'))}</div>")
+    if inv.get("ifsc"):
+        bank_bits.append(f"<div><span>IFSC</span>{esc(inv.get('ifsc'))}</div>")
+    if inv.get("upi"):
+        bank_bits.append(f"<div><span>UPI</span>{esc(inv.get('upi'))}</div>")
+    bank_html = "".join(bank_bits)
+    terms = esc(inv.get("terms") or (
+        "This invoice covers the billing period shown above — the month (or dates) of studio work being billed. "
+        "Payment is due by the date listed. For questions: bhufix@gmail.com / +91 93423 43690."
+    ))
+    status = esc((inv.get("status") or "draft").upper())
+    pkg = esc(inv.get("package_name") or "")
+    pver = esc(str(inv.get("package_version") or ""))
+    period = esc(inv.get("billing_period") or "—")
+    due = esc(inv.get("due_date") or "—")
+    number = esc(inv.get("number") or "Invoice")
+    issued = esc(str(inv.get("created_at") or "")[:10])
+    logo = """<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 64 64" aria-hidden="true">
+      <rect width="64" height="64" rx="14" fill="#E8734A"/>
+      <text x="32" y="44" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="38" font-weight="800" fill="#ffffff">B</text>
+    </svg>"""
     return f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(inv.get("number") or "Invoice")}</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice {number} · BhuFix</title>
 <style>
-body{{font-family:Georgia,serif;color:#111;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.45}}
-h1{{font-size:22px;margin:0}} .meta{{color:#555;font-size:13px;margin:6px 0 24px}}
-table{{width:100%;border-collapse:collapse;font-size:14px}} th,td{{border-bottom:1px solid #ddd;padding:8px 4px;text-align:left}}
-.r{{text-align:right}} .tot{{font-size:18px;margin-top:16px}} .stamp{{margin-top:28px;font-size:12px;color:#555}}
-@media(max-width:600px){{body{{margin:16px auto;font-size:15px}} table{{font-size:12px}} .tot{{font-size:16px}}}}
+  :root {{ --navy:#0B1224; --coral:#E8734A; --ink:#1B2233; --muted:#5C6578; --line:#E6E9F0; --paper:#F7F8FC; }}
+  * {{ box-sizing: border-box; }}
+  body {{ margin:0; background:#e8eaf1; color:var(--ink); font-family: Arial, Helvetica, sans-serif; }}
+  .sheet {{ max-width:800px; margin:28px auto; background:#fff; padding:40px 44px 36px; box-shadow:0 8px 32px rgba(11,18,36,.08); }}
+  .top {{ display:flex; justify-content:space-between; gap:24px; align-items:flex-start; border-bottom:3px solid var(--navy); padding-bottom:20px; }}
+  .brand {{ display:flex; gap:12px; align-items:center; }}
+  .word {{ font-size:26px; font-weight:800; letter-spacing:-.03em; color:var(--navy); }}
+  .word span {{ color:var(--coral); }}
+  .tag {{ font-size:11px; color:var(--muted); letter-spacing:.12em; text-transform:uppercase; margin-top:2px; }}
+  .inv-meta {{ text-align:right; }}
+  .inv-meta h1 {{ margin:0; font-size:22px; color:var(--navy); letter-spacing:.08em; }}
+  .stamp {{ display:inline-block; margin-top:8px; font-size:11px; font-weight:700; letter-spacing:.08em; padding:4px 8px; border:1px solid var(--coral); color:var(--coral); }}
+  .grid {{ display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:22px 0 8px; }}
+  .box h3 {{ margin:0 0 6px; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--coral); }}
+  .box p {{ margin:0; font-size:13px; line-height:1.55; color:var(--ink); }}
+  .muted {{ color:var(--muted); }}
+  table {{ width:100%; border-collapse:collapse; margin-top:18px; font-size:13px; }}
+  th {{ text-align:left; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:#fff; background:var(--navy); padding:10px 8px; }}
+  th.r, td.r {{ text-align:right; }}
+  td {{ padding:10px 8px; border-bottom:1px solid var(--line); }}
+  .totals {{ width:280px; margin-left:auto; margin-top:12px; font-size:13px; }}
+  .totals div {{ display:flex; justify-content:space-between; padding:4px 0; color:var(--muted); }}
+  .totals .grand {{ color:var(--navy); font-size:16px; font-weight:800; border-top:2px solid var(--navy); margin-top:6px; padding-top:8px; }}
+  .pay {{ margin-top:28px; background:var(--paper); padding:16px 18px; }}
+  .pay h3 {{ margin:0 0 10px; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--navy); }}
+  .foot {{ display:grid; grid-template-columns:1.2fr .8fr; gap:20px; margin-top:28px; font-size:12px; color:var(--muted); }}
+  .foot span {{ color:var(--muted); display:inline-block; min-width:96px; }}
+  .note {{ margin-top:16px; font-size:13px; line-height:1.5; }}
+  @media print {{
+    body {{ background:#fff; }}
+    .sheet {{ margin:0; box-shadow:none; max-width:none; padding:18mm; }}
+  }}
+  @media (max-width:640px) {{
+    .sheet {{ margin:0; padding:22px 16px; }}
+    .top, .grid, .foot {{ grid-template-columns:1fr; display:grid; }}
+    .inv-meta {{ text-align:left; }}
+    .totals {{ width:100%; }}
+  }}
 </style></head>
 <body>
-<p>BhuFix</p>
-<h1>Invoice {html.escape(inv.get("number") or "")}</h1>
-<p class="meta">{html.escape(inv.get("client_name") or "")} · {html.escape(inv.get("package_name") or "")}
- v{html.escape(str(inv.get("package_version") or "—"))} · {html.escape(inv.get("status") or "")}<br>
-Period {html.escape(inv.get("billing_period") or "—")} · Due {html.escape(inv.get("due_date") or "—")}</p>
-<table><thead><tr><th>Service</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead>
-<tbody>{rows or "<tr><td colspan='4'>No line items.</td></tr>"}</tbody></table>
-<p>Subtotal ₹{float(inv.get("subtotal") or 0):,.0f} · Discount ₹{float(inv.get("discount") or 0):,.0f}
- · Tax ₹{float(inv.get("tax") or 0):,.0f}</p>
-<p class="tot"><b>Total ₹{float(inv.get("total") or 0):,.0f}</b></p>
-{f"<p>{memo}</p>" if memo else ""}
-<h2 style="font-size:14px;margin-top:32px">Payments</h2>
-<table><thead><tr><th>Date</th><th>Method</th><th class="r">Amount</th><th>Note</th></tr></thead>
-<tbody>{pay_rows}</tbody></table>
-<p class="stamp">Udumalpet · Coimbatore · Tirupur</p>
+  <div class="sheet">
+    <div class="top">
+      <div class="brand">
+        {logo}
+        <div>
+          <div class="word">Bhu<span>Fix</span></div>
+          <div class="tag">Digital marketing studio</div>
+        </div>
+      </div>
+      <div class="inv-meta">
+        <h1>INVOICE</h1>
+        <div style="margin-top:6px;font-size:14px;font-weight:700;color:var(--navy)">{number}</div>
+        <div class="stamp">{status}</div>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="box">
+        <h3>From</h3>
+        <p><b>BhuFix</b><br>
+        Udumalpet · Coimbatore · Tirupur<br>
+        Tamil Nadu, India<br>
+        +91 93423 43690<br>
+        bhufix@gmail.com<br>
+        bhufix.com
+        {f"<br>GSTIN {gstin}" if gstin else ""}</p>
+      </div>
+      <div class="box">
+        <h3>Bill to</h3>
+        <p><b>{bill_to}</b>
+        {f"<br>Package {pkg}" if pkg else ""}{f" v{pver}" if pver else ""}</p>
+        <h3 style="margin-top:12px">Billing period</h3>
+        <p>The work this invoice covers: <b>{period}</b><br>
+        <span class="muted">Issued {issued} · Due {due}</span></p>
+      </div>
+    </div>
+    <table>
+      <thead><tr><th>Service / description</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>
+    <div class="totals">
+      <div><span>Subtotal</span><span>{_rupee(inv.get("subtotal"))}</span></div>
+      <div><span>Discount</span><span>− {_rupee(inv.get("discount"))}</span></div>
+      <div><span>Tax{f" ({float(inv.get('tax_rate') or 0):g}%)" if inv.get("tax_rate") else ""}</span><span>{_rupee(inv.get("tax"))}</span></div>
+      <div class="grand"><span>Total</span><span>{_rupee(inv.get("total"))}</span></div>
+      <div><span>Paid</span><span>{_rupee(paid)}</span></div>
+      <div><span>Balance</span><span>{_rupee(due_left)}</span></div>
+    </div>
+    {f'<div class="note">{memo}</div>' if memo else ""}
+    {f'<div class="pay"><h3>Pay BhuFix</h3>{bank_html}</div>' if bank_html else ""}
+    {f'<div class="pay"><h3>Payments received</h3><table><thead><tr><th>Date</th><th>Method</th><th class="r">Amount</th><th>Note</th></tr></thead><tbody>{pay_rows}</tbody></table></div>' if pay_rows else ""}
+    <div class="foot">
+      <div><b style="color:var(--navy)">Terms</b><br>{terms}</div>
+      <div>Udumalpet · Coimbatore · Tirupur<br>Thank you for working with BhuFix.</div>
+    </div>
+  </div>
 </body></html>"""
 
 

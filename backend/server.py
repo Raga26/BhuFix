@@ -102,7 +102,8 @@ else:
 # JWT / Auth configuration
 SECRET_KEY = os.environ.get('SECRET_KEY', 'bhufix-default-secret-change-in-prod')
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get('ACCESS_TOKEN_EXPIRE_MINUTES', '480'))
+# 7 days. Opening the OS issues a fresh token so daily use stays signed in.
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get('ACCESS_TOKEN_EXPIRE_MINUTES', str(7 * 24 * 60)))
 OWNER_EMAIL = os.environ.get('OWNER_EMAIL', '')
 OWNER_PASSWORD = os.environ.get('OWNER_PASSWORD', '')
 OWNER_NAME = os.environ.get('OWNER_NAME', 'BhuFix Admin')
@@ -1044,7 +1045,8 @@ async def login(data: LoginRequest):
 
 @api_router.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
-    return rbac.public_user(current_user)
+    token = create_access_token({"sub": current_user["id"], "role": current_user["role"]})
+    return {"user": rbac.public_user(current_user), "token": token}
 
 # ── User Management ───────────────────────────────────────────────
 @api_router.post("/users")
