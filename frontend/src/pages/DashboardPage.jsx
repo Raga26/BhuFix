@@ -1,32 +1,62 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
-import { Menu, LayoutDashboard, Briefcase, CalendarDays, MessageSquare, LogOut, CheckSquare, Clapperboard, FileCheck } from 'lucide-react';
+import { Menu, LayoutDashboard, Briefcase, CalendarDays, MessageSquare, LogOut, CheckSquare, Clapperboard, FileCheck, Globe, Megaphone, Search, Sparkles } from 'lucide-react';
 import { Sidebar } from '../components/dashboard/Sidebar';
 import { NotificationBell } from '../components/dashboard/NotificationBell';
 import { useAuth } from '../context/AuthContext';
-import { isCreative } from '../lib/access';
+import { deskKind } from '../lib/access';
 import apiClient from '../utils/axiosConfig';
 
 const MOBILE_TABS = {
-  owner: [
+  leadership: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
     { to: '/dashboard/clients', label: 'Clients', icon: Briefcase },
     { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
     { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
   ],
-  admin: [
+  creative: [
+    { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
+    { to: '/dashboard/clip', label: 'Clip', icon: Clapperboard },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+  ],
+  tech: [
+    { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
+    { to: '/dashboard/web', label: 'Web', icon: Globe },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+  ],
+  ads: [
+    { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
+    { to: '/dashboard/ads', label: 'Ads', icon: Megaphone },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+  ],
+  smm: [
+    { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
+    { to: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+  ],
+  seo: [
+    { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
+    { to: '/dashboard/seo', label: 'SEO', icon: Search },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+  ],
+  analyst: [
+    { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
+    { to: '/dashboard/insights', label: 'Insights', icon: Sparkles },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+  ],
+  ops: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
     { to: '/dashboard/clients', label: 'Clients', icon: Briefcase },
     { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
     { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
   ],
-  operations_manager: [
-    { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/clients', label: 'Clients', icon: Briefcase },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
-  ],
-  employee: [
+  staff: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
     { to: '/dashboard/clients', label: 'Clients', icon: Briefcase },
     { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
@@ -42,14 +72,7 @@ const MOBILE_TABS = {
 
 function BottomTabBar({ onMore }) {
   const { user } = useAuth();
-  const tabs = isCreative(user)
-    ? [
-      { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-      { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-      { to: '/dashboard/clip', label: 'Clip', icon: Clapperboard },
-      { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
-    ]
-    : (MOBILE_TABS[user?.role] || MOBILE_TABS.client);
+  const tabs = MOBILE_TABS[deskKind(user)] || MOBILE_TABS.staff;
 
   const tabClass = ({ isActive }) =>
     `flex flex-col items-center gap-1 px-2 py-2.5 flex-1 transition-colors ${
@@ -134,7 +157,7 @@ export default function DashboardPage() {
           <div className="justify-self-end flex items-center gap-0 md:gap-3">
             <NotificationBell />
             <span className="hidden md:inline text-[13px] text-white/40 truncate max-w-[200px]">{user?.name}</span>
-            <Link to="/" className="hidden md:inline text-[12px] text-white/35 hover:text-white/70 transition-colors">
+            <Link to="/?site=1" className="hidden md:inline text-[12px] text-white/35 hover:text-white/70 transition-colors">
               Website
             </Link>
             <button

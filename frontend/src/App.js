@@ -1,12 +1,13 @@
 import "./App.css";
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ClockInAuthProvider } from "./context/ClockInAuthContext";
 import { Toaster } from "./components/ui/sonner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { canSeePublish } from "./lib/access";
 import logger from "./utils/logger";
 import { Header } from "./components/Header";
 import { HeroSection } from "./components/HeroSection";
@@ -51,34 +52,41 @@ import ClockInAppPage from "./pages/clockin/ClockInAppPage";
 import ClockInDisplayPage from "./pages/clockin/ClockInDisplayPage";
 import ClockInPunchPage from "./pages/clockin/ClockInPunchPage";
 
-const HomePage = () => (
-  <>
-    <Header />
-    <HeroSection />
-    <ScrollReveal>
-      <AboutSection />
-    </ScrollReveal>
-    <ScrollReveal>
-      <ServicesSection />
-    </ScrollReveal>
-    <ScrollReveal>
-      <PricingSection />
-    </ScrollReveal>
-    <ScrollReveal>
-      <BrandsSection />
-    </ScrollReveal>
-    <ScrollReveal>
-      <TestimonialsSection />
-    </ScrollReveal>
-    <ScrollReveal>
-      <CTASection />
-    </ScrollReveal>
-    <ScrollReveal>
-      <ContactSection />
-    </ScrollReveal>
-    <Footer />
-  </>
-);
+function HomePage() {
+  const { user } = useAuth();
+  const [params] = useSearchParams();
+  if (user && params.get("site") !== "1") {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return (
+    <>
+      <Header />
+      <HeroSection />
+      <ScrollReveal>
+        <AboutSection />
+      </ScrollReveal>
+      <ScrollReveal>
+        <ServicesSection />
+      </ScrollReveal>
+      <ScrollReveal>
+        <PricingSection />
+      </ScrollReveal>
+      <ScrollReveal>
+        <BrandsSection />
+      </ScrollReveal>
+      <ScrollReveal>
+        <TestimonialsSection />
+      </ScrollReveal>
+      <ScrollReveal>
+        <CTASection />
+      </ScrollReveal>
+      <ScrollReveal>
+        <ContactSection />
+      </ScrollReveal>
+      <Footer />
+    </>
+  );
+}
 
 function App() {
   useEffect(() => {
@@ -165,9 +173,13 @@ function App() {
                         <PostReportView />
                       </ProtectedRoute>
                     } />
-                    <Route path="calendar" element={<CalendarView />} />
-                    <Route path="publish" element={
+                    <Route path="calendar" element={
                       <ProtectedRoute permission="calendar.read">
+                        <CalendarView />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="publish" element={
+                      <ProtectedRoute permission="calendar.read" allow={canSeePublish}>
                         <PublishQueueView />
                       </ProtectedRoute>
                     } />

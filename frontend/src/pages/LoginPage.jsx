@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link, Navigate } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,12 +10,12 @@ function greetingForHour(hour) {
 }
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, user, loading: sessionLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/dashboard';
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => localStorage.getItem('bhufix_email') || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [capsOn, setCapsOn] = useState(false);
@@ -56,6 +56,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
+      localStorage.setItem('bhufix_email', email.trim().toLowerCase());
       navigate(from, { replace: true });
     } catch (err) {
       setError(err.response?.data?.detail || 'Invalid email or password');
@@ -63,6 +64,18 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  if (sessionLoading) {
+    return (
+      <div className="min-h-screen bg-navy-dark flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#E8734A] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to={from} replace />;
+  }
 
   return (
     <div className="min-h-screen bg-navy-dark text-white flex">
@@ -116,7 +129,7 @@ export default function LoginPage() {
             Bhu<span className="text-coral">Fix</span>
           </Link>
           <Link
-            to="/"
+            to="/?site=1"
             className="inline-flex items-center gap-1.5 text-[12px] text-white/40 hover:text-white/80 transition-colors"
           >
             <ArrowLeft size={13} strokeWidth={1.75} />
@@ -131,7 +144,7 @@ export default function LoginPage() {
           </div>
           <div className="hidden lg:block mb-9">
             <h1 className="font-anchor italic font-medium text-[2.1rem] leading-tight">Sign in</h1>
-            <p className="text-white/40 text-sm mt-2">Use the credentials issued to you.</p>
+            <p className="text-white/40 text-sm mt-2">Stays signed in for a week on this browser.</p>
           </div>
 
           {error && (

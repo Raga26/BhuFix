@@ -115,9 +115,17 @@ apiClient.interceptors.response.use(
         case 400:
           logger.warn('Bad Request - Check your input data', errorDetails);
           break;
-        case 401:
+        case 401: {
           logger.warn('Unauthorized - Please check your credentials', errorDetails);
+          const url = String(config?.url || '');
+          const isLogin = url.includes('/auth/login');
+          if (!isLogin && localStorage.getItem('bhufix_token')) {
+            localStorage.removeItem('bhufix_token');
+            localStorage.removeItem('bhufix_user');
+            window.dispatchEvent(new Event('bhufix-auth-lost'));
+          }
           break;
+        }
         case 403:
           logger.warn('Forbidden - You do not have permission', errorDetails);
           break;

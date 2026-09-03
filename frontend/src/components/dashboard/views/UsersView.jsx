@@ -5,8 +5,18 @@ import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 import { CloseButton } from '../CloseButton';
-import { JOB_OPTIONS, jobLabel } from '../../../lib/access';
-import { Plus } from 'lucide-react';
+import { JOB_OPTIONS, jobLabel, isLeadership } from '../../../lib/access';
+import { ClientMark } from '../ClientMark';
+import { Plus, Search } from 'lucide-react';
+
+const DEPT_LABEL = {
+  administration: 'Leadership',
+  marketing: 'Marketing',
+  creative: 'Creative',
+  technology: 'Technology',
+  operations: 'Operations',
+  external: 'Client',
+};
 
 const ROLE_COLOR = {
   owner: '#E8734A',
@@ -84,8 +94,8 @@ function ClientAssignCheckboxes({ clients, selectedIds, onChange }) {
   );
 }
 
-function CreateUserModal({ clients, onClose, onSave, actor }) {
-  const [form, setForm] = useState({ name: '', email: '', password: '', roleOption: 'junior_editor', customRole: '', client_id: '', assigned_client_ids: [] });
+function CreateUserModal({ clients, onClose, onSave, actor, defaultRoleOption = 'junior_editor' }) {
+  const [form, setForm] = useState({ name: '', email: '', password: '', roleOption: defaultRoleOption, customRole: '', client_id: '', assigned_client_ids: [] });
   const [saving, setSaving] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -144,7 +154,7 @@ function CreateUserModal({ clients, onClose, onSave, actor }) {
     <div className="dash-overlay">
       <div className="dash-modal p-5 sm:p-6 w-full max-w-lg pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-white font-medium">Create user</h2>
+          <h2 className="text-white font-medium">{defaultRoleOption === 'client' ? 'Create client login' : 'Add employee'}</h2>
           <CloseButton onClick={onClose} />
         </div>
         <div className="space-y-3">
@@ -213,7 +223,7 @@ function CreateUserModal({ clients, onClose, onSave, actor }) {
         <div className="flex gap-3 mt-5">
           <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Cancel</button>
           <button onClick={handleSave} disabled={saving} className="dash-btn dash-btn-primary flex-[2] h-10">
-            {saving ? 'Creating…' : 'Create user'}
+            {saving ? 'Creating…' : (defaultRoleOption === 'client' ? 'Create login' : 'Add employee')}
           </button>
         </div>
       </div>
@@ -370,11 +380,155 @@ function EditUserModal({ editUser, clients, onClose, onSave, actor }) {
   );
 }
 
+function departmentOf(u) {
+  return DEPT_LABEL[u.department] || JOB_OPTIONS.find((o) => o.value === u.job_role)?.group || 'Team';
+}
+
+function joinedOn(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function linkedClientsOf(person, clients) {
+  const ids = person.role === 'client'
+    ? (person.client_id ? [person.client_id] : [])
+    : (person.assigned_client_ids || []);
+  return ids.map((id) => clients.find((c) => c.id === id)).filter(Boolean);
+}
+
+function PersonActions({ person, selfId, onEdit, onDelete }) {
+  if (person.id === selfId) {
+    return <span className="text-white/30 text-[11px]">You</span>;
+  }
+  return (
+    <div className="flex gap-1.5">
+      <button type="button" onClick={() => onEdit(person)} className="dash-btn dash-btn-ghost dash-btn-sm">Edit</button>
+      {person.role !== 'owner' && (
+        <button type="button" onClick={() => onDelete(person)} className="dash-btn dash-btn-danger dash-btn-sm">Remove</button>
+      )}
+    </div>
+  );
+}
+
+function LinkedClientList({ person, clients }) {
+  const allAccess = isLeadership(person) || person.role === 'owner';
+  if (allAccess) {
+    return (
+      <div className="rounded-lg bg-white/[0.04] border border-white/[0.06] px-3 py-2.5">
+        <div className="text-[10px] uppercase tracking-widest text-white/30 mb-1">Access</div>
+        <div className="text-white text-sm">Every client</div>
+        <div className="text-white/35 text-xs mt-0.5">Leadership is not limited to an assignment list.</div>
+      </div>
+    );
+  }
+  const linked = linkedClientsOf(person, clients);
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="text-[10px] uppercase tracking-widest text-white/30">Linked clients</div>
+        <div className="text-[11px] text-white/40">{linked.length} assigned</div>
+      </div>
+      {linked.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-white/10 px-3 py-3 text-white/35 text-xs leading-relaxed">
+          No clients linked. They cannot see client work until you assign them.
+        </div>
+      ) : (
+        <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
+          {linked.map((c) => (
+            <div key={c.id} className="flex items-center gap-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] px-2.5 py-2">
+              <ClientMark client={c} size={28} />
+              <div className="min-w-0 flex-1">
+                <div className="text-white text-sm truncate">{c.name}</div>
+                <div className="text-white/35 text-[11px] truncate">{c.industry || 'Client'}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmployeeCard({ person, clients, selfId, onEdit, onDelete }) {
+  const rd = getRoleDisplay(person);
+  const joined = joinedOn(person.created_at);
+  return (
+    <div className="dash-card p-5 flex flex-col gap-4">
+      <div className="flex items-start gap-3">
+        <div className="w-11 h-11 rounded-lg flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 bg-navy border border-white/[0.08]">
+          {person.name?.[0]?.toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-white font-medium truncate">{person.name}</div>
+          <div className="text-white/40 text-xs truncate mt-0.5">{person.email}</div>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            <span
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+              style={{ background: `${rd.color}18`, color: rd.color, border: `1px solid ${rd.color}40` }}
+            >
+              {rd.label}
+            </span>
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] text-white/50 border border-white/10">
+              {departmentOf(person)}
+            </span>
+          </div>
+        </div>
+      </div>
+      <LinkedClientList person={person} clients={clients} />
+      <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.06]">
+        <div className="text-white/30 text-[11px]">{joined ? `Joined ${joined}` : 'Team member'}</div>
+        <PersonActions person={person} selfId={selfId} onEdit={onEdit} onDelete={onDelete} />
+      </div>
+    </div>
+  );
+}
+
+function ClientUserCard({ person, clients, selfId, onEdit, onDelete }) {
+  const linked = linkedClientsOf(person, clients)[0];
+  return (
+    <div className="dash-card p-5 flex flex-col gap-4">
+      <div className="flex items-start gap-3">
+        <div className="w-11 h-11 rounded-lg flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 bg-navy border border-white/[0.08]">
+          {person.name?.[0]?.toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-white font-medium truncate">{person.name}</div>
+          <div className="text-white/40 text-xs truncate mt-0.5">{person.email}</div>
+          <div className="text-[10px] uppercase tracking-widest text-[#4DD9FF]/80 mt-2">Client login</div>
+        </div>
+      </div>
+      <div>
+        <div className="text-[10px] uppercase tracking-widest text-white/30 mb-2">Logs in as</div>
+        {linked ? (
+          <div className="flex items-center gap-2.5 rounded-lg bg-white/[0.04] border border-white/[0.06] px-2.5 py-2.5">
+            <ClientMark client={linked} size={32} />
+            <div className="min-w-0">
+              <div className="text-white text-sm truncate">{linked.name}</div>
+              <div className="text-white/35 text-[11px] truncate">{linked.industry || 'Sees only this client'}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-white/10 px-3 py-3 text-white/35 text-xs">
+            Not linked to a client profile.
+          </div>
+        )}
+      </div>
+      <div className="flex justify-end pt-1 border-t border-white/[0.06]">
+        <PersonActions person={person} selfId={selfId} onEdit={onEdit} onDelete={onDelete} />
+      </div>
+    </div>
+  );
+}
+
 export default function UsersView() {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('employees');
+  const [query, setQuery] = useState('');
   const [modal, setModal] = useState(false);
   const [editModal, setEditModal] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -405,7 +559,7 @@ export default function UsersView() {
       logger.userAction('UsersView', 'delete_user', { userId: deleteConfirm.id, email: deleteConfirm.email });
       await apiClient.delete(`/users/${deleteConfirm.id}`);
       setUsers((u) => u.filter((x) => x.id !== deleteConfirm.id));
-      toast.success(`User "${deleteConfirm.name}" has been deleted`);
+      toast.success(`Removed "${deleteConfirm.name}"`);
       logger.success('User deleted', { userId: deleteConfirm.id });
       setDeleteConfirm(null);
     } catch (e) {
@@ -417,80 +571,135 @@ export default function UsersView() {
     }
   };
 
-  const clientName = (u) => {
-    if (u.role === 'client') return u.client_id ? clients.find((c) => c.id === u.client_id)?.name || u.client_id : '—';
-    const ids = u.assigned_client_ids || [];
-    if (!ids.length) return 'None assigned';
-    return ids.map((id) => clients.find((c) => c.id === id)?.name || id).join(', ');
+  const matchQuery = (u) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    const hay = [u.name, u.email, jobLabel(u), u.department, ...(u.assigned_client_ids || []).map((id) => clients.find((c) => c.id === id)?.name)].join(' ').toLowerCase();
+    return hay.includes(q);
   };
+
+  const leadership = users.filter((u) => isLeadership(u) || u.role === 'owner').filter(matchQuery);
+  const employees = users.filter((u) => u.role === 'employee').filter(matchQuery);
+  const clientUsers = users.filter((u) => u.role === 'client').filter(matchQuery);
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="dash-title">People</h1>
-          <p className="dash-sub">Who can get in, and what they can see.</p>
+          <h1 className="dash-title">Team & Users</h1>
+          <p className="dash-sub">Employees are the floor. Users are client logins into the portal.</p>
         </div>
         <button onClick={() => setModal(true)} className="dash-btn dash-btn-primary self-start">
           <Plus size={14} strokeWidth={2} />
-          Create user
+          {tab === 'users' ? 'Add client login' : 'Add employee'}
         </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        {[
+          { id: 'employees', label: 'Employees', count: users.filter((u) => u.role === 'employee').length },
+          { id: 'users', label: 'Users', count: users.filter((u) => u.role === 'client').length },
+        ].map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`px-3 py-2 rounded-md text-sm ${tab === t.id ? 'bg-white/[0.08] text-white' : 'text-white/40'}`}
+          >
+            {t.label}
+            <span className="ml-1.5 text-white/30">{t.count}</span>
+          </button>
+        ))}
+        <div className="relative w-full sm:w-auto sm:ml-auto sm:min-w-[220px]">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+          <input
+            className="dash-input pl-9 h-10"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={tab === 'users' ? 'Search logins or clients' : 'Search employees or clients'}
+          />
+        </div>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center h-32">
           <div className="w-8 h-8 border-2 border-[#E8734A] border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : (
-        <div className="dash-card overflow-hidden">
-          <div className="hidden md:grid grid-cols-[minmax(220px,1fr)_180px_160px_140px] gap-4 px-5 py-3 border-b border-white/[0.06]">
-            {['Name / Email', 'Linked Client', 'Role', 'Actions'].map((h) => (
-              <div key={h} className="text-white/30 text-[10px] uppercase tracking-widest">{h}</div>
-            ))}
-          </div>
-          {users.map((u) => (
-            <div key={u.id} className="flex flex-wrap md:grid md:grid-cols-[minmax(220px,1fr)_180px_160px_140px] gap-4 items-center px-5 py-4 border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-md flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 bg-navy border border-white/[0.08]">
-                  {u.name?.[0]?.toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <div className="text-white text-sm font-semibold truncate">{u.name}</div>
-                  <div className="text-white/30 text-xs truncate">{u.email}</div>
-                </div>
+      ) : tab === 'employees' ? (
+        <div className="space-y-8">
+          {leadership.length > 0 && (
+            <section>
+              <h2 className="text-white/40 text-[11px] uppercase tracking-widest mb-3">Leadership</h2>
+              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {leadership.map((person) => (
+                  <EmployeeCard
+                    key={person.id}
+                    person={person}
+                    clients={clients}
+                    selfId={user?.id}
+                    onEdit={setEditModal}
+                    onDelete={setDeleteConfirm}
+                  />
+                ))}
               </div>
-              <div className="text-white/50 text-sm truncate">{clientName(u)}</div>
-              <div className="min-w-0">
-                {(() => { const rd = getRoleDisplay(u); return (
-                  <span className="flex w-full min-h-7 items-center justify-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase leading-4"
-                    style={{ background: `${rd.color}15`, color: rd.color, border: `1px solid ${rd.color}40` }}>
-                    <span className="block min-w-0 break-words text-center">{rd.label}</span>
-                  </span>
-                ); })()}
+            </section>
+          )}
+          <section>
+            <h2 className="text-white/40 text-[11px] uppercase tracking-widest mb-3">Employees</h2>
+            {employees.length === 0 ? (
+              <div className="dash-card p-8 text-center">
+                <p className="text-white/50 text-sm">No employees{query ? ' match that search' : ' yet'}.</p>
+                <p className="text-white/30 text-xs mt-1.5">Add an editor, marketer, or developer and link the clients they work on.</p>
               </div>
-              <div className="flex gap-1.5">
-                {u.id !== user?.id && (
-                  <>
-                    <button onClick={() => setEditModal(u)}
-                      className="dash-btn dash-btn-ghost dash-btn-sm">
-                      Edit
-                    </button>
-                    {u.role !== 'owner' && (
-                      <button onClick={() => setDeleteConfirm(u)}
-                        className="dash-btn dash-btn-danger dash-btn-sm">
-                        Delete
-                      </button>
-                    )}
-                  </>
-                )}
+            ) : (
+              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                {employees.map((person) => (
+                  <EmployeeCard
+                    key={person.id}
+                    person={person}
+                    clients={clients}
+                    selfId={user?.id}
+                    onEdit={setEditModal}
+                    onDelete={setDeleteConfirm}
+                  />
+                ))}
               </div>
-            </div>
-          ))}
+            )}
+          </section>
         </div>
+      ) : (
+        <section>
+          <h2 className="text-white/40 text-[11px] uppercase tracking-widest mb-3">Client logins</h2>
+          {clientUsers.length === 0 ? (
+            <div className="dash-card p-8 text-center">
+              <p className="text-white/50 text-sm">No client users{query ? ' match that search' : ' yet'}.</p>
+              <p className="text-white/30 text-xs mt-1.5">These are portal accounts. Each one logs in as a single client.</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              {clientUsers.map((person) => (
+                <ClientUserCard
+                  key={person.id}
+                  person={person}
+                  clients={clients}
+                  selfId={user?.id}
+                  onEdit={setEditModal}
+                  onDelete={setDeleteConfirm}
+                />
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       {modal && (
-        <CreateUserModal clients={clients} actor={user} onClose={() => setModal(false)} onSave={load} />
+        <CreateUserModal
+          clients={clients}
+          actor={user}
+          defaultRoleOption={tab === 'users' ? 'client' : 'junior_editor'}
+          onClose={() => setModal(false)}
+          onSave={load}
+        />
       )}
 
       {editModal && (
@@ -499,8 +708,8 @@ export default function UsersView() {
 
       {deleteConfirm && (
         <DeleteConfirmDialog
-          title="Delete user"
-          message={`This permanently deletes "${deleteConfirm.name}" (${deleteConfirm.email}) from the team. They will be removed from chat and will not be able to sign in. This cannot be undone.`}
+          title={deleteConfirm.role === 'client' ? 'Remove client login' : 'Remove employee'}
+          message={`This removes "${deleteConfirm.name}" (${deleteConfirm.email}) from Team & Users. They will lose chat access and cannot sign in. This cannot be undone.`}
           onConfirm={handleDelete}
           onCancel={() => setDeleteConfirm(null)}
           isLoading={deleting}

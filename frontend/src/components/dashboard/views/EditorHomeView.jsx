@@ -60,7 +60,7 @@ export default function EditorHomeView() {
     <div>
       <div className="mb-8">
         <h1 className="dash-title">Studio</h1>
-        <p className="dash-sub">Your clients, versions, deadlines, and hours.</p>
+        <p className="dash-sub">Cuts, deadlines, and your assigned clients — not ads or SEO.</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
