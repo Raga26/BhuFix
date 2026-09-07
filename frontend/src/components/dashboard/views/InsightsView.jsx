@@ -65,7 +65,7 @@ export default function InsightsView() {
           <p className="dash-sub">
             {user?.role === 'client'
               ? 'Suggestions from your ads, SEO, and site numbers. The studio still decides what to do.'
-              : 'Recommendations from the live loop — ads, SEO, web, plans, overdue work. Nothing runs until you accept. Rewrite needs an API key; ideas still work without one.'}
+              : 'Recommendations from ads, plans, and overdue work. Nothing runs until you accept. Rewrite needs an API key; ideas still work without one.'}
           </p>
         </div>
         <button type="button" className="dash-btn dash-btn-ghost self-start min-h-[44px]" onClick={() => load(true)}>

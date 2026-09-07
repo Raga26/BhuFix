@@ -148,7 +148,6 @@ function ReviewCard({ queue, setChangeId, decide }) {
     <div className="dash-card p-5 mb-8">
       <div className="flex items-center justify-between mb-3">
         <div className="text-white font-medium text-sm">Review queue</div>
-        <Link to="/dashboard/approvals" className="text-[#E8734A] text-xs">Approvals</Link>
       </div>
       {queue.length === 0 ? (
         <p className="text-white/35 text-sm">Nothing waiting.</p>
@@ -182,7 +181,7 @@ function TechDeskView({ user }) {
   const { stats, clients } = useDeskData(user);
   return (
     <div>
-      <Greeting user={user} subtitle={`${jobLabel(user)} desk — sites, tasks, and the clients you build for.`} />
+      <Greeting user={user} subtitle={`${jobLabel(user)} desk — tasks and the clients you build for.`} />
       {stats && (
         <div className="grid grid-cols-2 gap-3 mb-8">
           <StatCard value={stats.open_tasks ?? 0} label="Open tasks" />
@@ -190,11 +189,8 @@ function TechDeskView({ user }) {
         </div>
       )}
       <div className="grid md:grid-cols-2 gap-4 mb-8">
-        <Shortcut to="/dashboard/web" title="Web" body="Pipeline, stages, and what to ship next." />
-        {can(user, 'seo.read') && (
-          <Shortcut to="/dashboard/seo" title="SEO" body="Rank work that needs a site change." />
-        )}
         <Shortcut to="/dashboard/tasks" title="Tasks" body="Tickets assigned to you." />
+        <Shortcut to="/dashboard/drive" title="Drive Links" body="Folders for the clients you can see." />
         <Shortcut to="/dashboard/chat" title="Chat" body="Talk to the client or the team." />
       </div>
       <ClientsCard clients={clients} />
@@ -209,7 +205,7 @@ function MarketingDeskView({ user, desk }) {
   const copy = {
     ads: 'Campaigns, spend, and the clients you run ads for.',
     smm: 'Calendar, publishing, and what is due this month.',
-    seo: 'Rankings, site work, and SEO tasks.',
+    seo: 'Insights and the work on your plate.',
     analyst: 'Performance, KPIs, and what the numbers are saying.',
   };
   return (
@@ -239,8 +235,8 @@ function MarketingDeskView({ user, desk }) {
         )}
         {desk === 'seo' && (
           <>
-            <Shortcut to="/dashboard/seo" title="SEO" body="Keywords, ranks, and gaps." />
-            <Shortcut to="/dashboard/web" title="Web" body="Pages that need to ship for SEO." />
+            <Shortcut to="/dashboard/insights" title="Insights" body="What needs a look today." />
+            <Shortcut to="/dashboard/strategy" title="Strategy Hub" body="The plan for this client." />
           </>
         )}
         {desk === 'analyst' && (

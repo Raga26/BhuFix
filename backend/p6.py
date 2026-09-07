@@ -164,7 +164,7 @@ async def generate_insights(db, user: dict) -> dict:
                 "title": f"{label} is #{cur_n} (target #{tgt_n})",
                 "body": "Add evidence and a task, or update the page.",
                 "why": "Current rank is more than 5 places worse than target.",
-                "link": "/dashboard/seo",
+                "link": "/dashboard/tasks",
                 "dedupe_key": f"seo-rank:{row.get('id')}",
                 "action": {"type": "task", "title": f"SEO lift: {label}", "brief": f"Now #{cur_n} → #{tgt_n}\n{row.get('current_state') or ''}", "department": "marketing", "job_role": "seo"},
             }):
@@ -178,7 +178,7 @@ async def generate_insights(db, user: dict) -> dict:
                 "title": f"{row.get('name') or 'Site'} is approved — deploy it",
                 "body": "The client said yes. Move the stage to Deployed when it is live.",
                 "why": "Client review is approved and still waiting on deploy.",
-                "link": "/dashboard/web",
+                "link": "/dashboard/tasks",
                 "dedupe_key": f"web-deploy:{row.get('id')}",
                 "action": {"type": "task", "title": f"Deploy {row.get('name') or 'site'}", "brief": "Client approved. Deploy and set stage to Deployed.", "department": "technology", "job_role": "web_developer"},
             }):

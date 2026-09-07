@@ -37,44 +37,29 @@ export default function ClientHomeView() {
     );
   }
 
-  const pending = data.pending_approvals || [];
   const upcoming = data.upcoming || [];
-  const invoices = data.invoices || [];
   const campaigns = data.campaigns || [];
+  const files = data.files || [];
 
   return (
     <div>
       <div className="mb-8">
         <h1 className="dash-title">Hello, {user?.name?.split(' ')[0]}</h1>
-        <p className="dash-sub">Your content, files, and invoices — nothing internal.</p>
+        <p className="dash-sub">Your content and files — nothing internal.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-6">
-        <Link to="/dashboard/approvals" className="dash-card p-4 min-h-[72px]">
-          <div className="text-white text-lg">{pending.length}</div>
-          <div className="text-white/35 text-xs">Waiting for you</div>
+        <Link to="/dashboard/calendar" className="dash-card p-4 min-h-[72px]">
+          <div className="text-white text-lg">{upcoming.length}</div>
+          <div className="text-white/35 text-xs">Upcoming</div>
         </Link>
-        <Link to="/dashboard/invoices" className="dash-card p-4 min-h-[72px]">
-          <div className="text-white text-lg">{data.unpaid ?? 0}</div>
-          <div className="text-white/35 text-xs">Unpaid invoices</div>
+        <Link to="/dashboard/drive" className="dash-card p-4 min-h-[72px]">
+          <div className="text-white text-lg">{files.length}</div>
+          <div className="text-white/35 text-xs">Shared files</div>
         </Link>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="dash-card p-4 sm:p-5">
-          <div className="flex justify-between mb-3">
-            <div className="text-white font-medium text-sm">Approvals</div>
-            <Link to="/dashboard/approvals" className="text-[#E8734A] text-xs min-h-[32px] inline-flex items-center">Open</Link>
-          </div>
-          {pending.length === 0 ? (
-            <p className="text-white/35 text-sm">Nothing waiting.</p>
-          ) : pending.slice(0, 5).map((a) => (
-            <Link key={a.id} to="/dashboard/approvals" className="block py-2 border-b border-white/[0.04] last:border-0 text-white text-sm">
-              {a.type} {a.version_label}
-            </Link>
-          ))}
-        </div>
-
         <div className="dash-card p-4 sm:p-5">
           <div className="flex justify-between mb-3">
             <div className="text-white font-medium text-sm">Content</div>
@@ -92,26 +77,12 @@ export default function ClientHomeView() {
 
         <div className="dash-card p-4 sm:p-5">
           <div className="flex justify-between mb-3">
-            <div className="text-white font-medium text-sm">Invoices</div>
-            <Link to="/dashboard/invoices" className="text-[#E8734A] text-xs min-h-[32px] inline-flex items-center">Open</Link>
-          </div>
-          {invoices.length === 0 ? (
-            <p className="text-white/35 text-sm">None yet.</p>
-          ) : invoices.slice(0, 5).map((i) => (
-            <Link key={i.id} to="/dashboard/invoices" className="block py-2 border-b border-white/[0.04] last:border-0 text-sm text-white">
-              {i.number} · ₹{Number(i.total || 0).toLocaleString('en-IN')} · {i.status}
-            </Link>
-          ))}
-        </div>
-
-        <div className="dash-card p-4 sm:p-5">
-          <div className="flex justify-between mb-3">
             <div className="text-white font-medium text-sm">Files</div>
             <Link to="/dashboard/drive" className="text-[#E8734A] text-xs min-h-[32px] inline-flex items-center">Open</Link>
           </div>
-          {(data.files || []).length === 0 ? (
+          {files.length === 0 ? (
             <p className="text-white/35 text-sm">No shared files.</p>
-          ) : (data.files || []).slice(0, 5).map((f) => (
+          ) : files.slice(0, 5).map((f) => (
             <Link key={f.id} to="/dashboard/drive" className="block py-2 border-b border-white/[0.04] last:border-0 text-white text-sm truncate">{f.filename}</Link>
           ))}
         </div>

@@ -421,7 +421,7 @@ def create_p3_router(db, *, get_current_user, sanitize_input, logger) -> APIRout
                     db, row.get("submitted_by"), "action",
                     "Client requested changes",
                     row.get("version_label") or "",
-                    "/dashboard/approvals",
+                    "/dashboard",
                     f"changes:{approval_id}",
                 )
         except Exception:

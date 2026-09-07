@@ -4,6 +4,7 @@ import { useAuth } from '../../../context/AuthContext';
 
 export default function DriveView() {
   const { user } = useAuth();
+  const isClient = user?.role === 'client';
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -11,16 +12,21 @@ export default function DriveView() {
     apiClient.get('/clients').then((r) => {
       const all = r.data || [];
       setClients(all.filter((c) => c.drive_link));
-      setLoading(false);
-    });
+    }).catch(() => setClients([])).finally(() => setLoading(false));
   }, []);
+
+  const empty = isClient
+    ? 'No folder has been shared with you yet.'
+    : 'No drive links for the clients you can view. Add a drive link on the client record.';
 
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="dash-title">Drive</h1>
-          <p className="dash-sub">One folder per client.</p>
+          <h1 className="dash-title">{isClient ? 'My Files' : 'Drive Links'}</h1>
+          <p className="dash-sub">
+            {isClient ? 'Your Google Drive folder.' : 'Folders for the clients you are allowed to see.'}
+          </p>
         </div>
       </div>
 
@@ -30,7 +36,7 @@ export default function DriveView() {
             <div className="w-6 h-6 border-2 border-[#E8734A] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : clients.length === 0 ? (
-          <div className="text-center py-10 text-white/30 text-sm">No drive links yet. Add drive links when creating clients.</div>
+          <div className="text-center py-10 text-white/30 text-sm">{empty}</div>
         ) : (
           clients.map((c) => (
             <a key={c.id} href={c.drive_link} target="_blank" rel="noreferrer"
@@ -40,7 +46,7 @@ export default function DriveView() {
               </span>
               <div className="flex-1 min-w-0">
                 <div className="text-white text-sm font-medium">{c.name}</div>
-                <div className="text-white/40 text-xs">{c.industry} · Started {c.start_date} · {c.ig_handle}</div>
+                <div className="text-white/40 text-xs">{[c.industry, c.start_date && `Started ${c.start_date}`, c.ig_handle].filter(Boolean).join(' · ')}</div>
               </div>
               <span className="text-xs text-coral flex-shrink-0">Open</span>
             </a>

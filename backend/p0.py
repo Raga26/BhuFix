@@ -494,6 +494,7 @@ def create_p0_router(
         client_id: Optional[str] = Query(None),
         owner_id: Optional[str] = Query(None),
         status: Optional[str] = Query(None),
+        month: Optional[str] = Query(None),
         current_user: dict = Depends(get_current_user),
     ):
         rbac.assert_can(current_user, "tasks", "read")
@@ -506,6 +507,18 @@ def create_p0_router(
             query["owner_id"] = owner_id
         if status:
             query["status"] = status
+        if month:
+            if not re.match(r"^\d{4}-\d{2}$", month):
+                raise HTTPException(status_code=400, detail="month must be YYYY-MM")
+            query["$or"] = [
+                {"deadline": {"$regex": f"^{month}"}},
+                {
+                    "$and": [
+                        {"$or": [{"deadline": None}, {"deadline": ""}, {"deadline": {"$exists": False}}]},
+                        {"created_at": {"$regex": f"^{month}"}},
+                    ]
+                },
+            ]
         rows = await db.tasks.find(query, {"_id": 0}).sort("deadline", 1).to_list(1000)
         if current_user.get("role") == "client":
             for t in rows:

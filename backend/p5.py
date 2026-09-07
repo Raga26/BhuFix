@@ -319,7 +319,7 @@ async def run_tick(db) -> dict:
             db, leads, "important",
             f"Invoice {inv.get('number') or ''} is overdue",
             f"Due {due}",
-            "/dashboard/invoices",
+            "/dashboard",
             f"inv-overdue:{inv['id']}",
         )
         clients = await db.users.find(
@@ -330,7 +330,7 @@ async def run_tick(db) -> dict:
             db, [c["id"] for c in clients], "important",
             f"Invoice {inv.get('number') or ''} is due",
             f"Due {due}",
-            "/dashboard/invoices",
+            "/dashboard",
             f"inv-overdue-client:{inv['id']}",
         )
         created += 1

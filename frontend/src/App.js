@@ -7,7 +7,7 @@ import { ClockInAuthProvider } from "./context/ClockInAuthContext";
 import { Toaster } from "./components/ui/sonner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { canSeePublish } from "./lib/access";
+import { canSeePublish, can } from "./lib/access";
 import logger from "./utils/logger";
 import { Header } from "./components/Header";
 import { HeroSection } from "./components/HeroSection";
@@ -28,19 +28,13 @@ import ClientsView from "./components/dashboard/views/ClientsView";
 import PostReportView from "./components/dashboard/views/PostReportView";
 import CalendarView from "./components/dashboard/views/CalendarView";
 import AdsView from "./components/dashboard/views/AdsView";
-import SeoView from "./components/dashboard/views/SeoView";
-import WebView from "./components/dashboard/views/WebView";
-import CompetitorsView from "./components/dashboard/views/CompetitorsView";
 import StrategyView from "./components/dashboard/views/StrategyView";
-import AssetsView from "./components/dashboard/views/AssetsView";
+import DriveView from "./components/dashboard/views/DriveView";
 import ChatView from "./components/dashboard/views/ChatView";
 import KPIView from "./components/dashboard/views/KPIView";
 import UsersView from "./components/dashboard/views/UsersView";
 import TasksView from "./components/dashboard/views/TasksView";
-import PackagesView from "./components/dashboard/views/PackagesView";
-import InvoicesView from "./components/dashboard/views/InvoicesView";
 import ClipView from "./components/dashboard/views/ClipView";
-import ApprovalsView from "./components/dashboard/views/ApprovalsView";
 import PublishQueueView from "./components/dashboard/views/PublishQueueView";
 import PerformanceView from "./components/dashboard/views/PerformanceView";
 import InsightsView from "./components/dashboard/views/InsightsView";
@@ -183,11 +177,6 @@ function App() {
                         <PublishQueueView />
                       </ProtectedRoute>
                     } />
-                    <Route path="approvals" element={
-                      <ProtectedRoute permission="approvals.read">
-                        <ApprovalsView />
-                      </ProtectedRoute>
-                    } />
                     <Route path="tasks" element={
                       <ProtectedRoute permission="tasks.read">
                         <TasksView />
@@ -208,29 +197,14 @@ function App() {
                         <InsightsView />
                       </ProtectedRoute>
                     } />
-                    <Route path="seo" element={
-                      <ProtectedRoute permission="seo.read">
-                        <SeoView />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="web" element={
-                      <ProtectedRoute permission="web.read">
-                        <WebView />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="competitors" element={
-                      <ProtectedRoute permission="competitors.read">
-                        <CompetitorsView />
-                      </ProtectedRoute>
-                    } />
                     <Route path="strategy" element={
                       <ProtectedRoute permission="strategy.read">
                         <StrategyView />
                       </ProtectedRoute>
                     } />
                     <Route path="drive" element={
-                      <ProtectedRoute permission="assets.read">
-                        <AssetsView />
+                      <ProtectedRoute allow={(u) => u?.role === 'client' || can(u, 'clients.read')}>
+                        <DriveView />
                       </ProtectedRoute>
                     } />
                     <Route path="clip" element={
@@ -247,16 +221,6 @@ function App() {
                     <Route path="kpis" element={
                       <ProtectedRoute permission="kpis.read">
                         <KPIView />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="packages" element={
-                      <ProtectedRoute permission="packages.read">
-                        <PackagesView />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="invoices" element={
-                      <ProtectedRoute permission="invoices.read">
-                        <InvoicesView />
                       </ProtectedRoute>
                     } />
                     <Route path="users" element={

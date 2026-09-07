@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import apiClient from '../../../utils/axiosConfig';
 import { useAuth } from '../../../context/AuthContext';
 import { can, TASK_STATUSES } from '../../../lib/access';
@@ -8,18 +8,55 @@ import { ClientMark } from '../ClientMark';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 import { CloseButton } from '../CloseButton';
 
-const inputCls = "w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50";
+const inputCls = 'w-full bg-white/[0.06] border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/20 outline-none focus:border-[#E8734A]/50';
 const optStyle = { background: '#0D0E1A', color: '#fff' };
 
-function TaskModal({ task, clients, staff, onClose, onSave }) {
+const BOARD = [
+  { value: 'todo', label: 'To do' },
+  { value: 'in_progress', label: 'In progress' },
+  { value: 'in_review', label: 'In review' },
+  { value: 'done', label: 'Done' },
+];
+
+function monthKey(year, month) {
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+function lastDayOfMonth(year, month) {
+  const day = new Date(year, month, 0).getDate();
+  return `${monthKey(year, month)}-${String(day).padStart(2, '0')}`;
+}
+
+function shiftMonth(year, month, delta) {
+  const d = new Date(year, month - 1 + delta, 1);
+  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+}
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function columnFor(status) {
+  if (status === 'changes_requested') return 'in_review';
+  if (status === 'cancelled') return null;
+  return status;
+}
+
+function isOverdue(task) {
+  if (!task.deadline || task.status === 'done' || task.status === 'cancelled') return false;
+  return task.deadline < todayStr();
+}
+
+function TaskModal({ task, clients, staff, defaultStatus, defaultDeadline, canDelete, onClose, onSave, onDelete }) {
   const isEdit = !!task?.id;
   const [form, setForm] = useState(task?.id ? task : {
     client_id: clients[0]?.id || '',
     owner_id: staff[0]?.id || '',
     title: '',
     brief: '',
-    deadline: '',
-    status: 'todo',
+    deadline: defaultDeadline || '',
+    status: defaultStatus || 'todo',
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -66,7 +103,7 @@ function TaskModal({ task, clients, staff, onClose, onSave }) {
             </select>
           </div>
           <div>
-            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Owner</label>
+            <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Assign to</label>
             <select className={inputCls} value={form.owner_id} onChange={(e) => set('owner_id', e.target.value)}>
               {staff.map((s) => <option key={s.id} value={s.id} style={optStyle}>{s.name} · {s.job_label}</option>)}
             </select>
@@ -87,14 +124,19 @@ function TaskModal({ task, clients, staff, onClose, onSave }) {
             <div>
               <label className="block text-white/40 text-[10px] uppercase tracking-widest mb-1.5">Status</label>
               <select className={inputCls} value={form.status} onChange={(e) => set('status', e.target.value)}>
-                {TASK_STATUSES.map((s) => <option key={s.value} value={s.value} style={optStyle}>{s.label}</option>)}
+                {TASK_STATUSES.filter((s) => s.value !== 'cancelled').map((s) => (
+                  <option key={s.value} value={s.value} style={optStyle}>{s.label}</option>
+                ))}
               </select>
             </div>
           </div>
         </div>
         <div className="flex gap-3 mt-5">
-          <button onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Cancel</button>
-          <button onClick={handleSave} disabled={saving} className="dash-btn dash-btn-primary flex-[2] h-10">
+          {isEdit && canDelete && (
+            <button type="button" onClick={() => onDelete(task)} className="dash-btn dash-btn-danger">Delete</button>
+          )}
+          <button type="button" onClick={onClose} className="dash-btn dash-btn-ghost flex-1">Cancel</button>
+          <button type="button" onClick={handleSave} disabled={saving} className="dash-btn dash-btn-primary flex-[2] h-10">
             {saving ? 'Saving…' : isEdit ? 'Save' : 'Create task'}
           </button>
         </div>
@@ -103,25 +145,62 @@ function TaskModal({ task, clients, staff, onClose, onSave }) {
   );
 }
 
+function TaskCard({ task, client, owner, canWrite, onOpen, onDragStart, onDragEnd }) {
+  const overdue = isOverdue(task);
+  return (
+    <article
+      draggable={canWrite}
+      onDragStart={(e) => onDragStart(e, task)}
+      onDragEnd={onDragEnd}
+      onClick={() => onOpen(task)}
+      className={`dash-card p-3 cursor-pointer hover:border-white/20 transition-colors ${canWrite ? 'active:cursor-grabbing' : ''}`}
+    >
+      <div className="flex items-start gap-2.5">
+        <ClientMark client={client || { name: '?' }} size={28} />
+        <div className="flex-1 min-w-0">
+          <div className="text-white text-sm font-medium leading-snug">{task.title}</div>
+          <div className="text-white/40 text-xs mt-1 truncate">
+            {client?.name || 'Client'} · {owner?.name || 'Unassigned'}
+          </div>
+          {task.deadline && (
+            <div className={`text-[11px] mt-1.5 ${overdue ? 'text-[#E8734A]' : 'text-white/35'}`}>
+              {overdue ? 'Overdue · ' : 'Due '}{task.deadline}
+            </div>
+          )}
+          {task.status === 'changes_requested' && (
+            <span className="inline-block mt-1.5 text-[10px] uppercase tracking-wider text-[#FBBF24]/90 border border-[#FBBF24]/25 rounded-full px-2 py-0.5">Changes</span>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function TasksView() {
   const { user } = useAuth();
   const canWrite = can(user, 'tasks.write');
+  const now = new Date();
+  const [viewDate, setViewDate] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 });
   const [tasks, setTasks] = useState([]);
   const [clients, setClients] = useState([]);
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [clientFilter, setClientFilter] = useState('');
+  const [ownerFilter, setOwnerFilter] = useState('');
   const [modal, setModal] = useState(null);
-  const [evidenceTask, setEvidenceTask] = useState(null);
-  const [evidenceText, setEvidenceText] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [dragging, setDragging] = useState(null);
 
-  const clientMap = Object.fromEntries(clients.map((c) => [c.id, c]));
-  const staffMap = Object.fromEntries(staff.map((s) => [s.id, s]));
+  const clientMap = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c])), [clients]);
+  const staffMap = useMemo(() => Object.fromEntries(staff.map((s) => [s.id, s])), [staff]);
+  const month = monthKey(viewDate.year, viewDate.month);
+  const monthLabel = new Date(viewDate.year, viewDate.month - 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  const defaultDeadline = lastDayOfMonth(viewDate.year, viewDate.month);
 
   const load = useCallback(() => {
     setLoading(true);
     Promise.all([
-      apiClient.get('/tasks'),
+      apiClient.get('/tasks', { params: { month } }),
       apiClient.get('/clients'),
       apiClient.get('/users/directory').catch(() => ({ data: [] })),
     ]).then(([t, c, s]) => {
@@ -129,38 +208,76 @@ export default function TasksView() {
       setClients(c.data || []);
       setStaff(s.data || []);
     }).catch(() => toast.error('Failed to load tasks')).finally(() => setLoading(false));
-  }, []);
+  }, [month]);
 
   useEffect(() => { load(); }, [load]);
 
-  const addEvidence = async () => {
-    if (!evidenceText.trim() || !evidenceTask) return;
+  const visible = tasks.filter((t) => {
+    if (t.status === 'cancelled') return false;
+    if (clientFilter && t.client_id !== clientFilter) return false;
+    if (ownerFilter && t.owner_id !== ownerFilter) return false;
+    return true;
+  });
+
+  const byColumn = Object.fromEntries(BOARD.map((col) => [col.value, []]));
+  visible.forEach((t) => {
+    const col = columnFor(t.status);
+    if (col && byColumn[col]) byColumn[col].push(t);
+  });
+
+  const moveTask = async (task, status) => {
+    if (!canWrite || task.status === status) return;
+    const prev = task.status;
+    setTasks((list) => list.map((t) => (t.id === task.id ? { ...t, status } : t)));
     try {
-      await apiClient.post(`/tasks/${evidenceTask.id}/evidence`, { type: 'note', value: evidenceText.trim() });
-      toast.success('Evidence added');
-      setEvidenceText('');
-      setEvidenceTask(null);
-      load();
+      await apiClient.put(`/tasks/${task.id}`, { status });
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Could not add evidence');
+      setTasks((list) => list.map((t) => (t.id === task.id ? { ...t, status: prev } : t)));
+      toast.error(e.response?.data?.detail || 'Could not move task');
     }
   };
 
-  const statusLabel = (v) => TASK_STATUSES.find((s) => s.value === v)?.label || v;
+  const openNew = (status = 'todo') => {
+    if (!clients.length) {
+      toast.error('No clients assigned to you yet');
+      return;
+    }
+    setModal({ status, deadline: defaultDeadline });
+  };
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="dash-title">Tasks</h1>
-          <p className="dash-sub">Client, owner, deadline, brief, status, evidence.</p>
+    <div className="flex flex-col min-h-0">
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="dash-title">Tasks</h1>
+            <p className="dash-sub">Monthly board — create, assign, and drag to track.</p>
+          </div>
+          {canWrite && (
+            <button type="button" onClick={() => openNew('todo')} className="dash-btn dash-btn-primary self-start" disabled={!clients.length}>
+              <Plus size={14} strokeWidth={2} />
+              New task
+            </button>
+          )}
         </div>
-        {canWrite && (
-          <button onClick={() => setModal({})} className="dash-btn dash-btn-primary self-start" disabled={!clients.length}>
-            <Plus size={14} strokeWidth={2} />
-            New task
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setViewDate((v) => shiftMonth(v.year, v.month, -1))} className="dash-btn dash-btn-ghost w-11 md:w-9 px-0" aria-label="Previous month">
+            <ChevronLeft size={16} strokeWidth={1.75} />
           </button>
-        )}
+          <div className="min-w-[9.5rem] text-center text-white text-sm font-medium">{monthLabel}</div>
+          <button type="button" onClick={() => setViewDate((v) => shiftMonth(v.year, v.month, 1))} className="dash-btn dash-btn-ghost w-11 md:w-9 px-0" aria-label="Next month">
+            <ChevronRight size={16} strokeWidth={1.75} />
+          </button>
+          <select className={`${inputCls} sm:w-44`} value={clientFilter} onChange={(e) => setClientFilter(e.target.value)}>
+            <option value="" style={optStyle}>All clients</option>
+            {clients.map((c) => <option key={c.id} value={c.id} style={optStyle}>{c.name}</option>)}
+          </select>
+          <select className={`${inputCls} sm:w-44`} value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}>
+            <option value="" style={optStyle}>Everyone</option>
+            {staff.map((s) => <option key={s.id} value={s.id} style={optStyle}>{s.name}</option>)}
+          </select>
+        </div>
       </div>
 
       {!clients.length && user?.role === 'employee' && (
@@ -171,69 +288,67 @@ export default function TasksView() {
 
       {loading ? (
         <div className="flex justify-center py-16"><div className="w-8 h-8 border-2 border-[#E8734A] border-t-transparent rounded-full animate-spin" /></div>
-      ) : tasks.length === 0 ? (
-        <div className="text-center py-16 text-white/30">No tasks yet.</div>
       ) : (
-        <div className="dash-card overflow-hidden">
-          {tasks.map((t) => {
-            const cl = clientMap[t.client_id];
-            const owner = staffMap[t.owner_id];
-            return (
-              <div key={t.id} className="px-4 sm:px-5 py-4 border-b border-white/[0.04] last:border-0">
-                <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <ClientMark client={cl || { name: '?' }} size={36} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-white text-sm font-medium">{t.title}</span>
-                      {t.strategy_id && <span className="text-[10px] uppercase tracking-wider text-[#4DD9FF]/80 border border-[#4DD9FF]/25 rounded-full px-2 py-0.5">From plan</span>}
-                      <span className="text-[10px] uppercase tracking-wider text-white/40 border border-white/10 rounded-full px-2 py-0.5">{statusLabel(t.status)}</span>
-                    </div>
-                    <div className="text-white/40 text-xs mt-1">
-                      {cl?.name || 'Client'} · {owner?.name || 'Owner'}
-                      {t.deadline ? ` · due ${t.deadline}` : ''}
-                    </div>
-                    {t.brief && <p className="text-white/50 text-sm mt-2 whitespace-pre-wrap">{t.brief}</p>}
-                    {(t.evidence || []).length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {t.evidence.map((ev) => (
-                          <div key={ev.id} className="text-xs text-white/35">Evidence · {ev.value}</div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  </div>
-                  {canWrite && (
-                    <div className="flex gap-1.5 flex-wrap pl-12 sm:pl-0 flex-shrink-0">
-                      <button type="button" className="dash-btn dash-btn-ghost min-h-[44px] sm:min-h-0 sm:h-9" onClick={() => setEvidenceTask(t)}>Evidence</button>
-                      <button type="button" className="dash-btn dash-btn-ghost min-h-[44px] sm:min-h-0 sm:h-9" onClick={() => setModal(t)}>Edit</button>
-                      <button type="button" className="dash-btn dash-btn-danger min-h-[44px] sm:min-h-0 sm:h-9" onClick={() => setDeleteConfirm(t)}>Delete</button>
-                    </div>
-                  )}
+        <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1 snap-x">
+          {BOARD.map((col) => (
+            <section
+              key={col.value}
+              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (dragging) moveTask(dragging, col.value);
+                setDragging(null);
+              }}
+              className="snap-start flex-shrink-0 w-[min(18rem,85vw)] md:flex-1 md:min-w-[15rem] md:w-auto bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 flex flex-col max-h-[calc(100dvh-16rem)]"
+            >
+              <div className="flex items-center justify-between mb-3 px-0.5">
+                <div className="text-white/70 text-xs uppercase tracking-wider font-medium">
+                  {col.label}
+                  <span className="text-white/30 ml-2">{byColumn[col.value].length}</span>
                 </div>
+                {canWrite && (
+                  <button type="button" className="text-white/35 hover:text-white p-1" aria-label={`Add to ${col.label}`} onClick={() => openNew(col.value)}>
+                    <Plus size={14} />
+                  </button>
+                )}
               </div>
-            );
-          })}
+              <div className="flex-1 overflow-y-auto space-y-2 pr-0.5">
+                {byColumn[col.value].length === 0 ? (
+                  <p className="text-white/25 text-xs px-1 py-6 text-center">Drop tasks here</p>
+                ) : byColumn[col.value].map((t) => (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    client={clientMap[t.client_id]}
+                    owner={staffMap[t.owner_id]}
+                    canWrite={canWrite}
+                    onOpen={(task) => setModal(task)}
+                    onDragStart={(e, task) => {
+                      e.dataTransfer.setData('text/plain', task.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                      setDragging(task);
+                    }}
+                    onDragEnd={() => setDragging(null)}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       )}
 
       {modal !== null && (
-        <TaskModal task={modal?.id ? modal : null} clients={clients} staff={staff} onClose={() => setModal(null)} onSave={load} />
-      )}
-      {evidenceTask && (
-        <div className="dash-overlay">
-          <div className="dash-modal p-5 sm:p-6 w-full max-w-md pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-            <div className="flex justify-between mb-4">
-              <h2 className="text-white font-medium">Add evidence</h2>
-              <CloseButton onClick={() => setEvidenceTask(null)} />
-            </div>
-            <textarea className={inputCls + ' min-h-[80px]'} value={evidenceText} onChange={(e) => setEvidenceText(e.target.value)} placeholder="Link, note, or what you delivered" />
-            <div className="flex gap-3 mt-4">
-              <button className="dash-btn dash-btn-ghost flex-1" onClick={() => setEvidenceTask(null)}>Cancel</button>
-              <button className="dash-btn dash-btn-primary flex-[2]" onClick={addEvidence}>Save</button>
-            </div>
-          </div>
-        </div>
+        <TaskModal
+          task={modal?.id ? modal : null}
+          clients={clients}
+          staff={staff}
+          defaultStatus={modal?.status || 'todo'}
+          defaultDeadline={modal?.deadline || defaultDeadline}
+          canDelete={canWrite}
+          onClose={() => setModal(null)}
+          onSave={load}
+          onDelete={(task) => { setModal(null); setDeleteConfirm(task); }}
+        />
       )}
       {deleteConfirm && (
         <DeleteConfirmDialog

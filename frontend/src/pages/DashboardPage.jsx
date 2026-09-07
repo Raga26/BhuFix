@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
-import { Menu, LayoutDashboard, Briefcase, CalendarDays, MessageSquare, LogOut, CheckSquare, Clapperboard, FileCheck, Globe, Megaphone, Search, Sparkles } from 'lucide-react';
+import { Menu, LayoutDashboard, Briefcase, CalendarDays, MessageSquare, LogOut, CheckSquare, Clapperboard, Megaphone, Sparkles, FolderOpen } from 'lucide-react';
 import { Sidebar } from '../components/dashboard/Sidebar';
 import { NotificationBell } from '../components/dashboard/NotificationBell';
 import { useAuth } from '../context/AuthContext';
@@ -23,7 +23,7 @@ const MOBILE_TABS = {
   tech: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
     { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/web', label: 'Web', icon: Globe },
+    { to: '/dashboard/drive', label: 'Drive', icon: FolderOpen },
     { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
   ],
   ads: [
@@ -40,7 +40,7 @@ const MOBILE_TABS = {
   ],
   seo: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/seo', label: 'SEO', icon: Search },
+    { to: '/dashboard/insights', label: 'Insights', icon: Sparkles },
     { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
     { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
   ],
@@ -65,7 +65,7 @@ const MOBILE_TABS = {
   client: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
     { to: '/dashboard/calendar', label: 'Content', icon: CalendarDays },
-    { to: '/dashboard/approvals', label: 'Approve', icon: FileCheck },
+    { to: '/dashboard/drive', label: 'Files', icon: FolderOpen },
     { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
   ],
 };

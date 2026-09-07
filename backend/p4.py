@@ -409,9 +409,9 @@ def create_p4_router(db, *, get_current_user, sanitize_input, logger) -> APIRout
             ids = await assigned_staff_ids(db, row.get("client_id"))
             ids.extend(await leadership_ids(db))
             if data.action == "approve":
-                await notify_many(db, ids, "action", "Client approved the site", "Deploy when ready.", "/dashboard/web", f"web-approve:{site_id}")
+                await notify_many(db, ids, "action", "Client approved the site", "Deploy when ready.", "/dashboard/tasks", f"web-approve:{site_id}")
             else:
-                await notify_many(db, ids, "action", "Client sent the site back to QA", row.get("name") or "", "/dashboard/web", f"web-changes:{site_id}")
+                await notify_many(db, ids, "action", "Client sent the site back to QA", row.get("name") or "", "/dashboard/tasks", f"web-changes:{site_id}")
         except Exception:
             pass
         return client_site(out)
