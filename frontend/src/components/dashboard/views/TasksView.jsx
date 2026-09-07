@@ -159,14 +159,15 @@ function TaskCard({ task, client, owner, canWrite, onOpen, onDragStart, onDragEn
         <ClientMark client={client || { name: '?' }} size={28} />
         <div className="flex-1 min-w-0">
           <div className="text-white text-sm font-medium leading-snug break-words">{task.title}</div>
-          <div className="text-white/40 text-xs mt-1 truncate">
-            {client?.name || 'Client'} · {owner?.name || 'Unassigned'}
-          </div>
+          <div className="text-white/40 text-xs mt-1 truncate">{client?.name || 'Client'}</div>
           {task.deadline && (
             <div className={`text-[11px] mt-1.5 ${overdue ? 'text-[#E8734A]' : 'text-white/35'}`}>
               {overdue ? 'Overdue · ' : 'Due '}{task.deadline}
             </div>
           )}
+          <div className="text-white text-[12px] mt-2 truncate">
+            {owner?.name || 'Unassigned'}
+          </div>
           {task.status === 'changes_requested' && (
             <span className="inline-block mt-1.5 text-[10px] uppercase tracking-wider text-[#FBBF24]/90 border border-[#FBBF24]/25 rounded-full px-2 py-0.5">Changes</span>
           )}
