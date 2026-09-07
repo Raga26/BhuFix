@@ -4,75 +4,75 @@ import { Menu, LayoutDashboard, Briefcase, CalendarDays, MessageSquare, LogOut, 
 import { Sidebar } from '../components/dashboard/Sidebar';
 import { NotificationBell } from '../components/dashboard/NotificationBell';
 import { useAuth } from '../context/AuthContext';
-import { deskKind } from '../lib/access';
+import { deskKind, can } from '../lib/access';
 import apiClient from '../utils/axiosConfig';
 
 const MOBILE_TABS = {
   leadership: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/clients', label: 'Clients', icon: Briefcase },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/dashboard/clients', label: 'Clients', icon: Briefcase, perm: 'clients.read' },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare, perm: 'tasks.read' },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare, perm: 'chat.read' },
   ],
   creative: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/clip', label: 'Clip', icon: Clapperboard },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare, perm: 'tasks.read' },
+    { to: '/dashboard/clip', label: 'Clip', icon: Clapperboard, perm: 'clips.read' },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare, perm: 'chat.read' },
   ],
   tech: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/drive', label: 'Drive', icon: FolderOpen },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare, perm: 'tasks.read' },
+    { to: '/dashboard/drive', label: 'Drive', icon: FolderOpen, perm: 'assets.read' },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare, perm: 'chat.read' },
   ],
   ads: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/ads', label: 'Ads', icon: Megaphone },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/dashboard/ads', label: 'Ads', icon: Megaphone, perm: 'ads.read' },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare, perm: 'tasks.read' },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare, perm: 'chat.read' },
   ],
   smm: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays, perm: 'calendar.read' },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare, perm: 'tasks.read' },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare, perm: 'chat.read' },
   ],
   seo: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/insights', label: 'Insights', icon: Sparkles },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/dashboard/insights', label: 'Insights', icon: Sparkles, perm: 'insights.read' },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare, perm: 'tasks.read' },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare, perm: 'chat.read' },
   ],
   analyst: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/insights', label: 'Insights', icon: Sparkles },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/dashboard/insights', label: 'Insights', icon: Sparkles, perm: 'insights.read' },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare, perm: 'tasks.read' },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare, perm: 'chat.read' },
   ],
   ops: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/clients', label: 'Clients', icon: Briefcase },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/dashboard/clients', label: 'Clients', icon: Briefcase, perm: 'clients.read' },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare, perm: 'tasks.read' },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare, perm: 'chat.read' },
   ],
   staff: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/clients', label: 'Clients', icon: Briefcase },
-    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/dashboard/clients', label: 'Clients', icon: Briefcase, perm: 'clients.read' },
+    { to: '/dashboard/tasks', label: 'Tasks', icon: CheckSquare, perm: 'tasks.read' },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare, perm: 'chat.read' },
   ],
   client: [
     { to: '/dashboard', label: 'Home', exact: true, icon: LayoutDashboard },
-    { to: '/dashboard/calendar', label: 'Content', icon: CalendarDays },
-    { to: '/dashboard/drive', label: 'Files', icon: FolderOpen },
-    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare },
+    { to: '/dashboard/calendar', label: 'Content', icon: CalendarDays, perm: 'calendar.read' },
+    { to: '/dashboard/drive', label: 'Files', icon: FolderOpen, perm: 'assets.read' },
+    { to: '/dashboard/chat', label: 'Chat', icon: MessageSquare, perm: 'chat.read' },
   ],
 };
 
 function BottomTabBar({ onMore }) {
   const { user } = useAuth();
-  const tabs = MOBILE_TABS[deskKind(user)] || MOBILE_TABS.staff;
+  const tabs = (MOBILE_TABS[deskKind(user)] || MOBILE_TABS.staff).filter((t) => !t.perm || can(user, t.perm));
 
   const tabClass = ({ isActive }) =>
     `flex flex-col items-center gap-1 px-2 py-2.5 flex-1 transition-colors ${

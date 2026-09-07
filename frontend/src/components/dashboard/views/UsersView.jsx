@@ -5,9 +5,10 @@ import logger from '../../../utils/logger';
 import { useAuth } from '../../../context/AuthContext';
 import { DeleteConfirmDialog } from '../DeleteConfirmDialog';
 import { CloseButton } from '../CloseButton';
-import { JOB_OPTIONS, jobLabel, isLeadership } from '../../../lib/access';
+import { JOB_OPTIONS, jobLabel, isLeadership, normalizedJob } from '../../../lib/access';
 import { ClientMark } from '../ClientMark';
-import { Plus, Search } from 'lucide-react';
+import { AccessMatrix, mergeAccess } from '../AccessMatrix';
+import { Plus, Search, Shield } from 'lucide-react';
 
 const DEPT_LABEL = {
   administration: 'Leadership',
@@ -398,16 +399,117 @@ function linkedClientsOf(person, clients) {
   return ids.map((id) => clients.find((c) => c.id === id)).filter(Boolean);
 }
 
-function PersonActions({ person, selfId, onEdit, onDelete }) {
+function PersonActions({ person, selfId, onEdit, onDelete, onAccess }) {
   if (person.id === selfId) {
     return <span className="text-white/30 text-[11px]">You</span>;
   }
   return (
-    <div className="flex gap-1.5">
+    <div className="flex gap-1.5 flex-wrap justify-end">
+      {person.role === 'employee' && onAccess && (
+        <button type="button" onClick={() => onAccess(person)} className="dash-btn dash-btn-ghost dash-btn-sm">Pages</button>
+      )}
       <button type="button" onClick={() => onEdit(person)} className="dash-btn dash-btn-ghost dash-btn-sm">Edit</button>
       {person.role !== 'owner' && (
         <button type="button" onClick={() => onDelete(person)} className="dash-btn dash-btn-danger dash-btn-sm">Remove</button>
       )}
+    </div>
+  );
+}
+
+function accessSummary(person, catalog) {
+  if (!catalog || person.role !== 'employee') return null;
+  const overrides = person.access_overrides || {};
+  const n = Object.keys(overrides).length;
+  if (!n) return 'Role default pages';
+  return `${n} custom page${n === 1 ? '' : 's'}`;
+}
+
+function EmployeeAccessModal({ person, catalog, onClose, onSave }) {
+  const pages = (catalog?.pages || []).filter((p) => p.staff);
+  const defaults = catalog?.jobs?.[normalizedJob(person)] || {};
+  const [value, setValue] = useState(() => mergeAccess(defaults, person.access_overrides));
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await apiClient.put(`/users/${person.id}`, { access_overrides: value });
+      toast.success(`Pages updated for ${person.name}`);
+      onSave();
+      onClose();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to save page access');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReset = () => setValue({ ...defaults });
+
+  return (
+    <div className="dash-overlay">
+      <div className="dash-modal p-5 sm:p-6 w-full max-w-lg pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-white font-medium">Pages for {person.name}</h2>
+          <CloseButton onClick={onClose} />
+        </div>
+        <p className="text-white/40 text-xs mb-4">
+          Off hides the page. View is read-only. Edit lets them change things. Empty customisation follows their {jobLabel(person)} role.
+        </p>
+        <AccessMatrix pages={pages} value={value} defaults={defaults} onChange={setValue} audience="staff" />
+        <div className="flex flex-wrap gap-3 mt-5">
+          <button type="button" onClick={handleReset} className="dash-btn dash-btn-ghost">Reset to role default</button>
+          <button type="button" onClick={onClose} className="dash-btn dash-btn-ghost ml-auto">Cancel</button>
+          <button type="button" onClick={handleSave} disabled={saving} className="dash-btn dash-btn-primary h-10">
+            {saving ? 'Saving…' : 'Save pages'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClientAccessModal({ catalog, onClose, onSave }) {
+  const pages = (catalog?.pages || []).filter((p) => p.client);
+  const defaults = catalog?.client_default || {};
+  const [value, setValue] = useState(() => ({ ...(catalog?.client || defaults) }));
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await apiClient.put('/access/client', { pages: value });
+      toast.success('Client portal pages updated for every client login');
+      onSave();
+      onClose();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to save client pages');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReset = () => setValue({ ...defaults });
+
+  return (
+    <div className="dash-overlay">
+      <div className="dash-modal p-5 sm:p-6 w-full max-w-lg pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-white font-medium">Client portal pages</h2>
+          <CloseButton onClick={onClose} />
+        </div>
+        <p className="text-white/40 text-xs mb-4">
+          One setting for every client login. Change it here and it applies to all clients — you cannot set this per client.
+        </p>
+        <AccessMatrix pages={pages} value={value} defaults={defaults} onChange={setValue} audience="client" />
+        <div className="flex flex-wrap gap-3 mt-5">
+          <button type="button" onClick={handleReset} className="dash-btn dash-btn-ghost">Reset to built-in default</button>
+          <button type="button" onClick={onClose} className="dash-btn dash-btn-ghost ml-auto">Cancel</button>
+          <button type="button" onClick={handleSave} disabled={saving} className="dash-btn dash-btn-primary h-10">
+            {saving ? 'Saving…' : 'Save for all clients'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -451,7 +553,7 @@ function LinkedClientList({ person, clients }) {
   );
 }
 
-function EmployeeCard({ person, clients, selfId, onEdit, onDelete }) {
+function EmployeeCard({ person, clients, selfId, onEdit, onDelete, onAccess, accessHint }) {
   const rd = getRoleDisplay(person);
   const joined = joinedOn(person.created_at);
   return (
@@ -477,9 +579,12 @@ function EmployeeCard({ person, clients, selfId, onEdit, onDelete }) {
         </div>
       </div>
       <LinkedClientList person={person} clients={clients} />
+      {accessHint && (
+        <div className="text-white/35 text-[11px] -mt-1">{accessHint}</div>
+      )}
       <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.06]">
         <div className="text-white/30 text-[11px]">{joined ? `Joined ${joined}` : 'Team member'}</div>
-        <PersonActions person={person} selfId={selfId} onEdit={onEdit} onDelete={onDelete} />
+        <PersonActions person={person} selfId={selfId} onEdit={onEdit} onDelete={onDelete} onAccess={onAccess} />
       </div>
     </div>
   );
@@ -526,11 +631,14 @@ export default function UsersView() {
   const { user } = useAuth();
   const [users, setUsers] = useState([]);
   const [clients, setClients] = useState([]);
+  const [catalog, setCatalog] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('employees');
   const [query, setQuery] = useState('');
   const [modal, setModal] = useState(false);
   const [editModal, setEditModal] = useState(null);
+  const [accessUser, setAccessUser] = useState(null);
+  const [clientAccessOpen, setClientAccessOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -539,9 +647,11 @@ export default function UsersView() {
     Promise.all([
       apiClient.get('/users'),
       apiClient.get('/clients'),
-    ]).then(([ur, cr]) => {
+      apiClient.get('/access/catalog').catch(() => ({ data: null })),
+    ]).then(([ur, cr, ar]) => {
       setUsers((ur.data || []).filter((u) => u.is_active !== false));
       setClients(cr.data || []);
+      setCatalog(ar.data || null);
       setLoading(false);
       logger.info('Users list loaded', { count: ur.data?.length || 0 });
     }).catch((e) => {
@@ -661,6 +771,8 @@ export default function UsersView() {
                     selfId={user?.id}
                     onEdit={setEditModal}
                     onDelete={setDeleteConfirm}
+                    onAccess={setAccessUser}
+                    accessHint={accessSummary(person, catalog)}
                   />
                 ))}
               </div>
@@ -669,6 +781,20 @@ export default function UsersView() {
         </div>
       ) : (
         <section>
+          <div className="dash-card p-4 mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-white/[0.05] border border-white/[0.08] flex items-center justify-center flex-shrink-0">
+              <Shield size={16} className="text-[#4DD9FF]" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-white text-sm">Client portal pages</div>
+              <div className="text-white/40 text-xs mt-0.5">
+                One setting for every client login. {catalog?.client_custom ? 'Custom pages are in use.' : 'Using the built-in client defaults.'} You cannot change this per client.
+              </div>
+            </div>
+            <button type="button" onClick={() => setClientAccessOpen(true)} className="dash-btn dash-btn-ghost self-start sm:self-center">
+              Edit pages
+            </button>
+          </div>
           <h2 className="text-white/40 text-[11px] uppercase tracking-widest mb-3">Client logins</h2>
           {clientUsers.length === 0 ? (
             <div className="dash-card p-8 text-center">
@@ -704,6 +830,14 @@ export default function UsersView() {
 
       {editModal && (
         <EditUserModal editUser={editModal} clients={clients} actor={user} onClose={() => setEditModal(null)} onSave={load} />
+      )}
+
+      {accessUser && catalog && (
+        <EmployeeAccessModal person={accessUser} catalog={catalog} onClose={() => setAccessUser(null)} onSave={load} />
+      )}
+
+      {clientAccessOpen && catalog && (
+        <ClientAccessModal catalog={catalog} onClose={() => setClientAccessOpen(false)} onSave={load} />
       )}
 
       {deleteConfirm && (

@@ -65,6 +65,7 @@ RESOURCES = (
     "tasks",
     "assets",
     "calendar",
+    "publish",
     "ads",
     "kpis",
     "post_reports",
@@ -106,7 +107,7 @@ MATRIX = {
         "write": ("owner", "admin"),
     },
     "tasks": {
-        "read": ("owner", "admin", "operations_manager", "employee", "client"),
+        "read": ("owner", "admin", "operations_manager", "employee"),
         "write": ("owner", "admin", "operations_manager", "employee"),
     },
     "assets": {
@@ -115,6 +116,10 @@ MATRIX = {
     },
     "calendar": {
         "read": ("owner", "admin", "operations_manager", "employee", "client"),
+        "write": ("owner", "admin", "operations_manager", "employee"),
+    },
+    "publish": {
+        "read": ("owner", "admin", "operations_manager", "employee"),
         "write": ("owner", "admin", "operations_manager", "employee"),
     },
     "ads": {
@@ -197,8 +202,8 @@ _MARKETING_CORE = frozenset({
 
 # Floor staff only see the desk for their job. Leadership is not in this map.
 EMPLOYEE_JOB_RESOURCES = {
-    "digital_marketer": _MARKETING_CORE | {"ads", "performance", "kpis", "insights", "competitors"},
-    "smm": _MARKETING_CORE,
+    "digital_marketer": _MARKETING_CORE | {"ads", "performance", "kpis", "insights", "competitors", "publish"},
+    "smm": _MARKETING_CORE | {"publish"},
     "seo": _MARKETING_CORE | {"seo", "competitors", "insights", "web"},
     "data_analyst": frozenset({
         "dashboard", "clients", "tasks", "chat", "notifications",
@@ -215,12 +220,34 @@ EMPLOYEE_JOB_RESOURCES = {
     }),
     "operations_staff": frozenset({
         "dashboard", "clients", "tasks", "assets", "calendar", "chat",
-        "strategy", "approvals", "notifications",
+        "strategy", "approvals", "notifications", "publish",
     }),
     "custom": frozenset({
         "dashboard", "clients", "tasks", "calendar", "chat", "notifications",
     }),
 }
+
+# Dashboard pages an admin can turn off / view-only / edit.
+# Leadership (owner, admin, operations manager) stays on the matrix above.
+PAGE_CATALOG = (
+    {"key": "dashboard", "label": "Overview / Home", "client_label": "Home", "group": "Main", "staff": True, "client": True, "writeable": False},
+    {"key": "clients", "label": "Clients", "group": "Main", "staff": True, "client": False, "writeable": True},
+    {"key": "tasks", "label": "Tasks", "group": "Main", "staff": True, "client": True, "writeable": True},
+    {"key": "calendar", "label": "Calendar", "client_label": "Content", "group": "Main", "staff": True, "client": True, "writeable": True},
+    {"key": "publish", "label": "Publish queue", "group": "Main", "staff": True, "client": False, "writeable": True},
+    {"key": "clips", "label": "Clip", "group": "Main", "staff": True, "client": False, "writeable": True},
+    {"key": "ads", "label": "Meta Ads", "client_label": "Campaigns", "group": "Work", "staff": True, "client": True, "writeable": True},
+    {"key": "performance", "label": "Performance", "group": "Work", "staff": True, "client": True, "writeable": False},
+    {"key": "insights", "label": "Insights", "group": "Work", "staff": True, "client": True, "writeable": True},
+    {"key": "strategy", "label": "Strategy Hub", "client_label": "Your plan", "group": "Work", "staff": True, "client": True, "writeable": True},
+    {"key": "assets", "label": "Drive / Files", "client_label": "My Files", "group": "Work", "staff": True, "client": True, "writeable": True},
+    {"key": "chat", "label": "Chat", "client_label": "Messages", "group": "Work", "staff": True, "client": True, "writeable": True},
+    {"key": "kpis", "label": "KPI Tracker", "client_label": "Reports", "group": "Work", "staff": True, "client": True, "writeable": True},
+    {"key": "post_reports", "label": "Post reports", "group": "Work", "staff": True, "client": True, "writeable": True},
+)
+
+ACCESS_LEVELS = ("off", "view", "edit")
+CLIENT_ACCESS_SETTING_ID = "client_portal_access"
 
 
 def is_agency(user: dict) -> bool:
@@ -281,7 +308,56 @@ def employee_resources(user: dict) -> frozenset:
     return EMPLOYEE_JOB_RESOURCES["custom"]
 
 
-def can(user: dict, resource: str, action: str) -> bool:
+def page_meta(key: str) -> Optional[dict]:
+    for page in PAGE_CATALOG:
+        if page["key"] == key:
+            return page
+    return None
+
+
+def catalog_public() -> list:
+    return [dict(page) for page in PAGE_CATALOG]
+
+
+def catalog_keys(audience: str) -> set:
+    return {page["key"] for page in PAGE_CATALOG if page.get(audience)}
+
+
+def access_overrides_of(user: dict) -> dict:
+    raw = (user or {}).get("access_overrides") or {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def sanitize_access_map(pages: Optional[dict], *, audience: str) -> dict:
+    allowed = catalog_keys(audience)
+    out = {}
+    for key, level in (pages or {}).items():
+        if key not in allowed or level not in ACCESS_LEVELS:
+            continue
+        meta = page_meta(key) or {}
+        if key == "dashboard" and level == "off":
+            level = "view"
+        if not meta.get("writeable") and level == "edit":
+            level = "view"
+        out[str(key)] = level
+    return out
+
+
+def job_stub(job_role: str) -> dict:
+    jr = job_role or "custom"
+    return {
+        "role": "employee",
+        "job_role": jr,
+        "department": department_for_job(jr, "employee"),
+    }
+
+
+def client_stub() -> dict:
+    return {"role": "client", "job_role": "client", "department": "external"}
+
+
+def matrix_can(user: dict, resource: str, action: str) -> bool:
+    """Role/job matrix only — ignores access_overrides."""
     if not user:
         return False
     role = user.get("role")
@@ -307,6 +383,65 @@ def can(user: dict, resource: str, action: str) -> bool:
         if resource == "competitors" and action == "write" and dept not in EMPLOYEE_COMPETITOR_WRITE_DEPTS:
             return False
     return True
+
+
+def effective_level(user: dict, resource: str) -> str:
+    if not user:
+        return "off"
+    if user.get("role") == "owner":
+        return "edit"
+    overrides = access_overrides_of(user)
+    if resource in overrides:
+        level = overrides[resource]
+        if level in ACCESS_LEVELS:
+            return level
+    if matrix_can(user, resource, "write"):
+        return "edit"
+    if matrix_can(user, resource, "read"):
+        return "view"
+    return "off"
+
+
+def access_map_for(user: dict, audience: str) -> dict:
+    return {page["key"]: effective_level(user, page["key"]) for page in PAGE_CATALOG if page.get(audience)}
+
+
+def compact_overrides(user: dict, pages: Optional[dict], *, audience: str) -> dict:
+    sanitized = sanitize_access_map(pages, audience=audience)
+    baseline = {k: v for k, v in (user or {}).items() if k != "access_overrides"}
+    defaults = access_map_for(baseline, audience)
+    return {key: level for key, level in sanitized.items() if defaults.get(key) != level}
+
+
+def job_default_maps() -> dict:
+    out = {}
+    for job in JOB_ROLES:
+        if job in ("owner", "admin", "operations_manager", "client"):
+            continue
+        out[job] = access_map_for(job_stub(job), "staff")
+    return out
+
+
+def can(user: dict, resource: str, action: str) -> bool:
+    if not user:
+        return False
+    if user.get("role") == "owner":
+        return True
+    overrides = access_overrides_of(user)
+    if resource in overrides:
+        level = overrides[resource]
+        if level not in ACCESS_LEVELS:
+            return matrix_can(user, resource, action)
+        if level == "off":
+            return False
+        if action == "read":
+            return True
+        if action == "write":
+            return level == "edit"
+        if action in ("delete", "manage"):
+            return level == "edit" and matrix_can(user, resource, action)
+        return matrix_can(user, resource, action)
+    return matrix_can(user, resource, action)
 
 
 def insight_kinds_for(user: dict) -> Optional[list]:
@@ -351,6 +486,13 @@ def public_user(user: dict) -> dict:
     out = {k: v for k, v in user.items() if k not in skip}
     out["permissions"] = permission_keys(user)
     out["job_label"] = job_label(user)
+    role = user.get("role")
+    if role == "employee":
+        out["page_access"] = access_map_for(user, "staff")
+        out["access_overrides"] = dict(access_overrides_of(user))
+    elif role == "client":
+        out["page_access"] = access_map_for(user, "client")
+        out["access_overrides"] = dict(access_overrides_of(user))
     return out
 
 
@@ -517,6 +659,7 @@ def normalize_create_role(
             "job_role": "client",
             "job_title": None,
             "sub_role": None,
+            "access_overrides": {},
         }
 
     # Staff / custom job

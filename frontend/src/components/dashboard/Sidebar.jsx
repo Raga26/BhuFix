@@ -19,7 +19,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { can, jobLabel, isCreative, isLeadership, canSeePublish } from '../../lib/access';
+import { can, jobLabel, isCreative } from '../../lib/access';
 
 const ICONS = {
   Overview: LayoutDashboard,
@@ -55,21 +55,18 @@ function navFor(user) {
   const isClient = user?.role === 'client';
   const main = [
     { to: '/dashboard', label: isClient ? 'Home' : (isCreative(user) ? 'Studio' : 'Overview'), exact: true },
-    (!isClient && (isCreative(user) || isLeadership(user))) ? item('/dashboard/clip', 'Clip', 'clips.read') : null,
+    item('/dashboard/clip', 'Clip', 'clips.read'),
     isClient ? null : item('/dashboard/clients', 'Clients', 'clients.read'),
-    isClient ? null : item('/dashboard/tasks', 'Tasks', 'tasks.read'),
+    item('/dashboard/tasks', 'Tasks', 'tasks.read'),
     item('/dashboard/calendar', isClient ? 'Content' : 'Calendar', 'calendar.read'),
-    (!isClient && canSeePublish(user))
-      ? item('/dashboard/publish', 'Publish', 'calendar.read') : null,
+    item('/dashboard/publish', 'Publish', 'publish.read'),
   ].filter(Boolean);
   const work = [
     item('/dashboard/ads', isClient ? 'Campaigns' : 'Meta Ads', 'ads.read'),
     item('/dashboard/performance', 'Performance', 'performance.read'),
     item('/dashboard/insights', 'Insights', 'insights.read'),
     item('/dashboard/strategy', isClient ? 'Your plan' : 'Strategy Hub', 'strategy.read'),
-    isClient || can(user, 'clients.read')
-      ? { to: '/dashboard/drive', label: isClient ? 'My Files' : 'Drive Links' }
-      : null,
+    item('/dashboard/drive', isClient ? 'My Files' : 'Drive Links', 'assets.read'),
     item('/dashboard/chat', isClient ? 'Messages' : 'Chat', 'chat.read'),
     item('/dashboard/kpis', isClient ? 'Reports' : 'KPI Tracker', 'kpis.read'),
   ].filter(Boolean);

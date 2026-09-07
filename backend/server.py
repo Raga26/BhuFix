@@ -427,6 +427,11 @@ class UserUpdate(BaseModel):
     client_id: Optional[str] = None
     assigned_client_ids: Optional[List[str]] = None
     is_active: Optional[bool] = None
+    access_overrides: Optional[dict] = None
+
+
+class ClientAccessUpdate(BaseModel):
+    pages: dict = {}
 
 
 def normalize_managed_user_role(role: Optional[str], sub_role: Optional[str]) -> str:
@@ -620,6 +625,21 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     user = await db.users.find_one({"id": user_id, "is_active": True}, {"_id": 0})
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
+    return await apply_access_context(user)
+
+
+async def load_client_access_pages() -> dict:
+    doc = await db.settings.find_one({"id": rbac.CLIENT_ACCESS_SETTING_ID}, {"_id": 0})
+    return rbac.sanitize_access_map((doc or {}).get("pages") or {}, audience="client")
+
+
+async def apply_access_context(user: dict) -> dict:
+    if not user:
+        return user
+    if user.get("role") == "client":
+        pages = await load_client_access_pages()
+        if pages:
+            return {**user, "access_overrides": pages}
     return user
 
 async def require_owner(current_user: dict = Depends(get_current_user)) -> dict:
@@ -1041,7 +1061,7 @@ async def login(data: LoginRequest):
         await write_audit(db, user, "login", "auth", user["id"], user.get("email") or "")
     except Exception:
         pass
-    return {"token": token, "user": rbac.public_user(user)}
+    return {"token": token, "user": rbac.public_user(await apply_access_context(user))}
 
 @api_router.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
@@ -1157,6 +1177,16 @@ async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depen
             raise HTTPException(status_code=400, detail="Client users must be linked to a client profile")
         update_data["client_id"] = cid
         update_data["assigned_client_ids"] = [cid]
+        update_data["access_overrides"] = {}
+    if "access_overrides" in update_data:
+        role_now = update_data.get("role", target.get("role"))
+        if role_now != "employee":
+            update_data["access_overrides"] = {}
+        else:
+            merged = {**target, **update_data}
+            update_data["access_overrides"] = rbac.compact_overrides(
+                merged, update_data.get("access_overrides") or {}, audience="staff"
+            )
     result = await db.users.update_one({"id": user_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
@@ -1167,6 +1197,8 @@ async def update_user(user_id: str, data: UserUpdate, current_user: dict = Depen
             bits.append(f"{updated.get('role')} / {updated.get('job_role')}")
         if "assigned_client_ids" in update_data:
             bits.append("clients")
+        if "access_overrides" in update_data:
+            bits.append("page access")
         await write_audit(db, current_user, "permissions", "users", user_id, "; ".join(bits) or "update")
     except Exception:
         pass
@@ -1184,6 +1216,41 @@ async def reset_user_password(user_id: str, data: dict, current_user: dict = Dep
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
     await db.users.update_one({"id": user_id}, {"$set": {"password_hash": get_password_hash(new_password)}})
     return {"message": "Password updated"}
+
+@api_router.get("/access/catalog")
+async def access_catalog(current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "users", "read")
+    saved = await load_client_access_pages()
+    client_default = rbac.access_map_for(rbac.client_stub(), "client")
+    client_effective = rbac.access_map_for({**rbac.client_stub(), "access_overrides": saved}, "client")
+    return {
+        "pages": rbac.catalog_public(),
+        "jobs": rbac.job_default_maps(),
+        "client_default": client_default,
+        "client": client_effective,
+        "client_custom": bool(saved),
+    }
+
+@api_router.put("/access/client")
+async def save_client_access(data: ClientAccessUpdate, current_user: dict = Depends(get_current_user)):
+    rbac.assert_can(current_user, "users", "write")
+    pages = rbac.compact_overrides(rbac.client_stub(), data.pages or {}, audience="client")
+    await db.settings.update_one(
+        {"id": rbac.CLIENT_ACCESS_SETTING_ID},
+        {"$set": {
+            "id": rbac.CLIENT_ACCESS_SETTING_ID,
+            "pages": pages,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_by": current_user["id"],
+        }},
+        upsert=True,
+    )
+    try:
+        await write_audit(db, current_user, "permissions", "client_access", "", "client portal pages")
+    except Exception:
+        pass
+    effective = rbac.access_map_for({**rbac.client_stub(), "access_overrides": pages}, "client")
+    return {"pages": effective, "client_custom": bool(pages)}
 
 # ── Dashboard Stats ───────────────────────────────────────────────
 @api_router.get("/dashboard/stats")

@@ -430,7 +430,7 @@ def create_p3_router(db, *, get_current_user, sanitize_input, logger) -> APIRout
 
     @router.get("/publish-queue")
     async def publish_queue(current_user: dict = Depends(get_current_user)):
-        rbac.assert_can(current_user, "calendar", "read")
+        rbac.assert_can(current_user, "publish", "read")
         if current_user.get("role") == "client":
             raise HTTPException(status_code=403, detail="Publish queue is internal")
         query = {"status": {"$in": list(QUEUE_STATUSES)}}
@@ -451,7 +451,7 @@ def create_p3_router(db, *, get_current_user, sanitize_input, logger) -> APIRout
 
     @router.post("/publish-queue/{event_id}")
     async def publish_queue_act(event_id: str, data: QueueAction, current_user: dict = Depends(get_current_user)):
-        rbac.assert_can(current_user, "calendar", "write")
+        rbac.assert_can(current_user, "publish", "write")
         ev = await db.calendar_events.find_one({"id": event_id}, {"_id": 0})
         if not ev:
             raise HTTPException(status_code=404, detail="Event not found")

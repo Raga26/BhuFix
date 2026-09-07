@@ -7,7 +7,6 @@ import { ClockInAuthProvider } from "./context/ClockInAuthContext";
 import { Toaster } from "./components/ui/sonner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { canSeePublish, can } from "./lib/access";
 import logger from "./utils/logger";
 import { Header } from "./components/Header";
 import { HeroSection } from "./components/HeroSection";
@@ -173,7 +172,7 @@ function App() {
                       </ProtectedRoute>
                     } />
                     <Route path="publish" element={
-                      <ProtectedRoute permission="calendar.read" allow={canSeePublish}>
+                      <ProtectedRoute permission="publish.read">
                         <PublishQueueView />
                       </ProtectedRoute>
                     } />
@@ -203,7 +202,7 @@ function App() {
                       </ProtectedRoute>
                     } />
                     <Route path="drive" element={
-                      <ProtectedRoute allow={(u) => u?.role === 'client' || can(u, 'clients.read')}>
+                      <ProtectedRoute permission="assets.read">
                         <DriveView />
                       </ProtectedRoute>
                     } />

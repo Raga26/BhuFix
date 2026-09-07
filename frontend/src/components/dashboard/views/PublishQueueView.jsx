@@ -7,7 +7,7 @@ import { apiError } from '../../../utils/apiError';
 
 export default function PublishQueueView() {
   const { user } = useAuth();
-  const canWrite = can(user, 'calendar.write');
+  const canWrite = can(user, 'publish.write');
   const isClient = user?.role === 'client';
   const [rows, setRows] = useState([]);
 

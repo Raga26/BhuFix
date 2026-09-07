@@ -16,8 +16,8 @@ const MARKETING_CORE = [
 ];
 
 export const EMPLOYEE_JOB_RESOURCES = {
-  digital_marketer: [...MARKETING_CORE, 'ads', 'performance', 'kpis', 'insights', 'competitors'],
-  smm: [...MARKETING_CORE],
+  digital_marketer: [...MARKETING_CORE, 'ads', 'performance', 'kpis', 'insights', 'competitors', 'publish'],
+  smm: [...MARKETING_CORE, 'publish'],
   seo: [...MARKETING_CORE, 'seo', 'competitors', 'insights', 'web'],
   data_analyst: ['dashboard', 'clients', 'tasks', 'chat', 'notifications', 'ads', 'performance', 'kpis', 'insights', 'seo'],
   senior_editor: CREATIVE_DESK,
@@ -26,7 +26,7 @@ export const EMPLOYEE_JOB_RESOURCES = {
   content_writer: CREATIVE_DESK,
   designer: CREATIVE_DESK,
   web_developer: ['dashboard', 'clients', 'tasks', 'assets', 'chat', 'approvals', 'notifications', 'web', 'seo'],
-  operations_staff: ['dashboard', 'clients', 'tasks', 'assets', 'calendar', 'chat', 'strategy', 'approvals', 'notifications'],
+  operations_staff: ['dashboard', 'clients', 'tasks', 'assets', 'calendar', 'chat', 'strategy', 'approvals', 'notifications', 'publish'],
   custom: ['dashboard', 'clients', 'tasks', 'calendar', 'chat', 'notifications'],
 };
 
@@ -51,8 +51,6 @@ export function employeeAllows(user, resource) {
 export function can(user, permission) {
   if (!user) return false;
   if (user.role === 'owner') return true;
-  const resource = String(permission || '').split('.')[0];
-  if (user.role === 'employee' && resource && !employeeAllows(user, resource)) return false;
   const keys = user.permissions || [];
   if (keys.includes('*')) return true;
   if (keys.includes(permission)) return true;
@@ -150,8 +148,7 @@ export function isLeadership(user) {
 
 export function canSeePublish(user) {
   if (!user || user.role === 'client') return false;
-  if (isLeadership(user)) return true;
-  return ['smm', 'digital_marketer', 'operations_staff'].includes(normalizedJob(user));
+  return can(user, 'publish.read');
 }
 
 export function deskKind(user) {
