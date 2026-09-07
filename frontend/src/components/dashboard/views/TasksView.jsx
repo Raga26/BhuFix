@@ -158,7 +158,7 @@ function TaskCard({ task, client, owner, canWrite, onOpen, onDragStart, onDragEn
       <div className="flex items-start gap-2.5">
         <ClientMark client={client || { name: '?' }} size={28} />
         <div className="flex-1 min-w-0">
-          <div className="text-white text-sm font-medium leading-snug">{task.title}</div>
+          <div className="text-white text-sm font-medium leading-snug break-words">{task.title}</div>
           <div className="text-white/40 text-xs mt-1 truncate">
             {client?.name || 'Client'} · {owner?.name || 'Unassigned'}
           </div>
@@ -246,37 +246,35 @@ export default function TasksView() {
   };
 
   return (
-    <div className="flex flex-col min-h-0">
-      <div className="flex flex-col gap-4 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="dash-title">Tasks</h1>
-            <p className="dash-sub">Monthly board — create, assign, and drag to track.</p>
-          </div>
-          {canWrite && (
-            <button type="button" onClick={() => openNew('todo')} className="dash-btn dash-btn-primary self-start" disabled={!clients.length}>
-              <Plus size={14} strokeWidth={2} />
-              New task
-            </button>
-          )}
+    <div className="flex flex-col min-w-0">
+      <div className="flex flex-col gap-4 mb-6 min-w-0">
+        <div>
+          <h1 className="dash-title">Tasks</h1>
+          <p className="dash-sub">Monthly board — create, assign, and drag to track.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => setViewDate((v) => shiftMonth(v.year, v.month, -1))} className="dash-btn dash-btn-ghost w-11 md:w-9 px-0" aria-label="Previous month">
             <ChevronLeft size={16} strokeWidth={1.75} />
           </button>
-          <div className="min-w-[9.5rem] text-center text-white text-sm font-medium">{monthLabel}</div>
+          <div className="w-[9.5rem] text-center text-white text-sm font-medium shrink-0">{monthLabel}</div>
           <button type="button" onClick={() => setViewDate((v) => shiftMonth(v.year, v.month, 1))} className="dash-btn dash-btn-ghost w-11 md:w-9 px-0" aria-label="Next month">
             <ChevronRight size={16} strokeWidth={1.75} />
           </button>
-          <select className={`${inputCls} sm:w-44`} value={clientFilter} onChange={(e) => setClientFilter(e.target.value)}>
+          <select className="bg-white/[0.06] border border-white/10 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-[#E8734A]/50 w-[11rem] max-w-full shrink-0" value={clientFilter} onChange={(e) => setClientFilter(e.target.value)}>
             <option value="" style={optStyle}>All clients</option>
             {clients.map((c) => <option key={c.id} value={c.id} style={optStyle}>{c.name}</option>)}
           </select>
-          <select className={`${inputCls} sm:w-44`} value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}>
+          <select className="bg-white/[0.06] border border-white/10 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-[#E8734A]/50 w-[11rem] max-w-full shrink-0" value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}>
             <option value="" style={optStyle}>Everyone</option>
             {staff.map((s) => <option key={s.id} value={s.id} style={optStyle}>{s.name}</option>)}
           </select>
+          {canWrite && (
+            <button type="button" onClick={() => openNew('todo')} className="dash-btn dash-btn-primary" disabled={!clients.length}>
+              <Plus size={14} strokeWidth={2} />
+              New task
+            </button>
+          )}
         </div>
       </div>
 
@@ -289,7 +287,7 @@ export default function TasksView() {
       {loading ? (
         <div className="flex justify-center py-16"><div className="w-8 h-8 border-2 border-[#E8734A] border-t-transparent rounded-full animate-spin" /></div>
       ) : (
-        <div className="flex gap-3 overflow-x-auto pb-4 -mx-1 px-1 snap-x">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 min-w-0">
           {BOARD.map((col) => (
             <section
               key={col.value}
@@ -299,7 +297,7 @@ export default function TasksView() {
                 if (dragging) moveTask(dragging, col.value);
                 setDragging(null);
               }}
-              className="snap-start flex-shrink-0 w-[min(18rem,85vw)] md:flex-1 md:min-w-[15rem] md:w-auto bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 flex flex-col max-h-[calc(100dvh-16rem)]"
+              className="min-w-0 bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 flex flex-col min-h-[16rem] max-h-[min(70dvh,36rem)]"
             >
               <div className="flex items-center justify-between mb-3 px-0.5">
                 <div className="text-white/70 text-xs uppercase tracking-wider font-medium">

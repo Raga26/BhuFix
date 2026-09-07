@@ -126,7 +126,7 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-navy-dark">
+    <div className="flex min-h-screen min-w-0 bg-navy-dark overflow-x-hidden">
       <div className="hidden md:flex w-60 fixed left-0 top-0 h-screen z-30">
         <Sidebar />
       </div>
@@ -140,7 +140,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="flex-1 md:ml-60 flex flex-col min-h-screen">
+      <div className="flex-1 md:ml-60 flex flex-col min-h-screen min-w-0 overflow-x-hidden">
         <header className="grid grid-cols-3 md:flex md:items-center md:justify-between items-center gap-2 px-4 md:px-8 min-h-12 md:h-14 py-1 md:py-0 pt-[max(0.5rem,env(safe-area-inset-top,0px))] md:pt-0 border-b border-white/[0.06] bg-navy-dark/90 backdrop-blur sticky top-0 z-20">
           <button
             type="button"
@@ -171,7 +171,7 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-5 md:p-8 pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:pb-10">
+        <main className="flex-1 min-w-0 p-4 sm:p-5 md:p-8 pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:pb-10">
           <Outlet />
         </main>
       </div>
