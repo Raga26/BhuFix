@@ -48,6 +48,14 @@ function isOverdue(task) {
   return task.deadline < todayStr();
 }
 
+function dayLabel(value) {
+  if (!value) return '';
+  const raw = String(value);
+  const d = raw.length <= 10 ? new Date(`${raw}T00:00:00`) : new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw.slice(0, 10);
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 function TaskModal({ task, clients, staff, defaultStatus, defaultDeadline, canDelete, onClose, onSave, onDelete }) {
   const isEdit = !!task?.id;
   const [form, setForm] = useState(task?.id ? task : {
@@ -130,6 +138,18 @@ function TaskModal({ task, clients, staff, defaultStatus, defaultDeadline, canDe
               </select>
             </div>
           </div>
+          {isEdit && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[12px] pt-1">
+              <div>
+                <div className="text-white/40 text-[10px] uppercase tracking-widest mb-1">Created</div>
+                <div className="text-white/80">{dayLabel(task.created_at) || '—'}</div>
+              </div>
+              <div>
+                <div className="text-white/40 text-[10px] uppercase tracking-widest mb-1">Closed</div>
+                <div className="text-white/80">{dayLabel(task.closed_at) || (task.status === 'done' ? dayLabel(task.updated_at) : '—') || '—'}</div>
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex gap-3 mt-5">
           {isEdit && canDelete && (
@@ -162,9 +182,10 @@ function TaskCard({ task, client, owner, canWrite, onOpen, onDragStart, onDragEn
           <div className="text-white/40 text-xs mt-1 truncate">{client?.name || 'Client'}</div>
           {task.deadline && (
             <div className={`text-[11px] mt-1.5 ${overdue ? 'text-[#E8734A]' : 'text-white/35'}`}>
-              {overdue ? 'Overdue · ' : 'Due '}{task.deadline}
+              {overdue ? 'Overdue · ' : 'Due '}{dayLabel(task.deadline)}
             </div>
           )}
+          <div className="text-white/35 text-[11px] mt-1">Created {dayLabel(task.created_at) || '—'}</div>
           <div className="text-white text-[12px] mt-2 truncate">
             {owner?.name || 'Unassigned'}
           </div>

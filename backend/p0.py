@@ -553,6 +553,7 @@ def create_p0_router(
             "created_by": current_user["id"],
             "created_at": _now(),
             "updated_at": _now(),
+            "closed_at": None,
         }
         await db.tasks.insert_one(task)
         task.pop("_id", None)
@@ -581,6 +582,10 @@ def create_p0_router(
             patch["brief"] = sanitize_input(patch["brief"])
         if "status" in patch:
             _task_ok(patch["status"])
+            if patch["status"] == "done" and task.get("status") != "done":
+                patch["closed_at"] = _now()
+            elif patch["status"] != "done":
+                patch["closed_at"] = None
         if "owner_id" in patch:
             owner = await db.users.find_one({"id": patch["owner_id"], "is_active": True}, {"_id": 0, "role": 1})
             if not owner or owner.get("role") == "client":

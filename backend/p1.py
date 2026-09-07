@@ -115,7 +115,14 @@ def create_p1_router(db, *, get_current_user, sanitize_input, logger) -> APIRout
         if not task_id or not status:
             return
         _task_ok(status)
-        await db.tasks.update_one({"id": task_id}, {"$set": {"status": status, "updated_at": _now()}})
+        await db.tasks.update_one(
+            {"id": task_id},
+            {"$set": {
+                "status": status,
+                "updated_at": _now(),
+                "closed_at": _now() if status == "done" else None,
+            }},
+        )
 
     async def clockin_hours_for(user: dict) -> dict:
         now, start, end, last = _month_bounds()
