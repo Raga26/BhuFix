@@ -1304,6 +1304,17 @@ async def list_clients(current_user: dict = Depends(get_current_user)):
         rows = await db.clients.find({"id": {"$in": ids}}, {"_id": 0}).sort("created_at", -1).to_list(500)
     return (await attach_teams(rows)) if rows else []
 
+@api_router.get("/clients/directory")
+async def clients_directory(current_user: dict = Depends(get_current_user)):
+    """Lightweight list of every client (id/name/logo) for internal shared
+    workspaces like the tasks board. Client users are not allowed."""
+    if current_user.get("role") == "client":
+        raise HTTPException(status_code=403, detail="Not available")
+    rbac.assert_can(current_user, "clients", "read")
+    return await db.clients.find(
+        {}, {"_id": 0, "id": 1, "name": 1, "logo_url": 1}
+    ).sort("name", 1).to_list(1000)
+
 @api_router.post("/clients")
 async def create_client(data: ClientCreate, current_user: dict = Depends(get_current_user)):
     rbac.assert_can(current_user, "clients", "write")

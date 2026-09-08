@@ -489,6 +489,13 @@ def create_p0_router(
         if status not in TASK_STATUSES:
             raise HTTPException(status_code=400, detail="Invalid task status")
 
+    def _task_client_guard(user: dict, client_id, *, allow_empty: bool = False):
+        # Tasks are a shared internal workspace (JIRA-style): every internal
+        # member can see and act on any client's tasks. Only client users
+        # stay scoped to their own client.
+        if user.get("role") == "client":
+            rbac.assert_client_access(user, client_id, allow_empty=allow_empty)
+
     @router.get("/tasks")
     async def list_tasks(
         client_id: Optional[str] = Query(None),
@@ -499,9 +506,13 @@ def create_p0_router(
     ):
         rbac.assert_can(current_user, "tasks", "read")
         query: dict = {}
-        rbac.apply_client_query(query, current_user)
+        # Tasks are a shared workspace (JIRA-style): every internal member
+        # (owner/admin/ops/employee) sees all tasks across all clients.
+        # Only client users stay scoped to their own client.
+        if current_user.get("role") == "client":
+            rbac.apply_client_query(query, current_user)
         if client_id:
-            rbac.assert_client_access(current_user, client_id)
+            _task_client_guard(current_user, client_id)
             query["client_id"] = client_id
         if owner_id:
             query["owner_id"] = owner_id
@@ -530,7 +541,7 @@ def create_p0_router(
     @router.post("/tasks")
     async def create_task(data: TaskCreate, current_user: dict = Depends(get_current_user)):
         rbac.assert_can(current_user, "tasks", "write")
-        rbac.assert_client_access(current_user, data.client_id)
+        _task_client_guard(current_user, data.client_id)
         _task_ok(data.status)
         owner = await db.users.find_one({"id": data.owner_id, "is_active": True}, {"_id": 0, "id": 1, "name": 1, "role": 1})
         if not owner:
@@ -565,7 +576,7 @@ def create_p0_router(
         task = await db.tasks.find_one({"id": task_id}, {"_id": 0})
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
-        rbac.assert_client_access(current_user, task.get("client_id"))
+        _task_client_guard(current_user, task.get("client_id"))
         return task
 
     @router.put("/tasks/{task_id}")
@@ -574,7 +585,7 @@ def create_p0_router(
         task = await db.tasks.find_one({"id": task_id}, {"_id": 0})
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
-        rbac.assert_client_access(current_user, task.get("client_id"))
+        _task_client_guard(current_user, task.get("client_id"))
         patch = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
         if "title" in patch:
             patch["title"] = sanitize_input(patch["title"])
@@ -604,7 +615,7 @@ def create_p0_router(
         task = await db.tasks.find_one({"id": task_id}, {"_id": 0})
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
-        rbac.assert_client_access(current_user, task.get("client_id"))
+        _task_client_guard(current_user, task.get("client_id"))
         if data.type not in ("note", "url", "asset"):
             raise HTTPException(status_code=400, detail="Evidence type must be note, url, or asset")
         item = {
@@ -629,7 +640,7 @@ def create_p0_router(
         task = await db.tasks.find_one({"id": task_id}, {"_id": 0})
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
-        rbac.assert_client_access(current_user, task.get("client_id"))
+        _task_client_guard(current_user, task.get("client_id"))
         if current_user.get("role") == "employee" and task.get("created_by") != current_user["id"]:
             raise HTTPException(status_code=403, detail="You can only delete tasks you created")
         await db.tasks.delete_one({"id": task_id})

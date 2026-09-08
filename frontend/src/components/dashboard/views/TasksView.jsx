@@ -223,7 +223,7 @@ export default function TasksView() {
     setLoading(true);
     Promise.all([
       apiClient.get('/tasks', { params: { month } }),
-      apiClient.get('/clients'),
+      apiClient.get('/clients/directory').catch(() => apiClient.get('/clients')),
       apiClient.get('/users/directory').catch(() => ({ data: [] })),
     ]).then(([t, c, s]) => {
       setTasks(t.data || []);
@@ -261,7 +261,7 @@ export default function TasksView() {
 
   const openNew = (status = 'todo') => {
     if (!clients.length) {
-      toast.error('No clients assigned to you yet');
+      toast.error('No clients yet — add a client first');
       return;
     }
     setModal({ status, deadline: defaultDeadline });
@@ -300,9 +300,9 @@ export default function TasksView() {
         </div>
       </div>
 
-      {!clients.length && user?.role === 'employee' && (
+      {!clients.length && user?.role !== 'client' && (
         <div className="dash-card p-5 mb-6 text-sm text-white/50">
-          You have no assigned clients yet. Ask an admin to assign you before work can appear here.
+          No clients yet. Ask an admin to add a client before tasks can appear here.
         </div>
       )}
 

@@ -53,7 +53,6 @@ export default function EditorHomeView() {
     );
   }
 
-  const hours = data.hours || {};
   const perf = data.performance || {};
 
   return (
@@ -63,40 +62,7 @@ export default function EditorHomeView() {
         <p className="dash-sub">Cuts, deadlines, and your assigned clients — not ads or SEO.</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div className="dash-card p-4 col-span-2 md:col-span-1">
-          <div className="font-anchor italic text-2xl text-white">{hours.worked_hours ?? 0}h</div>
-          <div className="text-white/40 text-xs mt-1">ClockIN this month</div>
-          {hours.linked ? (
-            <div className="text-white/30 text-[10px] mt-1">{hours.employee_name}</div>
-          ) : (
-            <div className="mt-2">
-              <div className="text-white/35 text-[10px] mb-1">{hours.hint || 'Pick your ClockIN name'}</div>
-              {(hours.candidates || []).length > 0 && (
-                <select
-                  className="w-full bg-white/[0.06] border border-white/10 rounded-lg px-2 py-2 text-white text-base md:text-sm"
-                  defaultValue=""
-                  onChange={async (e) => {
-                    const id = e.target.value;
-                    if (!id) return;
-                    try {
-                      await apiClient.post('/studio/clockin-link', { employee_id: id });
-                      toast.success('ClockIN linked');
-                      load();
-                    } catch (err) {
-                      toast.error(apiError(err, 'Could not link ClockIN'));
-                    }
-                  }}
-                >
-                  <option value="">Your name on ClockIN…</option>
-                  {hours.candidates.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}{c.employee_code ? ` · ${c.employee_code}` : ''}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
         <div className="dash-card p-4">
           <div className="font-anchor italic text-2xl text-white">{perf.completed_month ?? 0}</div>
           <div className="text-white/40 text-xs mt-1">Tasks done this month</div>

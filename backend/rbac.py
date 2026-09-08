@@ -367,6 +367,11 @@ def matrix_can(user: dict, resource: str, action: str) -> bool:
     if role not in allowed:
         return False
     if role == "employee":
+        # The staff directory is a lightweight name/role picker used by the
+        # shared task board (assign-to, owner names). Every internal member
+        # gets it regardless of their job desk.
+        if resource == "users" and action == "directory":
+            return True
         if resource not in employee_resources(user):
             return False
         dept = user.get("department") or department_for_job(user.get("job_role"), role)
