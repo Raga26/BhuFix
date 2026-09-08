@@ -207,7 +207,6 @@ export default function TasksView() {
   const [clients, setClients] = useState([]);
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [clientFilter, setClientFilter] = useState('');
   const [ownerFilter, setOwnerFilter] = useState('');
   const [modal, setModal] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -236,7 +235,6 @@ export default function TasksView() {
 
   const visible = tasks.filter((t) => {
     if (t.status === 'cancelled') return false;
-    if (clientFilter && t.client_id !== clientFilter) return false;
     if (ownerFilter && t.owner_id !== ownerFilter) return false;
     return true;
   });
@@ -283,10 +281,6 @@ export default function TasksView() {
           <button type="button" onClick={() => setViewDate((v) => shiftMonth(v.year, v.month, 1))} className="dash-btn dash-btn-ghost w-11 md:w-9 px-0" aria-label="Next month">
             <ChevronRight size={16} strokeWidth={1.75} />
           </button>
-          <select className="bg-white/[0.06] border border-white/10 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-[#E8734A]/50 w-[11rem] max-w-full shrink-0" value={clientFilter} onChange={(e) => setClientFilter(e.target.value)}>
-            <option value="" style={optStyle}>All clients</option>
-            {clients.map((c) => <option key={c.id} value={c.id} style={optStyle}>{c.name}</option>)}
-          </select>
           <select className="bg-white/[0.06] border border-white/10 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-[#E8734A]/50 w-[11rem] max-w-full shrink-0" value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}>
             <option value="" style={optStyle}>Everyone</option>
             {staff.map((s) => <option key={s.id} value={s.id} style={optStyle}>{s.name}</option>)}
