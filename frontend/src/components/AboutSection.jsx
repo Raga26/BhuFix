@@ -118,9 +118,9 @@ const needCards = [
 
 const trustStats = [
   { value: 2, suffix: "+", label: "Years building brands" },
-  { value: 15, suffix: "+", label: "Projects delivered" },
+  { value: 100, suffix: "+", label: "Projects delivered" },
   { value: 100, suffix: "%", label: "Client satisfaction" },
-  { value: 10, suffix: "+", label: "Happy clients" },
+  { value: 50, suffix: "+", label: "Happy clients" },
 ];
 
 function useCountUp(target, active, duration = 1200) {

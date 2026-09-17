@@ -9,9 +9,9 @@ export const navLinks = [
 
 export const stats = [
   { value: "2+", label: "Years Experience" },
-  { value: "15+", label: "Projects Delivered" },
+  { value: "100+", label: "Projects Delivered" },
   { value: "100%", label: "Client Satisfaction" },
-  { value: "10+", label: "Happy Clients" },
+  { value: "50+", label: "Happy Clients" },
 ];
 
 export const services = [
