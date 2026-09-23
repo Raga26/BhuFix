@@ -15,7 +15,6 @@ import rbac
 from p2 import normalize_cal_status
 
 IST = ZoneInfo("Asia/Kolkata")
-CLIENT_CAL = ("approved", "scheduled", "published", "postponed")
 QUEUE_STATUSES = ("approved", "scheduled")
 
 
@@ -280,14 +279,10 @@ def create_p3_router(db, *, get_current_user, sanitize_input, logger) -> APIRout
         ).sort("submitted_at", -1).to_list(20)
         today = datetime.now(IST).date().isoformat()
         cal_q = dict(q)
-        if current_user.get("role") == "client":
-            cal_q["status"] = {"$in": list(CLIENT_CAL) + ["completed", "postpone"]}
         cal_rows = await db.calendar_events.find(cal_q, {"_id": 0}).sort("date", 1).to_list(400)
         future, past = [], []
         for ev in cal_rows:
             st = normalize_cal_status(ev.get("status"))
-            if current_user.get("role") == "client" and st not in CLIENT_CAL:
-                continue
             ev["status"] = st
             if (ev.get("date") or "") >= today:
                 future.append(ev)

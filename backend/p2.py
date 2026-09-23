@@ -488,16 +488,6 @@ def create_p2_router(db, *, get_current_user, sanitize_input, logger) -> APIRout
             "late": late,
             "on_time_pct": round(100 * on_time / published_n) if published_n else None,
         }
-        if current_user.get("role") == "client":
-            kept = ("approved", "scheduled", "published", "postponed")
-            calendar_out = {
-                **{k: counts.get(k, 0) for k in kept},
-                "planned": sum(counts.get(k, 0) for k in kept),
-                "in_production": 0,
-                "on_time": on_time,
-                "late": late,
-                "on_time_pct": round(100 * on_time / published_n) if published_n else None,
-            }
         return {
             "month": prefix,
             "calendar": calendar_out,

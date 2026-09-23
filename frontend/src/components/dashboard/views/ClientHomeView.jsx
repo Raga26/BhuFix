@@ -45,7 +45,7 @@ export default function ClientHomeView() {
     <div>
       <div className="mb-8">
         <h1 className="dash-title">Hello, {user?.name?.split(' ')[0]}</h1>
-        <p className="dash-sub">Your content and files — nothing internal.</p>
+        <p className="dash-sub">Your assigned content and files.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-6">

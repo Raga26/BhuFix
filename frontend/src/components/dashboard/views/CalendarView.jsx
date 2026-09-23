@@ -608,19 +608,15 @@ export default function CalendarView() {
         <div className="dash-card p-4 mb-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
             <div><div className="text-white text-lg">{tracker.calendar.planned ?? 0}</div><div className="text-white/35 text-xs">Planned</div></div>
-            {user?.role !== 'client' && (
-              <div><div className="text-white text-lg">{tracker.calendar.in_production ?? 0}</div><div className="text-white/35 text-xs">In production</div></div>
-            )}
+            <div><div className="text-white text-lg">{tracker.calendar.in_production ?? 0}</div><div className="text-white/35 text-xs">In production</div></div>
             <div><div className="text-white text-lg">{tracker.calendar.published ?? 0}</div><div className="text-white/35 text-xs">Published</div></div>
             <div><div className="text-white text-lg">{tracker.calendar.on_time_pct != null ? `${tracker.calendar.on_time_pct}%` : '—'}</div><div className="text-white/35 text-xs">On-time of published{tracker.calendar.late ? ` · ${tracker.calendar.late} late` : ''}</div></div>
           </div>
-          {user?.role !== 'client' && (
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[11px] text-white/40">
             {['idea', 'writing', 'editing', 'review', 'approved', 'scheduled', 'published', 'postponed'].map((k) => (
               <span key={k}>{STATUS_STYLE[k].label} {tracker.calendar[k] ?? 0}</span>
             ))}
           </div>
-          )}
         </div>
       )}
 
@@ -731,7 +727,7 @@ export default function CalendarView() {
         </div>
         <div className="w-px bg-white/10 hidden sm:block" />
         <div className="flex flex-wrap gap-3">
-          {Object.entries(STATUS_STYLE).filter(([k]) => user?.role !== 'client' || ['approved', 'scheduled', 'published', 'postponed'].includes(k)).map(([k, s]) => (
+          {Object.entries(STATUS_STYLE).map(([k, s]) => (
             <div key={k} className="flex items-center gap-1.5 text-xs text-white/40">
               <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />
               <span style={k === 'published' ? { textDecoration: 'line-through' } : {}}>{s.label}</span>

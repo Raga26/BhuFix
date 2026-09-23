@@ -1406,8 +1406,6 @@ async def get_calendar(
     out = []
     for ev in rows:
         ev["status"] = normalize_cal_status(ev.get("status"))
-        if current_user.get("role") == "client" and ev["status"] not in ("approved", "scheduled", "published", "postponed"):
-            continue
         if current_user.get("role") == "client":
             ev = {k: ev.get(k) for k in ("id", "title", "date", "time", "type", "status", "client_id")}
         out.append(ev)
