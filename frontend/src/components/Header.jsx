@@ -71,7 +71,7 @@ export const Header = () => {
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
           ? "bg-white/85 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/70 dark:border-white/5 py-2.5"
-          : "bg-transparent border-b border-transparent py-4"
+          : "bg-white/90 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-white/5 py-3 md:bg-transparent md:border-transparent md:backdrop-blur-none md:py-4"
       }`}
     >
       <div

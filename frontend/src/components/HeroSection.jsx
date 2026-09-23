@@ -174,7 +174,7 @@ export const HeroSection = () => {
   return (
     <section
       id="home"
-      className="relative h-[100svh] min-h-[640px] sm:min-h-[720px] overflow-x-clip overflow-y-hidden scroll-mt-24"
+      className="relative min-h-[100svh] overflow-x-clip scroll-mt-24 md:h-[100svh] md:min-h-[720px] md:overflow-y-hidden"
       onMouseMove={handleMouseMove}
       onMouseLeave={hideTracker}
       style={{
@@ -194,36 +194,39 @@ export const HeroSection = () => {
       />
 
       {/* ——— COPY ——— */}
-      <div className="relative z-20 mx-auto flex h-full max-w-4xl flex-col items-center justify-center px-5 pt-20 pb-16 text-center sm:px-6 sm:pt-24 md:justify-start md:pb-[44%] lg:pb-[42%] lg:px-8">
+      <div className="relative z-20 mx-auto flex h-full max-w-4xl flex-col items-center justify-start px-5 pt-28 pb-12 text-center sm:px-6 sm:pt-32 md:pb-[44%] lg:pb-[42%] lg:px-8">
         <div
-          className="mb-4 inline-flex items-center gap-2 rounded-full border border-coral/25 bg-coral/10 px-3.5 py-1.5 text-[13px] font-semibold text-coral sm:mb-5"
-          style={{ animation: "fadeSlideUp 0.6s ease-out both" }}
+          className="mb-5 inline-flex max-w-[calc(100%-0.5rem)] items-center gap-2 rounded-full border border-coral/25 bg-coral/10 px-3.5 py-1.5 text-[12px] font-semibold leading-none text-coral sm:mb-5 sm:text-[13px]"
+          style={{ animation: "fadeSlideUp 0.6s ease-out both", wordSpacing: "0.08em" }}
         >
-          <span className="h-1.5 w-1.5 rounded-full bg-coral" />
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-coral" />
           Digital marketing, measured properly
         </div>
 
         <h1
-          className="mb-3 text-4xl font-extrabold leading-[1.12] tracking-tight text-navy dark:text-white sm:mb-4 sm:text-5xl lg:text-6xl"
-          style={{ animation: "fadeSlideUp 0.6s ease-out 0.1s both" }}
+          className="mb-3 text-[1.85rem] font-extrabold leading-[1.28] tracking-normal text-navy dark:text-white sm:mb-4 sm:text-5xl sm:leading-[1.12] sm:tracking-tight lg:text-6xl"
+          style={{ animation: "fadeSlideUp 0.6s ease-out 0.1s both", wordSpacing: "0.12em" }}
         >
-          Want your business to{" "}
-          <em className="font-anchor font-semibold not-italic text-coral" style={{ fontStyle: "italic" }}>
-            grow?
-          </em>
+          <span className="block sm:inline">Want your business</span>{" "}
+          <span className="block sm:inline">
+            to{" "}
+            <em className="font-anchor font-semibold not-italic text-coral" style={{ fontStyle: "italic" }}>
+              grow?
+            </em>
+          </span>
         </h1>
 
         <p
-          className="mb-3 text-xl font-semibold text-navy dark:text-slate-100 sm:mb-4 sm:text-2xl"
-          style={{ animation: "fadeSlideUp 0.6s ease-out 0.18s both" }}
+          className="mb-3 max-w-[22rem] text-lg font-semibold leading-snug text-navy dark:text-slate-100 sm:mb-4 sm:max-w-none sm:text-2xl"
+          style={{ animation: "fadeSlideUp 0.6s ease-out 0.18s both", wordSpacing: "0.08em" }}
         >
           Then run marketing that{" "}
           <span className="font-anchor italic text-coral">shows its work</span>.
         </p>
 
         <p
-          className="mb-6 max-w-xl text-base leading-relaxed text-slate-500 dark:text-slate-300 sm:mb-7 sm:text-lg"
-          style={{ animation: "fadeSlideUp 0.6s ease-out 0.26s both" }}
+          className="mb-6 max-w-xl text-[15px] leading-[1.7] text-slate-500 dark:text-slate-300 sm:mb-7 sm:text-lg"
+          style={{ animation: "fadeSlideUp 0.6s ease-out 0.26s both", wordSpacing: "0.06em" }}
         >
           Most agencies send a report and hope you don&apos;t read it. At Bhufix, we
           plan the strategy, make the creative, and run the campaigns — then hand
@@ -237,14 +240,14 @@ export const HeroSection = () => {
         >
           <Button
             onClick={() => scrollTo("#services")}
-            className="w-full rounded-full bg-coral px-7 py-5 text-sm font-semibold text-white hover:bg-coral-dark sm:w-auto sm:text-base"
+            className="w-full rounded-full bg-coral px-7 py-4 text-sm font-semibold text-white hover:bg-coral-dark sm:w-auto sm:py-5 sm:text-base"
           >
             See What We Do
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
           <Button
             onClick={() => navigate(user ? "/dashboard" : "/login")}
-            className="w-full rounded-full bg-navy px-7 py-5 text-sm font-semibold text-white hover:bg-navy/90 dark:bg-slate-700 dark:hover:bg-slate-600 sm:w-auto sm:text-base"
+            className="w-full rounded-full bg-navy px-7 py-4 text-sm font-semibold text-white hover:bg-navy/90 dark:bg-slate-700 dark:hover:bg-slate-600 sm:w-auto sm:py-5 sm:text-base"
           >
             <LayoutDashboard className="mr-2 h-4 w-4" />
             {user ? "Open OS" : "Client Dashboard"}
@@ -252,7 +255,7 @@ export const HeroSection = () => {
           <Button
             variant="outline"
             onClick={() => scrollTo("#contact")}
-            className="w-full rounded-full border-2 border-slate-300 bg-transparent px-7 py-5 text-sm font-semibold text-navy hover:border-coral hover:text-coral dark:border-slate-500 dark:text-slate-100 dark:hover:border-coral dark:hover:text-coral sm:w-auto sm:text-base"
+            className="w-full rounded-full border-2 border-slate-300 bg-transparent px-7 py-4 text-sm font-semibold text-navy hover:border-coral hover:text-coral dark:border-slate-500 dark:text-slate-100 dark:hover:border-coral dark:hover:text-coral sm:w-auto sm:py-5 sm:text-base"
           >
             <MessageSquare className="mr-2 h-4 w-4" />
             Talk to Us
