@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Plus } from 'lucide-react';
 import apiClient from '../../../utils/axiosConfig';
 import { useAuth } from '../../../context/AuthContext';
 import { can, TASK_STATUSES } from '../../../lib/access';
@@ -165,6 +165,330 @@ function TaskModal({ task, clients, staff, defaultStatus, defaultDeadline, canDe
   );
 }
 
+function resultLabel(task) {
+  if (task.outcome === 'on_time') return 'Done';
+  if (task.outcome === 'late') return 'Late';
+  if (task.outcome === 'overdue') return 'Overdue';
+  if (task.outcome === 'not_due') return 'Later';
+  return { todo: 'To do', in_progress: 'In progress', in_review: 'In review', changes_requested: 'Changes' }[task.status] || 'Open';
+}
+
+function resultClass(label) {
+  if (label === 'Done') return 'text-[#34D399]';
+  if (label === 'Late' || label === 'Overdue') return 'text-[#E8734A]';
+  return 'text-white/75';
+}
+
+function ReportTable({ columns, rows }) {
+  if (!rows.length) return null;
+  return (
+    <div className="mt-3 overflow-x-auto">
+      <table className="w-full text-xs text-left">
+        <thead>
+          <tr className="text-white/35">
+            {columns.map((col) => (
+              <th key={col.key} className="font-medium py-1.5 pr-3 border-b border-white/10 whitespace-nowrap">{col.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.key}>
+              {columns.map((col) => (
+                <td key={col.key} className="py-1.5 pr-3 border-b border-white/[0.06] text-white/80 align-top">{row[col.key]}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function countTable(headers, rows) {
+  const widths = headers.map((header, index) => Math.max(header.length, ...rows.map((row) => String(row[index]).length)));
+  const paint = (cells, headerRow) => cells.map((cell, index) => {
+    const text = String(cell);
+    return index === 0 || headerRow ? text.padEnd(widths[index], ' ') : text.padStart(widths[index], ' ');
+  }).join('  ').trimEnd();
+  return ['```', paint(headers, true), widths.map((width) => '-'.repeat(width)).join('  '), ...rows.map((row) => paint(row, false)), '```'].join('\n');
+}
+
+function dayDigest(score) {
+  const totals = score?.today?.totals || {};
+  const people = score?.today?.people || [];
+  const lines = [
+    `*BhuFix · ${score?.today?.label || score?.date || ''}*`,
+    '',
+    `On time ${totals.on_time || 0}    Late ${totals.late || 0}    Still open ${totals.open || 0}`,
+  ];
+  const duePeople = people.filter((person) => (person.tasks || []).some((task) => !task.earlier));
+  if (duePeople.length) {
+    lines.push('', '*Due this day*', countTable(
+      ['Person', 'Done', 'Open'],
+      duePeople.map((person) => [person.name, `${person.on_time}/${person.due}`, String(person.open || 0)]),
+    ));
+    duePeople.forEach((person) => {
+      lines.push('', `*${person.name}*`);
+      (person.tasks || []).filter((task) => !task.earlier).forEach((task) => {
+        lines.push(task.title);
+        lines.push(`${resultLabel(task)} · ${task.client_name || '—'}`);
+      });
+    });
+  } else {
+    lines.push('', 'No tasks due this day.');
+  }
+  const earlier = people.flatMap((person) => (person.tasks || []).filter((task) => task.earlier).map((task) => ({ person, task })));
+  if (earlier.length) {
+    lines.push('', '*Still open from earlier*');
+    earlier.forEach(({ person, task }) => {
+      lines.push('', `*${person.name}*`);
+      lines.push(task.title);
+      lines.push(`${resultLabel(task)} · due ${dayLabel(task.deadline)} · ${task.client_name || '—'}`);
+    });
+  }
+  return lines.join('\n').trim();
+}
+
+function monthDigest(score, monthLabel) {
+  const totals = score?.month?.totals || {};
+  const people = score?.month?.people || [];
+  const stillOpen = (totals.open || 0) + (totals.overdue || 0);
+  const lines = [
+    `*BhuFix · ${monthLabel}*`,
+    '',
+    `On time ${totals.on_time || 0}    Late ${totals.late || 0}    Still open ${stillOpen}    Later ${totals.not_due || 0}`,
+  ];
+  if (!people.length) {
+    lines.push('', 'No tasks with a deadline this month.');
+    return lines.join('\n');
+  }
+  lines.push('', countTable(
+    ['Person', 'Done', 'Late', 'Open', 'Later'],
+    people.map((person) => [
+      person.name,
+      String(person.on_time || 0),
+      String(person.late || 0),
+      String((person.open || 0) + (person.overdue || 0)),
+      String(person.not_due || 0),
+    ]),
+  ));
+  const ranked = [];
+  people.forEach((person) => {
+    (person.tasks || []).filter((task) => task.outcome !== 'not_due').forEach((task) => {
+      ranked.push({ person, task, rank: { overdue: 0, open: 1, late: 2, on_time: 3 }[task.outcome] ?? 9 });
+    });
+  });
+  ranked.sort((a, b) => a.rank - b.rank || a.person.name.localeCompare(b.person.name));
+  if (ranked.length) {
+    lines.push('', '*Tasks*');
+    let lastName = '';
+    ranked.forEach(({ person, task }) => {
+      if (person.name !== lastName) {
+        lines.push('', `*${person.name}*`);
+        lastName = person.name;
+      }
+      lines.push(task.title);
+      lines.push(`${resultLabel(task)} · due ${dayLabel(task.deadline)} · ${task.client_name || '—'}`);
+    });
+  }
+  return lines.join('\n').trim();
+}
+
+async function writeClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      /* fall through to the selection copy */
+    }
+  }
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.setAttribute('readonly', '');
+  el.style.position = 'fixed';
+  el.style.left = '-9999px';
+  document.body.appendChild(el);
+  el.select();
+  const ok = document.execCommand('copy');
+  el.remove();
+  if (!ok) throw new Error('copy failed');
+}
+
+function CountStrip({ items }) {
+  return (
+    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs mt-1.5">
+      {items.map(([value, label]) => (
+        <span key={label}><span className="text-white/80">{value}</span> <span className="text-white/35">{label}</span></span>
+      ))}
+    </div>
+  );
+}
+
+function TaskScoreboard({ score, monthLabel, monthKey, reportDate, onDateChange }) {
+  const [mode, setMode] = useState('day');
+  const dayReady = score?.date === reportDate;
+  const monthReady = score?.month?.key === monthKey;
+  const totals = dayReady ? (score.today?.totals || {}) : {};
+  const monthTotals = monthReady ? (score.month?.totals || {}) : null;
+  const stillOpen = monthTotals ? (monthTotals.open || 0) + (monthTotals.overdue || 0) : 0;
+  const isToday = reportDate === todayStr();
+  const dueRows = [];
+  const earlierRows = [];
+  if (dayReady) {
+    (score.today?.people || []).forEach((person) => {
+      (person.tasks || []).forEach((task) => {
+        const label = resultLabel(task);
+        const row = {
+          key: `${task.id}-${task.earlier ? 'e' : 'd'}`,
+          person: person.name,
+          task: task.title,
+          status: <span className={resultClass(label)}>{label}</span>,
+          client: task.client_name,
+          due: dayLabel(task.deadline),
+        };
+        if (task.earlier) earlierRows.push(row);
+        else dueRows.push(row);
+      });
+    });
+  }
+  const monthPeople = monthReady ? (score.month?.people || []) : [];
+  const monthSummary = monthPeople.map((person) => ({
+    key: person.owner_id || person.name,
+    person: person.name,
+    onTime: person.on_time || 0,
+    late: person.late || 0,
+    open: (person.open || 0) + (person.overdue || 0),
+    later: person.not_due || 0,
+  }));
+  const monthTasks = [];
+  monthPeople.forEach((person) => {
+    (person.tasks || []).filter((task) => task.outcome !== 'not_due').forEach((task) => {
+      const label = resultLabel(task);
+      monthTasks.push({
+        key: task.id,
+        person: person.name,
+        task: task.title,
+        due: dayLabel(task.deadline),
+        result: <span className={resultClass(label)}>{label}</span>,
+        client: task.client_name,
+        rank: { overdue: 0, open: 1, late: 2, on_time: 3 }[task.outcome] ?? 9,
+      });
+    });
+  });
+  monthTasks.sort((a, b) => a.rank - b.rank || String(a.person).localeCompare(b.person));
+
+  const copy = async () => {
+    const ready = mode === 'month' ? monthReady : dayReady;
+    if (!ready) {
+      toast.error('Report is still loading');
+      return;
+    }
+    const text = mode === 'month' ? monthDigest(score, monthLabel) : dayDigest(score);
+    try {
+      await writeClipboard(text);
+      toast.success('Copied. Paste it into the WhatsApp group.');
+    } catch {
+      toast.error('Could not copy the summary');
+    }
+  };
+  const copyReady = mode === 'month' ? monthReady : dayReady;
+  const tabCls = (active) => `px-3 py-1.5 ${active ? 'bg-white/10 text-white' : 'text-white/45 hover:text-white'}`;
+
+  return (
+    <div className="dash-card p-4 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <div className="flex rounded-xl border border-white/10 overflow-hidden text-xs shrink-0">
+            <button type="button" className={tabCls(mode === 'day')} onClick={() => setMode('day')}>Day</button>
+            <button type="button" className={tabCls(mode === 'month')} onClick={() => setMode('month')}>Month</button>
+          </div>
+          {mode === 'day' ? (
+            <input
+              type="date"
+              aria-label="Report date"
+              value={reportDate}
+              onChange={(e) => { if (e.target.value) onDateChange(e.target.value); }}
+              className="bg-white/[0.06] border border-white/10 rounded-xl px-3 py-1.5 text-white text-sm outline-none focus:border-[#E8734A]/50 [color-scheme:dark]"
+            />
+          ) : (
+            <span className="text-white/45 text-xs">Uses {monthLabel} from the arrows above</span>
+          )}
+        </div>
+        <button type="button" onClick={copy} disabled={!copyReady} className="dash-btn dash-btn-ghost shrink-0 disabled:opacity-40">
+          <Copy size={14} strokeWidth={1.75} />
+          {mode === 'month' ? 'Copy month' : 'Copy day'}
+        </button>
+      </div>
+
+      {mode === 'day' && dayReady && (
+        <div className="mt-3">
+          <div className="text-white text-sm font-medium">{isToday ? 'Today' : 'Day'} · {score.today.label}</div>
+          <CountStrip items={[[totals.due || 0, 'due'], [totals.on_time || 0, 'on time'], [totals.late || 0, 'late'], [totals.open || 0, 'still open']]} />
+          {dueRows.length === 0 ? (
+            <p className="text-white/35 text-xs mt-3">No tasks due this day.</p>
+          ) : (
+            <ReportTable
+              columns={[{ key: 'person', label: 'Person' }, { key: 'task', label: 'Task' }, { key: 'status', label: 'Status' }, { key: 'client', label: 'Client' }]}
+              rows={dueRows}
+            />
+          )}
+          {earlierRows.length > 0 && (
+            <div className="mt-4">
+              <div className="text-white/70 text-xs font-medium">Still open from earlier</div>
+              <ReportTable
+                columns={[{ key: 'person', label: 'Person' }, { key: 'task', label: 'Task' }, { key: 'due', label: 'Due' }, { key: 'client', label: 'Client' }]}
+                rows={earlierRows}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {mode === 'month' && monthReady && (
+        <div className="mt-3">
+          <div className="text-white text-sm font-medium">{monthLabel}</div>
+          <CountStrip items={[[monthTotals.on_time || 0, 'on time'], [monthTotals.late || 0, 'late'], [stillOpen, 'still open'], [monthTotals.not_due || 0, 'not due yet']]} />
+          {monthSummary.length === 0 ? (
+            <p className="text-white/35 text-xs mt-3">No tasks with a deadline this month.</p>
+          ) : (
+            <ReportTable
+              columns={[
+                { key: 'person', label: 'Person' },
+                { key: 'onTime', label: 'On time' },
+                { key: 'late', label: 'Late' },
+                { key: 'open', label: 'Open' },
+                { key: 'later', label: 'Later' },
+              ]}
+              rows={monthSummary}
+            />
+          )}
+          {monthTasks.length > 0 && (
+            <div className="mt-4">
+              <div className="text-white/70 text-xs font-medium">Tasks</div>
+              <ReportTable
+                columns={[
+                  { key: 'person', label: 'Person' },
+                  { key: 'task', label: 'Task' },
+                  { key: 'due', label: 'Due' },
+                  { key: 'result', label: 'Result' },
+                  { key: 'client', label: 'Client' },
+                ]}
+                rows={monthTasks}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {((mode === 'day' && !dayReady) || (mode === 'month' && !monthReady)) && (
+        <p className="text-white/35 text-xs mt-3">Updating report…</p>
+      )}
+    </div>
+  );
+}
+
 function TaskCard({ task, client, owner, canWrite, onOpen, onDragStart, onDragEnd }) {
   const overdue = isOverdue(task);
   return (
@@ -211,12 +535,24 @@ export default function TasksView() {
   const [modal, setModal] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [dragging, setDragging] = useState(null);
+  const [score, setScore] = useState(null);
+  const [reportDate, setReportDate] = useState(todayStr);
 
   const clientMap = useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c])), [clients]);
   const staffMap = useMemo(() => Object.fromEntries(staff.map((s) => [s.id, s])), [staff]);
   const month = monthKey(viewDate.year, viewDate.month);
   const monthLabel = new Date(viewDate.year, viewDate.month - 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
   const defaultDeadline = lastDayOfMonth(viewDate.year, viewDate.month);
+
+  const loadScore = useCallback(() => {
+    if (user?.role === 'client') {
+      setScore(null);
+      return;
+    }
+    apiClient.get('/tasks/productivity', { params: { month, date: reportDate } })
+      .then((r) => setScore(r.data))
+      .catch(() => {});
+  }, [month, reportDate, user?.role]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -232,6 +568,7 @@ export default function TasksView() {
   }, [month]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadScore(); }, [loadScore]);
 
   const visible = tasks.filter((t) => {
     if (t.status === 'cancelled') return false;
@@ -251,6 +588,7 @@ export default function TasksView() {
     setTasks((list) => list.map((t) => (t.id === task.id ? { ...t, status } : t)));
     try {
       await apiClient.put(`/tasks/${task.id}`, { status });
+      loadScore();
     } catch (e) {
       setTasks((list) => list.map((t) => (t.id === task.id ? { ...t, status: prev } : t)));
       toast.error(e.response?.data?.detail || 'Could not move task');
@@ -293,6 +631,16 @@ export default function TasksView() {
           )}
         </div>
       </div>
+
+      {user?.role !== 'client' && score?.today && (
+        <TaskScoreboard
+          score={score}
+          monthLabel={monthLabel}
+          monthKey={month}
+          reportDate={reportDate}
+          onDateChange={setReportDate}
+        />
+      )}
 
       {!clients.length && user?.role !== 'client' && (
         <div className="dash-card p-5 mb-6 text-sm text-white/50">
@@ -360,7 +708,7 @@ export default function TasksView() {
           defaultDeadline={modal?.deadline || defaultDeadline}
           canDelete={canWrite}
           onClose={() => setModal(null)}
-          onSave={load}
+          onSave={() => { load(); loadScore(); }}
           onDelete={(task) => { setModal(null); setDeleteConfirm(task); }}
         />
       )}
@@ -374,6 +722,7 @@ export default function TasksView() {
               toast.success('Task deleted');
               setDeleteConfirm(null);
               load();
+              loadScore();
             } catch (e) {
               toast.error(e.response?.data?.detail || 'Could not delete');
             }

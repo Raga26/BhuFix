@@ -35,6 +35,320 @@ ALLOWED_PREFIXES = (
     "image/", "video/", "application/pdf", "application/zip",
     "application/x-zip-compressed", "text/plain",
 )
+_WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+_STATUS_LABELS = {
+    "todo": "To do",
+    "in_progress": "In progress",
+    "in_review": "In review",
+    "changes_requested": "Changes requested",
+    "done": "Done",
+    "cancelled": "Cancelled",
+}
+
+
+def _task_deadline(task: dict) -> str:
+    raw = str(task.get("deadline") or "")[:10]
+    return raw if re.match(r"^\d{4}-\d{2}-\d{2}$", raw) else ""
+
+
+def task_closed_day(task: dict) -> Optional[str]:
+    """IST calendar day the task was marked done. Falls back to updated_at."""
+    raw = str(task.get("closed_at") or task.get("updated_at") or "").strip()
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return raw[:10] if re.match(r"^\d{4}-\d{2}-\d{2}", raw) else None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(IST).date().isoformat()
+
+
+def task_on_time(task: dict) -> Optional[bool]:
+    """True when Done landed on or before the deadline. None if it cannot be scored."""
+    if task.get("status") != "done":
+        return None
+    deadline = _task_deadline(task)
+    if not deadline:
+        return None
+    closed = task_closed_day(task)
+    if not closed:
+        return False
+    return closed <= deadline
+
+
+def score_task(task: dict, today: str) -> Optional[str]:
+    """on_time, late, open, overdue, not_due — or None when the task has no deadline."""
+    if task.get("status") == "cancelled":
+        return None
+    deadline = _task_deadline(task)
+    if not deadline:
+        return None
+    if task.get("status") == "done":
+        return "on_time" if task_on_time(task) else "late"
+    if deadline < today:
+        return "overdue"
+    if deadline == today:
+        return "open"
+    return "not_due"
+
+
+def _day_heading(iso_day: str) -> str:
+    day = datetime.strptime(iso_day, "%Y-%m-%d")
+    return f"{_WEEKDAYS[day.weekday()]} {day.day} {_MONTHS[day.month - 1]}"
+
+
+def _short_day(iso_day: str) -> str:
+    day = datetime.strptime(iso_day, "%Y-%m-%d")
+    return f"{day.day} {_MONTHS[day.month - 1]}"
+
+
+def _owner_name(names: dict, owner_id: str) -> str:
+    if not owner_id:
+        return "Unassigned"
+    return names.get(owner_id) or "Unassigned"
+
+
+def _result_label(task: dict) -> str:
+    outcome = task.get("outcome")
+    if outcome == "on_time":
+        return "Done"
+    if outcome == "late":
+        return "Late"
+    if outcome == "overdue":
+        return "Overdue"
+    if outcome == "not_due":
+        return "Later"
+    return _STATUS_LABELS.get(task.get("status"), "Open")
+
+
+def _count_table(headers: list, rows: list) -> str:
+    widths = []
+    for index, header in enumerate(headers):
+        widths.append(max([len(header)] + [len(str(row[index])) for row in rows]))
+
+    def paint(cells: list, header_row: bool) -> str:
+        parts = []
+        for index, cell in enumerate(cells):
+            text = str(cell)
+            parts.append(text.ljust(widths[index]) if index == 0 or header_row else text.rjust(widths[index]))
+        return "  ".join(parts).rstrip()
+
+    body = [paint(headers, True), "  ".join("-" * width for width in widths)]
+    body.extend(paint(row, False) for row in rows)
+    return "```\n" + "\n".join(body) + "\n```"
+
+
+def _digest_text(today: str, people: list, on_time: int, late: int, open_count: int) -> str:
+    lines = [
+        f"*BhuFix · {_day_heading(today)}*",
+        "",
+        f"On time {on_time}    Late {late}    Still open {open_count}",
+    ]
+    due_people = [p for p in people if any(not t["earlier"] for t in p["tasks"])]
+    if due_people:
+        lines += [
+            "",
+            "*Due this day*",
+            _count_table(
+                ["Person", "Done", "Open"],
+                [[p["name"], f"{p['on_time']}/{p['due']}", str(p["open"])] for p in due_people],
+            ),
+        ]
+        for person in due_people:
+            lines += ["", f"*{person['name']}*"]
+            for task in person["tasks"]:
+                if task["earlier"]:
+                    continue
+                lines.append(task["title"])
+                lines.append(f"{_result_label(task)} · {task['client_name']}")
+    else:
+        lines += ["", "No tasks due this day."]
+    earlier = [(p, t) for p in people for t in p["tasks"] if t["earlier"]]
+    if earlier:
+        lines += ["", "*Still open from earlier*"]
+        for person, task in earlier:
+            lines += [
+                "",
+                f"*{person['name']}*",
+                task["title"],
+                f"{_result_label(task)} · due {_short_day(task['deadline'])} · {task['client_name']}",
+            ]
+    return "\n".join(lines)
+
+
+def _month_heading(month: str) -> str:
+    year, mon = month.split("-")
+    full = (
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    )
+    return f"{full[int(mon) - 1]} {year}"
+
+
+def _month_digest_text(month: str, people: list, totals: dict) -> str:
+    still_open = totals["open"] + totals["overdue"]
+    lines = [
+        f"*BhuFix · {_month_heading(month)}*",
+        "",
+        f"On time {totals['on_time']}    Late {totals['late']}    Still open {still_open}    Later {totals['not_due']}",
+    ]
+    if not people:
+        lines += ["", "No tasks with a deadline this month."]
+        return "\n".join(lines)
+    lines += [
+        "",
+        _count_table(
+            ["Person", "Done", "Late", "Open", "Later"],
+            [[p["name"], str(p["on_time"]), str(p["late"]), str(p["open"] + p["overdue"]), str(p["not_due"])] for p in people],
+        ),
+    ]
+    ranked = []
+    for person in people:
+        for task in person.get("tasks") or []:
+            if task["outcome"] == "not_due":
+                continue
+            ranked.append(({"overdue": 0, "open": 1, "late": 2, "on_time": 3}.get(task["outcome"], 9), person["name"].lower(), person, task))
+    ranked.sort(key=lambda item: (item[0], item[1], item[3]["title"].lower()))
+    if ranked:
+        lines += ["", "*Tasks*"]
+        last_name = None
+        shown = 0
+        for _rank, _sort_name, person, task in ranked:
+            if shown >= 40:
+                lines.append(f"_… and {len(ranked) - shown} more_")
+                break
+            if person["name"] != last_name:
+                lines += ["", f"*{person['name']}*"]
+                last_name = person["name"]
+            lines.append(task["title"])
+            lines.append(f"{_result_label(task)} · due {_short_day(task['deadline'])} · {task['client_name']}")
+            shown += 1
+    return "\n".join(lines)
+
+
+def build_task_productivity(tasks: list, users: list, clients: list, today: str, month: str) -> dict:
+    names = {u.get("id"): (u.get("name") or "Unassigned") for u in users if u.get("id")}
+    client_names = {c.get("id"): (c.get("name") or "Client") for c in clients if c.get("id")}
+    scored = []
+    for task in tasks:
+        outcome = score_task(task, today)
+        if outcome is None:
+            continue
+        deadline = _task_deadline(task)
+        scored.append({
+            "id": task.get("id"),
+            "title": task.get("title") or "Task",
+            "owner_id": task.get("owner_id") or "",
+            "client_name": client_names.get(task.get("client_id")) or "Client",
+            "status": task.get("status") or "todo",
+            "deadline": deadline,
+            "outcome": outcome,
+            "in_month": deadline.startswith(month),
+        })
+
+    by_owner: dict = {}
+    for row in scored:
+        if row["deadline"] == today or row["outcome"] == "overdue":
+            by_owner.setdefault(row["owner_id"], []).append(row)
+
+    people = []
+    due_n = on_time_n = late_n = open_n = 0
+    for owner_id, rows in by_owner.items():
+        due_rows = sorted((r for r in rows if r["deadline"] == today), key=lambda r: r["title"].lower())
+        earlier_rows = sorted(
+            (r for r in rows if r["outcome"] == "overdue"),
+            key=lambda r: (r["deadline"], r["title"].lower()),
+        )
+        counts = {
+            "due": len(due_rows),
+            "on_time": sum(1 for r in due_rows if r["outcome"] == "on_time"),
+            "late": sum(1 for r in due_rows if r["outcome"] == "late"),
+            "open": sum(1 for r in due_rows if r["outcome"] == "open"),
+        }
+        due_n += counts["due"]
+        on_time_n += counts["on_time"]
+        late_n += counts["late"]
+        open_n += counts["open"]
+        tasks_out = []
+        for row in due_rows:
+            tasks_out.append({
+                "id": row["id"],
+                "title": row["title"],
+                "client_name": row["client_name"],
+                "status": row["status"],
+                "outcome": row["outcome"],
+                "deadline": row["deadline"],
+                "earlier": False,
+            })
+        for row in earlier_rows:
+            tasks_out.append({
+                "id": row["id"],
+                "title": row["title"],
+                "client_name": row["client_name"],
+                "status": row["status"],
+                "outcome": "open",
+                "deadline": row["deadline"],
+                "earlier": True,
+            })
+        people.append({
+            "owner_id": owner_id,
+            "name": _owner_name(names, owner_id),
+            **counts,
+            "tasks": tasks_out,
+        })
+    people.sort(key=lambda p: (p["name"].lower(), p["owner_id"]))
+
+    def _bucket(rows: list) -> dict:
+        return {
+            "on_time": sum(1 for r in rows if r["outcome"] == "on_time"),
+            "late": sum(1 for r in rows if r["outcome"] == "late"),
+            "open": sum(1 for r in rows if r["outcome"] == "open"),
+            "overdue": sum(1 for r in rows if r["outcome"] == "overdue"),
+            "not_due": sum(1 for r in rows if r["outcome"] == "not_due"),
+        }
+
+    month_rows = [r for r in scored if r["in_month"]]
+    month_by_owner: dict = {}
+    for row in month_rows:
+        month_by_owner.setdefault(row["owner_id"], []).append(row)
+    month_people = []
+    for owner_id, rows in month_by_owner.items():
+        month_people.append({
+            "owner_id": owner_id,
+            "name": _owner_name(names, owner_id),
+            **_bucket(rows),
+            "tasks": [
+                {
+                    "id": row["id"],
+                    "title": row["title"],
+                    "client_name": row["client_name"],
+                    "status": row["status"],
+                    "outcome": row["outcome"],
+                    "deadline": row["deadline"],
+                }
+                for row in rows
+            ],
+        })
+    month_people.sort(key=lambda p: (p["name"].lower(), p["owner_id"]))
+
+    return {
+        "date": today,
+        "today": {
+            "label": _day_heading(today),
+            "totals": {"due": due_n, "on_time": on_time_n, "late": late_n, "open": open_n},
+            "people": people,
+        },
+        "month": {
+            "key": month,
+            "totals": _bucket(month_rows),
+            "people": month_people,
+        },
+        "digest_text": _digest_text(today, people, on_time_n, late_n, open_n),
+        "month_digest_text": _month_digest_text(month, month_people, _bucket(month_rows)),
+    }
 
 DEFAULT_PACKAGES = [
     {
@@ -537,6 +851,35 @@ def create_p0_router(
                 t.pop("owner_id", None)
                 t.pop("unmatched_role", None)
         return rows
+
+    @router.get("/tasks/productivity")
+    async def task_productivity(
+        month: Optional[str] = Query(None),
+        date: Optional[str] = Query(None),
+        current_user: dict = Depends(get_current_user),
+    ):
+        rbac.assert_can(current_user, "tasks", "read")
+        if current_user.get("role") == "client":
+            raise HTTPException(status_code=403, detail="Productivity is internal")
+        today = datetime.now(IST).date().isoformat()
+        if date:
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+                raise HTTPException(status_code=400, detail="date must be YYYY-MM-DD")
+            today = date
+        if not month:
+            month = today[:7]
+        elif not re.match(r"^\d{4}-\d{2}$", month):
+            raise HTTPException(status_code=400, detail="month must be YYYY-MM")
+        rows = await db.tasks.find(
+            {"status": {"$ne": "cancelled"}, "deadline": {"$nin": [None, ""]}},
+            {
+                "_id": 0, "id": 1, "title": 1, "owner_id": 1, "client_id": 1,
+                "deadline": 1, "status": 1, "closed_at": 1, "updated_at": 1,
+            },
+        ).to_list(2000)
+        users = await db.users.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+        clients = await db.clients.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+        return build_task_productivity(rows, users, clients, today, month)
 
     @router.post("/tasks")
     async def create_task(data: TaskCreate, current_user: dict = Depends(get_current_user)):

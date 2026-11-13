@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 import rbac
 from clockin.attendance import summarize_day
+from p0 import task_on_time
 from p3 import resource_snapshot
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -220,14 +221,15 @@ def create_p1_router(db, *, get_current_user, sanitize_input, logger) -> APIRout
         now, start, *_ = _month_bounds()
         done_q = {**task_q, "owner_id": current_user["id"], "status": "done", "updated_at": {"$gte": start.isoformat()}}
         completed = await db.tasks.find(done_q, {"_id": 0}).sort("updated_at", -1).to_list(40)
-        all_mine = await db.tasks.find({**task_q, "owner_id": current_user["id"], "status": {"$in": ["done", "cancelled"]}}, {"_id": 0, "deadline": 1, "updated_at": 1, "status": 1}).to_list(400)
+        all_mine = await db.tasks.find({**task_q, "owner_id": current_user["id"], "status": {"$in": ["done", "cancelled"]}}, {"_id": 0, "deadline": 1, "closed_at": 1, "updated_at": 1, "status": 1}).to_list(400)
         on_time = 0
         timed = 0
         for t in all_mine:
-            if t.get("status") != "done" or not t.get("deadline"):
+            flag = task_on_time(t)
+            if flag is None:
                 continue
             timed += 1
-            if (t.get("updated_at") or "")[:10] <= t["deadline"]:
+            if flag:
                 on_time += 1
         asset_q = {}
         rbac.apply_client_query(asset_q, current_user)
