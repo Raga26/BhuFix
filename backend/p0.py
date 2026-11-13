@@ -115,39 +115,39 @@ def _count_table(headers: list, rows: list) -> str:
     return "```\n" + "\n".join(body) + "\n```"
 
 
-def _open_lines(tasks: list, limit: int = 3) -> list:
+def _title_line(label: str, tasks: list, limit: int = 4) -> str:
     titles = [t.get("title") or "Task" for t in tasks]
     shown = titles[:limit]
-    if len(titles) > limit:
-        shown.append(f"+{len(titles) - limit} more")
-    return [f"• {title}" for title in shown]
+    extra = len(titles) - len(shown)
+    text = ", ".join(shown)
+    if extra:
+        text += f" +{extra}"
+    return f"{label}: {text}"
 
 
 def _digest_text(today: str, people: list, on_time: int, late: int, open_count: int) -> str:
-    due_people = [p for p in people if p["due"] > 0]
     earlier = [(p["name"], sum(1 for t in p["tasks"] if t["earlier"])) for p in people]
     earlier = [(name, count) for name, count in earlier if count]
     older = sum(count for _name, count in earlier)
     lines = [
         f"*BhuFix · {_day_heading(today)}*",
         f"On time {on_time} · Open {open_count} · Older {older}",
+        "",
+        _count_table(
+            ["Person", "Done", "Open"],
+            [[p["name"], f"{p['on_time']}/{p['due']}", str(p["open"])] for p in people] or [["—", "0/0", "0"]],
+        ),
     ]
-    if not due_people:
-        lines += ["", "No tasks due this day."]
-    else:
-        lines += [
-            "",
-            _count_table(
-                ["Person", "Done", "Open"],
-                [[p["name"], f"{p['on_time']}/{p['due']}", str(p["open"])] for p in due_people],
-            ),
-        ]
-        for person in due_people:
-            pending = [t for t in person["tasks"] if not t["earlier"] and t["outcome"] == "open"]
-            if not pending:
-                continue
-            lines += ["", f"*{person['name']}*"]
-            lines.extend(_open_lines(pending))
+    for person in people:
+        done = [t for t in person["tasks"] if not t["earlier"] and t["outcome"] in ("on_time", "late")]
+        pending = [t for t in person["tasks"] if not t["earlier"] and t["outcome"] == "open"]
+        if not done and not pending:
+            continue
+        lines += ["", f"*{person['name']}*"]
+        if done:
+            lines.append(_title_line("Done", done))
+        if pending:
+            lines.append(_title_line("Open", pending))
     if earlier:
         lines += ["", "Older still open: " + " · ".join(f"{name} {count}" for name, count in earlier)]
     return "\n".join(lines)
@@ -180,11 +180,15 @@ def _month_digest_text(month: str, people: list, totals: dict) -> str:
         ),
     ]
     for person in people:
+        done = [t for t in person.get("tasks") or [] if t["outcome"] == "on_time"]
         pending = [t for t in person.get("tasks") or [] if t["outcome"] in ("open", "overdue", "late")]
-        if not pending:
+        if not done and not pending:
             continue
         lines += ["", f"*{person['name']}*"]
-        lines.extend(_open_lines(pending))
+        if done:
+            lines.append(_title_line("Done", done))
+        if pending:
+            lines.append(_title_line("Open", pending))
     return "\n".join(lines)
 
 
@@ -258,6 +262,20 @@ def build_task_productivity(tasks: list, users: list, clients: list, today: str,
             **counts,
             "tasks": tasks_out,
         })
+    seen = {p["owner_id"] for p in people}
+    for user in users:
+        uid = user.get("id")
+        if not uid or uid in seen or user.get("role") == "client":
+            continue
+        people.append({
+            "owner_id": uid,
+            "name": user.get("name") or "Unassigned",
+            "due": 0,
+            "on_time": 0,
+            "late": 0,
+            "open": 0,
+            "tasks": [],
+        })
     people.sort(key=lambda p: (p["name"].lower(), p["owner_id"]))
 
     def _bucket(rows: list) -> dict:
@@ -290,6 +308,21 @@ def build_task_productivity(tasks: list, users: list, clients: list, today: str,
                 }
                 for row in rows
             ],
+        })
+    seen_month = {p["owner_id"] for p in month_people}
+    for user in users:
+        uid = user.get("id")
+        if not uid or uid in seen_month or user.get("role") == "client":
+            continue
+        month_people.append({
+            "owner_id": uid,
+            "name": user.get("name") or "Unassigned",
+            "on_time": 0,
+            "late": 0,
+            "open": 0,
+            "overdue": 0,
+            "not_due": 0,
+            "tasks": [],
         })
     month_people.sort(key=lambda p: (p["name"].lower(), p["owner_id"]))
 
@@ -836,7 +869,10 @@ def create_p0_router(
                 "deadline": 1, "status": 1, "closed_at": 1, "updated_at": 1,
             },
         ).to_list(2000)
-        users = await db.users.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+        users = await db.users.find(
+            {"is_active": {"$ne": False}, "role": {"$in": list(rbac.AGENCY_ROLES)}},
+            {"_id": 0, "id": 1, "name": 1, "role": 1},
+        ).to_list(500)
         clients = await db.clients.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
         return build_task_productivity(rows, users, clients, today, month)
 

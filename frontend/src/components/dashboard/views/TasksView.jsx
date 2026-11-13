@@ -188,37 +188,38 @@ function countTable(headers, rows) {
   return ['```', paint(headers, true), widths.map((width) => '-'.repeat(width)).join('  '), ...rows.map((row) => paint(row, false)), '```'].join('\n');
 }
 
-function openTitles(tasks, limit = 3) {
+function titleList(tasks, limit = 4) {
   const titles = tasks.map((task) => task.title).filter(Boolean);
   const shown = titles.slice(0, limit);
-  if (titles.length > shown.length) shown.push(`+${titles.length - shown.length} more`);
-  return shown;
+  const extra = titles.length - shown.length;
+  return shown.join(', ') + (extra > 0 ? ` +${extra}` : '');
 }
 
 function dayDigest(score) {
   const totals = score?.today?.totals || {};
-  const people = (score?.today?.people || []).filter((person) => person.due > 0);
-  const earlier = (score?.today?.people || [])
+  const people = score?.today?.people || [];
+  const earlier = people
     .map((person) => ({ name: person.name, count: (person.tasks || []).filter((task) => task.earlier).length }))
     .filter((person) => person.count > 0);
   const older = earlier.reduce((sum, person) => sum + person.count, 0);
   const lines = [
     `*BhuFix · ${score?.today?.label || score?.date || ''}*`,
     `On time ${totals.on_time || 0} · Open ${totals.open || 0} · Older ${older}`,
-  ];
-  if (!people.length) {
-    lines.push('', 'No tasks due this day.');
-  } else {
-    lines.push('', countTable(
+    '',
+    countTable(
       ['Person', 'Done', 'Open'],
-      people.map((person) => [person.name, `${person.on_time}/${person.due}`, String(person.open || 0)]),
-    ));
-    people.filter((person) => person.open > 0).forEach((person) => {
-      const titles = openTitles((person.tasks || []).filter((task) => !task.earlier && task.outcome === 'open'));
-      lines.push('', `*${person.name}*`);
-      titles.forEach((title) => lines.push(`• ${title}`));
-    });
-  }
+      people.map((person) => [person.name, `${person.on_time || 0}/${person.due || 0}`, String(person.open || 0)]),
+    ),
+  ];
+  people.forEach((person) => {
+    const tasks = (person.tasks || []).filter((task) => !task.earlier);
+    const done = tasks.filter((task) => task.outcome === 'on_time' || task.outcome === 'late');
+    const open = tasks.filter((task) => task.outcome === 'open');
+    if (!done.length && !open.length) return;
+    lines.push('', `*${person.name}*`);
+    if (done.length) lines.push(`Done: ${titleList(done)}`);
+    if (open.length) lines.push(`Open: ${titleList(open)}`);
+  });
   if (earlier.length) {
     lines.push('', `Older still open: ${earlier.map((person) => `${person.name} ${person.count}`).join(' · ')}`);
   }
@@ -248,10 +249,12 @@ function monthDigest(score, monthLabel) {
     ]),
   ));
   people.forEach((person) => {
+    const done = (person.tasks || []).filter((task) => task.outcome === 'on_time');
     const pending = (person.tasks || []).filter((task) => task.outcome === 'open' || task.outcome === 'overdue' || task.outcome === 'late');
-    if (!pending.length) return;
+    if (!done.length && !pending.length) return;
     lines.push('', `*${person.name}*`);
-    openTitles(pending).forEach((title) => lines.push(`• ${title}`));
+    if (done.length) lines.push(`Done: ${titleList(done)}`);
+    if (pending.length) lines.push(`Open: ${titleList(pending)}`);
   });
   return lines.join('\n').trim();
 }
@@ -303,7 +306,7 @@ function PersonBoard({ rows, columns, openId, onToggle }) {
           {openId === row.id && (
             <div className="pb-2 space-y-0.5">
               {(row.detail || []).length === 0 ? (
-                <p className="text-white/35 text-xs">Nothing still open.</p>
+                <p className="text-white/35 text-xs">No tasks</p>
               ) : row.detail.map((task) => (
                 <p key={task.id} className="text-xs truncate">
                   <span className={resultClass(task.label)}>{task.label}</span>
@@ -343,15 +346,14 @@ function TaskScoreboard({ score, monthLabel, monthKey, reportDate, onDateChange 
   const stillOpen = monthTotals ? (monthTotals.open || 0) + (monthTotals.overdue || 0) : 0;
   const isToday = reportDate === todayStr();
   const dayPeople = (dayReady ? score.today?.people || [] : [])
-    .filter((person) => person.due > 0)
     .map((person) => ({
       id: person.owner_id || person.name,
       name: person.name,
-      done: `${person.on_time}/${person.due}`,
+      done: `${person.on_time || 0}/${person.due || 0}`,
       late: person.late || 0,
       open: person.open || 0,
       detail: (person.tasks || [])
-        .filter((task) => !task.earlier && (task.outcome === 'open' || task.outcome === 'late'))
+        .filter((task) => !task.earlier && (task.outcome === 'open' || task.outcome === 'late' || task.outcome === 'on_time'))
         .map((task) => taskDetail(task, task.client_name)),
     }))
     .sort((a, b) => b.open - a.open || a.name.localeCompare(b.name));
@@ -372,7 +374,7 @@ function TaskScoreboard({ score, monthLabel, monthKey, reportDate, onDateChange 
       open: (person.open || 0) + (person.overdue || 0),
       later: person.not_due || 0,
       detail: (person.tasks || [])
-        .filter((task) => task.outcome === 'open' || task.outcome === 'overdue' || task.outcome === 'late')
+        .filter((task) => task.outcome === 'open' || task.outcome === 'overdue' || task.outcome === 'late' || task.outcome === 'on_time')
         .map((task) => taskDetail(task, `${dayLabel(task.deadline)} · ${task.client_name || ''}`)),
     }))
     .sort((a, b) => (b.open + b.late) - (a.open + a.late) || a.name.localeCompare(b.name));
