@@ -179,32 +179,6 @@ function resultClass(label) {
   return 'text-white/75';
 }
 
-function ReportTable({ columns, rows }) {
-  if (!rows.length) return null;
-  return (
-    <div className="mt-3 overflow-x-auto">
-      <table className="w-full text-xs text-left">
-        <thead>
-          <tr className="text-white/35">
-            {columns.map((col) => (
-              <th key={col.key} className="font-medium py-1.5 pr-3 border-b border-white/10 whitespace-nowrap">{col.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.key}>
-              {columns.map((col) => (
-                <td key={col.key} className="py-1.5 pr-3 border-b border-white/[0.06] text-white/80 align-top">{row[col.key]}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 function countTable(headers, rows) {
   const widths = headers.map((header, index) => Math.max(header.length, ...rows.map((row) => String(row[index]).length)));
   const paint = (cells, headerRow) => cells.map((cell, index) => {
@@ -214,50 +188,50 @@ function countTable(headers, rows) {
   return ['```', paint(headers, true), widths.map((width) => '-'.repeat(width)).join('  '), ...rows.map((row) => paint(row, false)), '```'].join('\n');
 }
 
+function openTitles(tasks, limit = 3) {
+  const titles = tasks.map((task) => task.title).filter(Boolean);
+  const shown = titles.slice(0, limit);
+  if (titles.length > shown.length) shown.push(`+${titles.length - shown.length} more`);
+  return shown;
+}
+
 function dayDigest(score) {
   const totals = score?.today?.totals || {};
-  const people = score?.today?.people || [];
+  const people = (score?.today?.people || []).filter((person) => person.due > 0);
+  const earlier = (score?.today?.people || [])
+    .map((person) => ({ name: person.name, count: (person.tasks || []).filter((task) => task.earlier).length }))
+    .filter((person) => person.count > 0);
+  const older = earlier.reduce((sum, person) => sum + person.count, 0);
   const lines = [
     `*BhuFix · ${score?.today?.label || score?.date || ''}*`,
-    '',
-    `On time ${totals.on_time || 0}    Late ${totals.late || 0}    Still open ${totals.open || 0}`,
+    `On time ${totals.on_time || 0} · Open ${totals.open || 0} · Older ${older}`,
   ];
-  const duePeople = people.filter((person) => (person.tasks || []).some((task) => !task.earlier));
-  if (duePeople.length) {
-    lines.push('', '*Due this day*', countTable(
-      ['Person', 'Done', 'Open'],
-      duePeople.map((person) => [person.name, `${person.on_time}/${person.due}`, String(person.open || 0)]),
-    ));
-    duePeople.forEach((person) => {
-      lines.push('', `*${person.name}*`);
-      (person.tasks || []).filter((task) => !task.earlier).forEach((task) => {
-        lines.push(task.title);
-        lines.push(`${resultLabel(task)} · ${task.client_name || '—'}`);
-      });
-    });
-  } else {
+  if (!people.length) {
     lines.push('', 'No tasks due this day.');
-  }
-  const earlier = people.flatMap((person) => (person.tasks || []).filter((task) => task.earlier).map((task) => ({ person, task })));
-  if (earlier.length) {
-    lines.push('', '*Still open from earlier*');
-    earlier.forEach(({ person, task }) => {
+  } else {
+    lines.push('', countTable(
+      ['Person', 'Done', 'Open'],
+      people.map((person) => [person.name, `${person.on_time}/${person.due}`, String(person.open || 0)]),
+    ));
+    people.filter((person) => person.open > 0).forEach((person) => {
+      const titles = openTitles((person.tasks || []).filter((task) => !task.earlier && task.outcome === 'open'));
       lines.push('', `*${person.name}*`);
-      lines.push(task.title);
-      lines.push(`${resultLabel(task)} · due ${dayLabel(task.deadline)} · ${task.client_name || '—'}`);
+      titles.forEach((title) => lines.push(`• ${title}`));
     });
+  }
+  if (earlier.length) {
+    lines.push('', `Older still open: ${earlier.map((person) => `${person.name} ${person.count}`).join(' · ')}`);
   }
   return lines.join('\n').trim();
 }
 
 function monthDigest(score, monthLabel) {
   const totals = score?.month?.totals || {};
-  const people = score?.month?.people || [];
+  const people = [...(score?.month?.people || [])];
   const stillOpen = (totals.open || 0) + (totals.overdue || 0);
   const lines = [
     `*BhuFix · ${monthLabel}*`,
-    '',
-    `On time ${totals.on_time || 0}    Late ${totals.late || 0}    Still open ${stillOpen}    Later ${totals.not_due || 0}`,
+    `On time ${totals.on_time || 0} · Late ${totals.late || 0} · Open ${stillOpen} · Later ${totals.not_due || 0}`,
   ];
   if (!people.length) {
     lines.push('', 'No tasks with a deadline this month.');
@@ -273,25 +247,12 @@ function monthDigest(score, monthLabel) {
       String(person.not_due || 0),
     ]),
   ));
-  const ranked = [];
   people.forEach((person) => {
-    (person.tasks || []).filter((task) => task.outcome !== 'not_due').forEach((task) => {
-      ranked.push({ person, task, rank: { overdue: 0, open: 1, late: 2, on_time: 3 }[task.outcome] ?? 9 });
-    });
+    const pending = (person.tasks || []).filter((task) => task.outcome === 'open' || task.outcome === 'overdue' || task.outcome === 'late');
+    if (!pending.length) return;
+    lines.push('', `*${person.name}*`);
+    openTitles(pending).forEach((title) => lines.push(`• ${title}`));
   });
-  ranked.sort((a, b) => a.rank - b.rank || a.person.name.localeCompare(b.person.name));
-  if (ranked.length) {
-    lines.push('', '*Tasks*');
-    let lastName = '';
-    ranked.forEach(({ person, task }) => {
-      if (person.name !== lastName) {
-        lines.push('', `*${person.name}*`);
-        lastName = person.name;
-      }
-      lines.push(task.title);
-      lines.push(`${resultLabel(task)} · due ${dayLabel(task.deadline)} · ${task.client_name || '—'}`);
-    });
-  }
   return lines.join('\n').trim();
 }
 
@@ -316,6 +277,48 @@ async function writeClipboard(text) {
   if (!ok) throw new Error('copy failed');
 }
 
+function PersonBoard({ rows, columns, openId, onToggle }) {
+  const template = `minmax(0,1fr) ${columns.map(() => '3.4rem').join(' ')}`;
+  return (
+    <div className="mt-3">
+      <div className="grid items-center gap-x-3 text-[11px] text-white/35 pb-1 border-b border-white/10" style={{ gridTemplateColumns: template }}>
+        <span>Person</span>
+        {columns.map((col) => <span key={col.key} className="text-right">{col.label}</span>)}
+      </div>
+      {rows.map((row) => (
+        <div key={row.id} className="border-b border-white/[0.06]">
+          <button
+            type="button"
+            onClick={() => onToggle(row.id)}
+            className="w-full grid items-center gap-x-3 py-2 text-left"
+            style={{ gridTemplateColumns: template }}
+          >
+            <span className="text-white text-sm truncate">{row.name}</span>
+            {columns.map((col) => (
+              <span key={col.key} className={`text-xs text-right ${col.warn && Number(row[col.key]) > 0 ? 'text-[#E8734A]' : 'text-white/70'}`}>
+                {row[col.key]}
+              </span>
+            ))}
+          </button>
+          {openId === row.id && (
+            <div className="pb-2 space-y-0.5">
+              {(row.detail || []).length === 0 ? (
+                <p className="text-white/35 text-xs">Nothing still open.</p>
+              ) : row.detail.map((task) => (
+                <p key={task.id} className="text-xs truncate">
+                  <span className={resultClass(task.label)}>{task.label}</span>
+                  <span className="text-white/55"> · {task.title}</span>
+                  {task.extra ? <span className="text-white/30"> · {task.extra}</span> : null}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CountStrip({ items }) {
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs mt-1.5">
@@ -326,58 +329,54 @@ function CountStrip({ items }) {
   );
 }
 
+function taskDetail(task, extra) {
+  return { id: task.id, title: task.title, label: resultLabel(task), extra };
+}
+
 function TaskScoreboard({ score, monthLabel, monthKey, reportDate, onDateChange }) {
   const [mode, setMode] = useState('day');
+  const [openId, setOpenId] = useState(null);
   const dayReady = score?.date === reportDate;
   const monthReady = score?.month?.key === monthKey;
   const totals = dayReady ? (score.today?.totals || {}) : {};
   const monthTotals = monthReady ? (score.month?.totals || {}) : null;
   const stillOpen = monthTotals ? (monthTotals.open || 0) + (monthTotals.overdue || 0) : 0;
   const isToday = reportDate === todayStr();
-  const dueRows = [];
-  const earlierRows = [];
-  if (dayReady) {
-    (score.today?.people || []).forEach((person) => {
-      (person.tasks || []).forEach((task) => {
-        const label = resultLabel(task);
-        const row = {
-          key: `${task.id}-${task.earlier ? 'e' : 'd'}`,
-          person: person.name,
-          task: task.title,
-          status: <span className={resultClass(label)}>{label}</span>,
-          client: task.client_name,
-          due: dayLabel(task.deadline),
-        };
-        if (task.earlier) earlierRows.push(row);
-        else dueRows.push(row);
-      });
-    });
-  }
-  const monthPeople = monthReady ? (score.month?.people || []) : [];
-  const monthSummary = monthPeople.map((person) => ({
-    key: person.owner_id || person.name,
-    person: person.name,
-    onTime: person.on_time || 0,
-    late: person.late || 0,
-    open: (person.open || 0) + (person.overdue || 0),
-    later: person.not_due || 0,
-  }));
-  const monthTasks = [];
-  monthPeople.forEach((person) => {
-    (person.tasks || []).filter((task) => task.outcome !== 'not_due').forEach((task) => {
-      const label = resultLabel(task);
-      monthTasks.push({
-        key: task.id,
-        person: person.name,
-        task: task.title,
-        due: dayLabel(task.deadline),
-        result: <span className={resultClass(label)}>{label}</span>,
-        client: task.client_name,
-        rank: { overdue: 0, open: 1, late: 2, on_time: 3 }[task.outcome] ?? 9,
-      });
-    });
-  });
-  monthTasks.sort((a, b) => a.rank - b.rank || String(a.person).localeCompare(b.person));
+  const dayPeople = (dayReady ? score.today?.people || [] : [])
+    .filter((person) => person.due > 0)
+    .map((person) => ({
+      id: person.owner_id || person.name,
+      name: person.name,
+      done: `${person.on_time}/${person.due}`,
+      late: person.late || 0,
+      open: person.open || 0,
+      detail: (person.tasks || [])
+        .filter((task) => !task.earlier && (task.outcome === 'open' || task.outcome === 'late'))
+        .map((task) => taskDetail(task, task.client_name)),
+    }))
+    .sort((a, b) => b.open - a.open || a.name.localeCompare(b.name));
+  const earlierGroups = (dayReady ? score.today?.people || [] : [])
+    .map((person) => ({
+      id: person.owner_id || person.name,
+      name: person.name,
+      tasks: (person.tasks || []).filter((task) => task.earlier),
+    }))
+    .filter((person) => person.tasks.length > 0);
+  const earlierTotal = earlierGroups.reduce((sum, person) => sum + person.tasks.length, 0);
+  const monthRows = (monthReady ? score.month?.people || [] : [])
+    .map((person) => ({
+      id: person.owner_id || person.name,
+      name: person.name,
+      onTime: person.on_time || 0,
+      late: person.late || 0,
+      open: (person.open || 0) + (person.overdue || 0),
+      later: person.not_due || 0,
+      detail: (person.tasks || [])
+        .filter((task) => task.outcome === 'open' || task.outcome === 'overdue' || task.outcome === 'late')
+        .map((task) => taskDetail(task, `${dayLabel(task.deadline)} · ${task.client_name || ''}`)),
+    }))
+    .sort((a, b) => (b.open + b.late) - (a.open + a.late) || a.name.localeCompare(b.name));
+  useEffect(() => { setOpenId(null); }, [mode, reportDate, monthKey]);
 
   const copy = async () => {
     const ready = mode === 'month' ? monthReady : dayReady;
@@ -426,21 +425,33 @@ function TaskScoreboard({ score, monthLabel, monthKey, reportDate, onDateChange 
         <div className="mt-3">
           <div className="text-white text-sm font-medium">{isToday ? 'Today' : 'Day'} · {score.today.label}</div>
           <CountStrip items={[[totals.due || 0, 'due'], [totals.on_time || 0, 'on time'], [totals.late || 0, 'late'], [totals.open || 0, 'still open']]} />
-          {dueRows.length === 0 ? (
+          {dayPeople.length === 0 ? (
             <p className="text-white/35 text-xs mt-3">No tasks due this day.</p>
           ) : (
-            <ReportTable
-              columns={[{ key: 'person', label: 'Person' }, { key: 'task', label: 'Task' }, { key: 'status', label: 'Status' }, { key: 'client', label: 'Client' }]}
-              rows={dueRows}
+            <PersonBoard
+              rows={dayPeople}
+              columns={[{ key: 'done', label: 'Done' }, { key: 'late', label: 'Late', warn: true }, { key: 'open', label: 'Open', warn: true }]}
+              openId={openId}
+              onToggle={(id) => setOpenId((current) => (current === id ? null : id))}
             />
           )}
-          {earlierRows.length > 0 && (
-            <div className="mt-4">
-              <div className="text-white/70 text-xs font-medium">Still open from earlier</div>
-              <ReportTable
-                columns={[{ key: 'person', label: 'Person' }, { key: 'task', label: 'Task' }, { key: 'due', label: 'Due' }, { key: 'client', label: 'Client' }]}
-                rows={earlierRows}
-              />
+          {earlierTotal > 0 && (
+            <div className="mt-3">
+              <button type="button" className="text-white/55 text-xs hover:text-white" onClick={() => setOpenId((current) => (current === 'earlier' ? null : 'earlier'))}>
+                Older still open · {earlierTotal}
+              </button>
+              {openId === 'earlier' && (
+                <div className="mt-2 max-h-36 overflow-y-auto space-y-2">
+                  {earlierGroups.map((person) => (
+                    <div key={person.id}>
+                      <div className="text-white/80 text-xs">{person.name} · {person.tasks.length}</div>
+                      {person.tasks.map((task) => (
+                        <p key={task.id} className="text-white/40 text-xs truncate">{task.title} · due {dayLabel(task.deadline)}</p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -450,34 +461,20 @@ function TaskScoreboard({ score, monthLabel, monthKey, reportDate, onDateChange 
         <div className="mt-3">
           <div className="text-white text-sm font-medium">{monthLabel}</div>
           <CountStrip items={[[monthTotals.on_time || 0, 'on time'], [monthTotals.late || 0, 'late'], [stillOpen, 'still open'], [monthTotals.not_due || 0, 'not due yet']]} />
-          {monthSummary.length === 0 ? (
+          {monthRows.length === 0 ? (
             <p className="text-white/35 text-xs mt-3">No tasks with a deadline this month.</p>
           ) : (
-            <ReportTable
+            <PersonBoard
+              rows={monthRows}
               columns={[
-                { key: 'person', label: 'Person' },
-                { key: 'onTime', label: 'On time' },
-                { key: 'late', label: 'Late' },
-                { key: 'open', label: 'Open' },
+                { key: 'onTime', label: 'Done' },
+                { key: 'late', label: 'Late', warn: true },
+                { key: 'open', label: 'Open', warn: true },
                 { key: 'later', label: 'Later' },
               ]}
-              rows={monthSummary}
+              openId={openId}
+              onToggle={(id) => setOpenId((current) => (current === id ? null : id))}
             />
-          )}
-          {monthTasks.length > 0 && (
-            <div className="mt-4">
-              <div className="text-white/70 text-xs font-medium">Tasks</div>
-              <ReportTable
-                columns={[
-                  { key: 'person', label: 'Person' },
-                  { key: 'task', label: 'Task' },
-                  { key: 'due', label: 'Due' },
-                  { key: 'result', label: 'Result' },
-                  { key: 'client', label: 'Client' },
-                ]}
-                rows={monthTasks}
-              />
-            </div>
           )}
         </div>
       )}

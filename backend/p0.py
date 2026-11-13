@@ -37,14 +37,6 @@ ALLOWED_PREFIXES = (
 )
 _WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-_STATUS_LABELS = {
-    "todo": "To do",
-    "in_progress": "In progress",
-    "in_review": "In review",
-    "changes_requested": "Changes requested",
-    "done": "Done",
-    "cancelled": "Cancelled",
-}
 
 
 def _task_deadline(task: dict) -> str:
@@ -100,28 +92,10 @@ def _day_heading(iso_day: str) -> str:
     return f"{_WEEKDAYS[day.weekday()]} {day.day} {_MONTHS[day.month - 1]}"
 
 
-def _short_day(iso_day: str) -> str:
-    day = datetime.strptime(iso_day, "%Y-%m-%d")
-    return f"{day.day} {_MONTHS[day.month - 1]}"
-
-
 def _owner_name(names: dict, owner_id: str) -> str:
     if not owner_id:
         return "Unassigned"
     return names.get(owner_id) or "Unassigned"
-
-
-def _result_label(task: dict) -> str:
-    outcome = task.get("outcome")
-    if outcome == "on_time":
-        return "Done"
-    if outcome == "late":
-        return "Late"
-    if outcome == "overdue":
-        return "Overdue"
-    if outcome == "not_due":
-        return "Later"
-    return _STATUS_LABELS.get(task.get("status"), "Open")
 
 
 def _count_table(headers: list, rows: list) -> str:
@@ -141,41 +115,41 @@ def _count_table(headers: list, rows: list) -> str:
     return "```\n" + "\n".join(body) + "\n```"
 
 
+def _open_lines(tasks: list, limit: int = 3) -> list:
+    titles = [t.get("title") or "Task" for t in tasks]
+    shown = titles[:limit]
+    if len(titles) > limit:
+        shown.append(f"+{len(titles) - limit} more")
+    return [f"• {title}" for title in shown]
+
+
 def _digest_text(today: str, people: list, on_time: int, late: int, open_count: int) -> str:
+    due_people = [p for p in people if p["due"] > 0]
+    earlier = [(p["name"], sum(1 for t in p["tasks"] if t["earlier"])) for p in people]
+    earlier = [(name, count) for name, count in earlier if count]
+    older = sum(count for _name, count in earlier)
     lines = [
         f"*BhuFix · {_day_heading(today)}*",
-        "",
-        f"On time {on_time}    Late {late}    Still open {open_count}",
+        f"On time {on_time} · Open {open_count} · Older {older}",
     ]
-    due_people = [p for p in people if any(not t["earlier"] for t in p["tasks"])]
-    if due_people:
+    if not due_people:
+        lines += ["", "No tasks due this day."]
+    else:
         lines += [
             "",
-            "*Due this day*",
             _count_table(
                 ["Person", "Done", "Open"],
                 [[p["name"], f"{p['on_time']}/{p['due']}", str(p["open"])] for p in due_people],
             ),
         ]
         for person in due_people:
+            pending = [t for t in person["tasks"] if not t["earlier"] and t["outcome"] == "open"]
+            if not pending:
+                continue
             lines += ["", f"*{person['name']}*"]
-            for task in person["tasks"]:
-                if task["earlier"]:
-                    continue
-                lines.append(task["title"])
-                lines.append(f"{_result_label(task)} · {task['client_name']}")
-    else:
-        lines += ["", "No tasks due this day."]
-    earlier = [(p, t) for p in people for t in p["tasks"] if t["earlier"]]
+            lines.extend(_open_lines(pending))
     if earlier:
-        lines += ["", "*Still open from earlier*"]
-        for person, task in earlier:
-            lines += [
-                "",
-                f"*{person['name']}*",
-                task["title"],
-                f"{_result_label(task)} · due {_short_day(task['deadline'])} · {task['client_name']}",
-            ]
+        lines += ["", "Older still open: " + " · ".join(f"{name} {count}" for name, count in earlier)]
     return "\n".join(lines)
 
 
@@ -205,27 +179,12 @@ def _month_digest_text(month: str, people: list, totals: dict) -> str:
             [[p["name"], str(p["on_time"]), str(p["late"]), str(p["open"] + p["overdue"]), str(p["not_due"])] for p in people],
         ),
     ]
-    ranked = []
     for person in people:
-        for task in person.get("tasks") or []:
-            if task["outcome"] == "not_due":
-                continue
-            ranked.append(({"overdue": 0, "open": 1, "late": 2, "on_time": 3}.get(task["outcome"], 9), person["name"].lower(), person, task))
-    ranked.sort(key=lambda item: (item[0], item[1], item[3]["title"].lower()))
-    if ranked:
-        lines += ["", "*Tasks*"]
-        last_name = None
-        shown = 0
-        for _rank, _sort_name, person, task in ranked:
-            if shown >= 40:
-                lines.append(f"_… and {len(ranked) - shown} more_")
-                break
-            if person["name"] != last_name:
-                lines += ["", f"*{person['name']}*"]
-                last_name = person["name"]
-            lines.append(task["title"])
-            lines.append(f"{_result_label(task)} · due {_short_day(task['deadline'])} · {task['client_name']}")
-            shown += 1
+        pending = [t for t in person.get("tasks") or [] if t["outcome"] in ("open", "overdue", "late")]
+        if not pending:
+            continue
+        lines += ["", f"*{person['name']}*"]
+        lines.extend(_open_lines(pending))
     return "\n".join(lines)
 
 
